@@ -24,33 +24,58 @@ Every microservice follows a strict **Resolver → Service → Repository** thre
 ```
 back/
 ├── shared/                          # Shared Go module
+│   ├── auth/auth.go                 # JWT, bcrypt, token utilities
 │   ├── errors/errors.go             # AppError, NotFound, Validation, Unauthorized
 │   ├── logger/logger.go             # slog wrapper
 │   ├── db/pool.go                   # Bun DB connection helper
-│   └── middleware/context.go        # Tenant/branch context types
+│   └── middleware/
+│       ├── authentication.go        # Unified JWT auth middleware
+│       └── context.go               # Tenant/branch context types
 │
 ├── services/
-│   ├── identity-svc/                #
+│   ├── auth-svc/                    # Authentication service
 │   │   ├── main.go                  # Entry point — wires dependencies
 │   │   ├── graph/                   # gqlgen managed
 │   │   │   ├── schema.graphqls      # Type definitions (you write)
-│   │   │   ├── generated.go         # AUTO-GENERATED
-│   │   │   ├── models_gen.go        # AUTO-GENERATED
+│   │   │   ├── generated/           # AUTO-GENERATED
+│   │   │   │   ├── generated.go
+│   │   │   │   └── federation.go
+│   │   │   ├── model/models_gen.go  # AUTO-GENERATED
 │   │   │   ├── resolver.go          # Resolver struct (you write — thin)
-│   │   │   └── schema.resolvers.go  # Generated stubs → you fill in (2-4 lines each)
-│   │   ├── service/                 # ★ Business logic layer
-│   │   │   ├── auth_service.go      # Login, register, token logic
-│   │   │   └── user_service.go      # User CRUD, assignment queries
-│   │   ├── repository/              # ★ Data access layer (struct methods)
-│   │   │   ├── user_repo.go         # Bun queries as struct methods
-│   │   │   └── user_repo_test.go    # sqlmock tests
-│   │   ├── middleware/              # HTTP middleware
-│   │   │   └── context.go
-│   │   ├── go.mod / go.sum
+│   │   │   └── schema.resolvers.go  # Generated stubs → you fill in
+│   │   ├── service/
+│   │   │   ├── auth_service.go      # Register, login, token logic
+│   │   │   └── service_test.go
+│   │   ├── repository/
+│   │   │   ├── user_repo.go         # User CRUD for auth
+│   │   │   ├── auth_repo.go         # JWT claims/token helpers
+│   │   │   └── user_repo_test.go
+│   │   ├── middleware/
+│   │   │   └── context.go           # GraphQL auth middleware
+│   │   ├── migrations/
 │   │   ├── gqlgen.yml
 │   │   └── Makefile
 │   │
-│   ├── tenant-svc/ ...              # Same three-layer structure
+│   ├── user-svc/                    # User management service
+│   │   ├── main.go
+│   │   ├── graph/
+│   │   │   ├── schema.graphqls
+│   │   │   ├── generated/
+│   │   │   ├── model/models_gen.go
+│   │   │   ├── resolver.go
+│   │   │   └── schema.resolvers.go
+│   │   ├── service/
+│   │   │   ├── user_service.go      # User CRUD, assignments, roles
+│   │   │   └── service_test.go
+│   │   ├── repository/
+│   │   │   ├── user_repo.go
+│   │   │   └── user_repo_test.go
+│   │   ├── middleware/
+│   │   │   └── context.go           # JWT auth → userID context
+│   │   ├── migrations/
+│   │   ├── gqlgen.yml
+│   │   └── Makefile
+│   │
 │   ├── patient-svc/
 │   ├── scheduling-svc/
 │   ├── clinical-svc/
@@ -82,16 +107,6 @@ func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*
 }
 ```
 
-```go
-// ❌ Wrong — validation and token generation in resolver
-func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
-    if input.Email == "" { return nil, errors.Validation("...") }
-    user, _ := repository.FindUserByEmail(ctx, r.DB, input.Email)
-    token, _ := repository.GenerateToken(user.ID, r.JWTSecret)
-    return &model.AuthPayload{Token: token, User: user}, nil
-}
-```
-
 ### Service (`service/*.go`)
 
 - All business logic, validation, and orchestration.
@@ -119,25 +134,21 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 - One file per aggregate root (not per table).
 - Methods: `FindByID`, `FindByEmail`, `Create`, `Update`, `Delete`.
 - Bun models stay inside repository — never exported.
+- Always check for `sql.ErrNoRows` to distinguish "not found" from DB errors.
 
 ```go
 // ✅ Correct
-type UserRepo struct {
-    db *bun.DB
-}
-
-func NewUserRepo(db *bun.DB) *UserRepo {
-    return &UserRepo{db: db}
-}
-
 func (r *UserRepo) FindByID(ctx context.Context, id string) (*BunUser, error) {
-    // r.db used directly
+    user := new(BunUser)
+    err := r.db.NewSelect().Model(user).Where("id = ?", id).Scan(ctx)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, err
+    }
+    return user, nil
 }
-```
-
-```go
-// ❌ Wrong — db passed as parameter
-func FindUserByID(ctx context.Context, db *bun.DB, id string) (*BunUser, error) { ... }
 ```
 
 ---
@@ -152,7 +163,7 @@ main.go
   ├── userRepo  := repository.NewUserRepo(db)
   │
   ├── authSvc   := service.NewAuthService(userRepo, jwtSecret)
-  ├── userSvc   := service.NewUserService(userRepo)
+  ├── userSvc   := service.NewUserService(userRepo, currentUserFn)
   │
   └── graph.Resolver{ AuthService: authSvc, UserService: userSvc }
          │
@@ -163,20 +174,13 @@ Dependencies flow down: `main.go` wires everything, injects `*bun.DB` only into 
 
 ---
 
-## 4. Resolver Root (`graph/resolver.go`)
+## 4. Service-to-Service Communication
 
-```go
-package graph
+Services share the same database in this monorepo architecture. Ownership:
+- **auth-svc** owns `users` table (credentials, auth operations)
+- **user-svc** reads `users` table, owns `roles`, `permissions`, `user_branch_assignments`
 
-import "github.com/ot/identity-svc/service"
-
-type Resolver struct {
-    AuthService *service.AuthService
-    UserService *service.UserService
-}
-```
-
-No `*bun.DB` here. The resolver only knows about services.
+JWT tokens contain only `userId`. Tenant/branch context is resolved via `myAssignments` query and passed as HTTP headers (`x-tenant-id`, `x-branch-id`).
 
 ---
 
@@ -187,12 +191,6 @@ No `*bun.DB` here. The resolver only knows about services.
 ```go
 // repository/user_repo.go
 package repository
-
-import (
-    "context"
-    "time"
-    "github.com/uptrace/bun"
-)
 
 type BunUser struct {
     bun.BaseModel `bun:"table:users"`
@@ -211,18 +209,25 @@ type UserRepo struct {
 func NewUserRepo(db *bun.DB) *UserRepo {
     return &UserRepo{db: db}
 }
+```
 
+### 5b. Error handling — check sql.ErrNoRows
+
+```go
 func (r *UserRepo) FindByID(ctx context.Context, id string) (*BunUser, error) {
     user := new(BunUser)
     err := r.db.NewSelect().Model(user).Where("id = ?", id).Scan(ctx)
     if err != nil {
-        return nil, nil
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, err
     }
     return user, nil
 }
 ```
 
-### 5b. Repository test (sqlmock)
+### 5c. Repository test (sqlmock)
 
 ```go
 // repository/user_repo_test.go
@@ -231,17 +236,8 @@ package repository_test
 func newMockRepo(t *testing.T) (*repository.UserRepo, sqlmock.Sqlmock) {
     t.Helper()
     db, mock, err := sqlmock.New()
-    // ...
     repo := repository.NewUserRepo(bunDB)
     return repo, mock
-}
-
-func TestUserRepo_FindByID_Found(t *testing.T) {
-    repo, mock := newMockRepo(t)
-    mock.ExpectQuery(`SELECT .+ FROM "users" .+ WHERE .+`).
-        WillReturnRows(...)
-    user, err := repo.FindByID(context.Background(), id)
-    // assert
 }
 ```
 
@@ -249,85 +245,39 @@ func TestUserRepo_FindByID_Found(t *testing.T) {
 
 ## 6. Repository Interface
 
-Services depend on an interface, not the concrete `*bun.DB`-holding struct, so they can be tested with a mock:
+Services depend on an interface, not the concrete `*bun.DB`-holding struct:
 
 ```go
 // service/auth_service.go
-package service
-
 type UserRepository interface {
     FindByID(ctx context.Context, id string) (*repository.BunUser, error)
     FindByEmail(ctx context.Context, email string) (*repository.BunUser, error)
     Create(ctx context.Context, email, password, name string) (*repository.BunUser, error)
-    FindAssignmentsByUser(ctx context.Context, userID string) ([]*repository.BunUserBranchAssignment, error)
     UpdateLastLogin(ctx context.Context, userID string) error
 }
 ```
 
-The concrete `*repository.UserRepo` satisfies this interface implicitly.
+---
 
-## 7. Service Pattern
+## 7. Current User Resolution
+
+User-svc resolves the current user via a `CurrentUserFn` function injected at startup:
 
 ```go
-// service/auth_service.go
-package service
+// service/user_service.go
+type CurrentUserFn func(ctx context.Context) string
 
-import (
-    "context"
-    "strings"
-    "github.com/ot/identity-svc/graph/model"
-    "github.com/ot/identity-svc/repository"
-    "github.com/ot/shared/errors"
-)
-
-type AuthService struct {
-    userRepo  UserRepository   // ← interface, not concrete *repository.UserRepo
-    jwtSecret string
-}
-
-func NewAuthService(userRepo UserRepository, jwtSecret string) *AuthService {
-    return &AuthService{userRepo: userRepo, jwtSecret: jwtSecret}
-}
-
-func (s *AuthService) Login(ctx context.Context, email, password string) (*model.AuthPayload, error) {
-    email = strings.TrimSpace(strings.ToLower(email))
-    if email == "" {
-        return nil, errors.Validation("Email is required")
-    }
-
-    user, err := s.userRepo.FindByEmail(ctx, email)
-    if err != nil || user == nil {
-        return nil, errors.Unauthorized("Invalid email or password")
-    }
-    if !user.IsActive {
-        return nil, errors.Forbidden("Account is deactivated")
-    }
-    if !verifyPassword(password, user.PasswordHash) {
-        return nil, errors.Unauthorized("Invalid email or password")
-    }
-
-    token, err := generateToken(user.ID, s.jwtSecret)
-    if err != nil {
-        return nil, err
-    }
-
-    return &model.AuthPayload{Token: token, User: toUserModel(user)}, nil
+type UserService struct {
+    userRepo    UserRepository
+    currentUser CurrentUserFn
 }
 ```
 
----
-
-## 8. Remaining Files (unchanged patterns)
-
-- `graph/schema.graphqls` — same as before (gqlgen schema)
-- `middleware/context.go` — HTTP middleware for tenant/branch/JWT extraction
-- `main.go` — wires dependencies, starts HTTP server
-- `gqlgen.yml` — gqlgen configuration
-- `Makefile` — build/test/generate/cover targets
+The middleware extracts `userId` from the JWT and puts it in context. `CurrentUserFn` reads it back. This avoids importing middleware packages into the service layer.
 
 ---
 
-## 9. Testing
+## 8. Testing
 
 **Test each layer independently:**
 
@@ -343,9 +293,6 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 test:
     go test ./... -count=1
 
-test-service:
-    go test ./service/... -count=1
-
 cover:
     go test ./... -coverprofile=coverage.out -covermode=atomic -count=1
     go tool cover -func=coverage.out
@@ -353,14 +300,14 @@ cover:
 
 ---
 
-## 10. Starting a New Service
+## 9. Starting a New Service
 
-1. Copy an existing service (e.g. `identity-svc`) — folder structure is identical.
-2. Update `go.mod` — module name to `github.com/ot/<your-svc>`.
+1. Copy an existing service (e.g. `auth-svc`) — folder structure is identical.
+2. Update `go.mod` if needed.
 3. Write `graph/schema.graphqls` — types, queries, mutations.
 4. Write `repository/<entity>_repo.go` — Bun struct methods.
 5. Write `repository/<entity>_repo_test.go` — sqlmock tests (90%+ coverage).
-6. Define `UserRepository` interface in `service/<entity>_service.go` (or alongside).
+6. Define repository interface in `service/<entity>_service.go`.
 7. Write `service/<entity>_service.go` — business logic calling repository via interface.
 8. Write `service/<entity>_service_test.go` — mock repo, test all validation paths.
 9. Run `make generate` — gqlgen creates stubs.
@@ -370,18 +317,19 @@ cover:
 
 ---
 
-## 11. Summary Checklist
+## 10. Summary Checklist
 
 - [ ] Three layers: Resolver → Service → Repository
 - [ ] Resolver is ≤4 lines per method — calls service only
 - [ ] Service has all validation and business logic
-- [ ] Repository uses struct methods (`repo.FindByID(ctx, id)`) — not free functions
+- [ ] Repository uses struct methods — not free functions
 - [ ] `*bun.DB` injected into repository struct, never passed as parameter
+- [ ] Repository checks `sql.ErrNoRows` for not-found cases
 - [ ] Resolver never imports `*bun.DB` or `repository/` directly
-- [ ] Service never imports `*bun.DB` — depends on repository interface, not concrete type
+- [ ] Service never imports `*bun.DB` — depends on repository interface
 - [ ] Service tested with mock repository (all validation paths)
-- [ ] Repository converts Bun models → gqlgen models at boundary
-- [ ] `main.go` wires the full chain: DB → repo → service → resolver
-- [ ] Every repository function tested with sqlmock
+- [ ] Repository tested with sqlmock (every query path)
 - [ ] Repository coverage 90%+
-- [ ] CI enforces coverage threshold
+- [ ] `main.go` wires the full chain: DB → repo → service → resolver
+- [ ] JWT auth via `shared/middleware/authentication.go` or service-specific middleware
+- [ ] User context resolved via `CurrentUserFn`, not direct middleware import

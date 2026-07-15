@@ -1,0 +1,6 @@
+federation_version: 2
+subgraphs:
+  user:
+    routing_url: http://user:8081/graphql
+    schema:
+      file: ./services/user/graph/schema.graphqls

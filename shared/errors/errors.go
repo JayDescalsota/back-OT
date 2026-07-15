@@ -24,3 +24,7 @@ func Unauthorized(msg string) *AppError {
 func Forbidden(msg string) *AppError {
 	return &AppError{Code: "FORBIDDEN", Message: msg}
 }
+
+func Internal(msg string) *AppError {
+	return &AppError{Code: "INTERNAL_ERROR", Message: msg}
+}

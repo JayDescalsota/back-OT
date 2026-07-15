@@ -1,0 +1,39 @@
+type User @key(fields: "id") {
+  id: ID!
+  email: String!
+  name: String!
+  isActive: Boolean!
+  lastLogin: String
+  assignments: [UserBranchAssignment!]!
+}
+
+type UserBranchAssignment {
+  id: ID!
+  userId: String!
+  branchId: String!
+  tenantId: String!
+  role: Role!
+  assignedBy: String!
+  assignedAt: String!
+  isActive: Boolean!
+}
+
+type Role {
+  id: ID!
+  name: String!
+  description: String
+  permissions: [Permission!]!
+}
+
+type Permission {
+  id: ID!
+  resource: String!
+  action: String!
+  scope: String!
+}
+
+type Query {
+  me: User!
+  user(id: ID!): User
+  myAssignments: [UserBranchAssignment!]!
+}
