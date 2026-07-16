@@ -3,6 +3,12 @@ supergraph:
   path: /graphql
   introspection: true
 
+sandbox:
+  enabled: true
+
+homepage:
+  enabled: false
+
 cors:
   origins:
     - http://localhost:3000
@@ -12,3 +18,15 @@ cors:
 
 include_subgraph_errors:
   all: true
+
+headers:
+  all:
+    request:
+      - propagate:
+          named: "x-user-id"
+      - propagate:
+          named: "x-tenant-id"
+      - propagate:
+          named: "x-branch-id"
+      - propagate:
+          named: "authorization"

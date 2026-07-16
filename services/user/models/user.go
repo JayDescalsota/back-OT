@@ -15,6 +15,7 @@ type User struct {
 	PasswordHash           string     `bun:"password_hash,notnull"`
 	IsActive               bool       `bun:"is_active,default:true"`
 	IsValidated            bool       `bun:"is_validated,default:false"`
+	IsSuperAdmin           bool       `bun:"is_super_admin,default:false"`
 	ValidatedAt            *time.Time `bun:"validated_at"`
 	ValidationToken        string     `bun:"validation_token"`
 	PasswordResetAt        *time.Time `bun:"password_reset_at"`

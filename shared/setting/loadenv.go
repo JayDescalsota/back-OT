@@ -2,9 +2,12 @@ package setting
 
 import (
 	"os"
+
+	"github.com/joho/godotenv"
 )
 
 func LoadAndValidateEnv(keys []string) (map[string]string, []string) {
+	_ = godotenv.Load()
 
 	env := make(map[string]string)
 	var errKeys []string

@@ -30,7 +30,7 @@ func newUserRepo(t *testing.T) (*repository.UserRepo, sqlmock.Sqlmock) {
 	return repository.NewUserRepo(db), mock
 }
 
-func TestUserRepo_FindByID_Found(t *testing.T) {
+func TestUserRepo_FindUserByID_Found(t *testing.T) {
 	repo, mock := newUserRepo(t)
 	id, email, name := uuid.New().String(), "alice@example.com", "Alice"
 	now := time.Now()
@@ -41,7 +41,7 @@ func TestUserRepo_FindByID_Found(t *testing.T) {
 			"is_active", "last_login", "created_at", "updated_at",
 		}).AddRow(id, email, name, "hash", true, nil, now, now))
 
-	user, err := repo.FindByID(context.Background(), id)
+	user, err := repo.FindUserByID(context.Background(), id)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,14 +56,14 @@ func TestUserRepo_FindByID_Found(t *testing.T) {
 	}
 }
 
-func TestUserRepo_FindByID_NotFound(t *testing.T) {
+func TestUserRepo_FindUserByID_NotFound(t *testing.T) {
 	repo, mock := newUserRepo(t)
 	id := uuid.New().String()
 
 	mock.ExpectQuery(`SELECT .+ FROM "users" .+ WHERE .+`).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	user, err := repo.FindByID(context.Background(), id)
+	user, err := repo.FindUserByID(context.Background(), id)
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -79,7 +79,7 @@ func TestUserRepo_FindAssignmentsByUser_HasResults(t *testing.T) {
 	repo, mock := newUserRepo(t)
 	userID, branchID, tenantID := uuid.New().String(), uuid.New().String(), uuid.New().String()
 
-	mock.ExpectQuery(`SELECT .+ FROM "user_branch_assignments" .+ WHERE .+`).
+	mock.ExpectQuery(`SELECT .+ FROM user_branch_assignments .+`).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "user_id", "branch_id", "tenant_id",
 			"role_id", "assigned_by", "assigned_at", "is_active",
@@ -101,7 +101,7 @@ func TestUserRepo_FindAssignmentsByUser_HasResults(t *testing.T) {
 func TestUserRepo_FindAssignmentsByUser_Empty(t *testing.T) {
 	repo, mock := newUserRepo(t)
 
-	mock.ExpectQuery(`SELECT .+ FROM "user_branch_assignments" .+ WHERE .+`).
+	mock.ExpectQuery(`SELECT .+ FROM user_branch_assignments .+`).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "user_id", "branch_id", "tenant_id",
 			"role_id", "assigned_by", "assigned_at", "is_active",
@@ -122,7 +122,7 @@ func TestUserRepo_FindAssignmentsByUser_Empty(t *testing.T) {
 func TestUserRepo_FindAssignmentsByUser_DBError(t *testing.T) {
 	repo, mock := newUserRepo(t)
 
-	mock.ExpectQuery(`SELECT .+ FROM "user_branch_assignments" .+ WHERE .+`).
+	mock.ExpectQuery(`SELECT .+ FROM user_branch_assignments .+`).
 		WillReturnError(sqlmock.ErrCancelled)
 
 	_, err := repo.FindAssignmentsByUser(context.Background(), uuid.New().String())

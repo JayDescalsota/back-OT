@@ -17,7 +17,13 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
 
 enum link__Purpose {
+  """
+  `SECURITY` features provide metadata necessary to securely resolve fields.
+  """
   SECURITY
+  """
+  `EXECUTION` features provide metadata necessary for operation execution.
+  """
   EXECUTION
 }
 
@@ -40,27 +46,36 @@ type User @join__type(graph: USER, key: "id") {
 
 type UserBranchAssignment @join__type(graph: USER) {
   id: ID!
-  userId: String!
-  branchId: String!
-  tenantId: String!
+  branch: Branch!
+  tenant: Tenant!
   role: Role!
   assignedBy: String!
   assignedAt: String!
   isActive: Boolean!
 }
 
-type Role @join__type(graph: USER) {
+type Role @join__type(graph: USER, key: "id") {
   id: ID!
   name: String!
   description: String
   permissions: [Permission!]!
 }
 
-type Permission @join__type(graph: USER) {
+type Permission @join__type(graph: USER, key: "id") {
   id: ID!
   resource: String!
   action: String!
   scope: String!
+}
+
+type Tenant @join__type(graph: USER, key: "id") {
+  id: ID!
+  name: String!
+}
+
+type Branch @join__type(graph: USER, key: "id") {
+  id: ID!
+  name: String!
 }
 
 type Query @join__type(graph: USER) {

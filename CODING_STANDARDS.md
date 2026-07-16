@@ -13,6 +13,7 @@ Every microservice follows a strict **Resolver → Service → Repository** thre
 ```
 
 **Rules:**
+
 - Resolver NEVER calls repository directly.
 - Service NEVER sees `*bun.DB` — only repository interfaces.
 - Repository NEVER contains business logic, only SQL/queries.
@@ -25,66 +26,32 @@ Every microservice follows a strict **Resolver → Service → Repository** thre
 back/
 ├── shared/                          # Shared Go module
 │   ├── auth/auth.go                 # JWT, bcrypt, token utilities
-│   ├── errors/errors.go             # AppError, NotFound, Validation, Unauthorized
-│   ├── logger/logger.go             # slog wrapper
+│   ├── response/response.go         # SuccessResponse and Error structures
+│   ├── httpx/                       # Reusable REST abstractions
+│   │   ├── decoder.go               # Generic JSON decoder
+│   │   ├── encoder.go               # JSON response writers (OK, Created)
+│   │   └── errors.go                # HTTP Status mapping and 5xx logging
+│   ├── logger/logger.go             # slog wrapper (Text for Dev, JSON for Prod)
 │   ├── db/pool.go                   # Bun DB connection helper
 │   └── middleware/
-│       ├── authentication.go        # Unified JWT auth middleware
+│       ├── authentication.go        # JWT verification + active session check
+│       ├── logging.go               # Global HTTP request logging middleware
 │       └── context.go               # Tenant/branch context types
 │
 ├── services/
-│   ├── auth-svc/                    # Authentication service
-│   │   ├── main.go                  # Entry point — wires dependencies
-│   │   ├── graph/                   # gqlgen managed
-│   │   │   ├── schema.graphqls      # Type definitions (you write)
-│   │   │   ├── generated/           # AUTO-GENERATED
-│   │   │   │   ├── generated.go
-│   │   │   │   └── federation.go
-│   │   │   ├── model/models_gen.go  # AUTO-GENERATED
-│   │   │   ├── resolver.go          # Resolver struct (you write — thin)
-│   │   │   └── schema.resolvers.go  # Generated stubs → you fill in
+│   ├── user/                        # User & Auth microservice (REST-based)
+│   │   ├── main.go                  # Entry point — wires DB, repo, service, routes
+│   │   ├── auth_handlers.go         # REST handlers (register, login, logout, refresh)
+│   │   ├── models/
+│   │   │   ├── user.go              # User database model
+│   │   │   └── session.go           # Active session DB model
 │   │   ├── service/
-│   │   │   ├── auth_service.go      # Register, login, token logic
-│   │   │   └── service_test.go
+│   │   │   ├── user_service.go      # User profile, branch assignments logic
+│   │   │   └── auth_service.go      # Session-backed auth flow logic
 │   │   ├── repository/
-│   │   │   ├── user_repo.go         # User CRUD for auth
-│   │   │   ├── auth_repo.go         # JWT claims/token helpers
-│   │   │   └── user_repo_test.go
-│   │   ├── middleware/
-│   │   │   └── context.go           # GraphQL auth middleware
-│   │   ├── migrations/
-│   │   ├── gqlgen.yml
-│   │   └── Makefile
-│   │
-│   ├── user-svc/                    # User management service
-│   │   ├── main.go
-│   │   ├── graph/
-│   │   │   ├── schema.graphqls
-│   │   │   ├── generated/
-│   │   │   ├── model/models_gen.go
-│   │   │   ├── resolver.go
-│   │   │   └── schema.resolvers.go
-│   │   ├── service/
-│   │   │   ├── user_service.go      # User CRUD, assignments, roles
-│   │   │   └── service_test.go
-│   │   ├── repository/
-│   │   │   ├── user_repo.go
-│   │   │   └── user_repo_test.go
-│   │   ├── middleware/
-│   │   │   └── context.go           # JWT auth → userID context
-│   │   ├── migrations/
-│   │   ├── gqlgen.yml
-│   │   └── Makefile
-│   │
-│   ├── patient-svc/
-│   ├── scheduling-svc/
-│   ├── clinical-svc/
-│   ├── billing-svc/
-│   ├── referral-svc/
-│   ├── hr-svc/
-│   ├── messaging-svc/
-│   ├── notification-svc/
-│   └── analytics-svc/
+│   │   │   ├── user_repo.go         # SQL queries for users, assignments, and sessions
+│   │   │   └── auth_utils.go        # JWT claims definition and token signature helpers
+│   │   └── migrations/              # DB migration files (including sessions table)
 │
 └── gateway/
 ```
@@ -177,6 +144,7 @@ Dependencies flow down: `main.go` wires everything, injects `*bun.DB` only into 
 ## 4. Service-to-Service Communication
 
 Services share the same database in this monorepo architecture. Ownership:
+
 - **auth-svc** owns `users` table (credentials, auth operations)
 - **user-svc** reads `users` table, owns `roles`, `permissions`, `user_branch_assignments`
 
@@ -281,11 +249,11 @@ The middleware extracts `userId` from the JWT and puts it in context. `CurrentUs
 
 **Test each layer independently:**
 
-| Layer | How | What to cover |
-|---|---|---|
-| **Repository** | sqlmock (mock `*sql.DB`) | Every query path: found, not found, error, edge cases |
-| **Service** | Mock repository (hand-written interface or structs) | Validation, error mapping, happy path |
-| **Resolver** | NOT tested (thin wrappers, 2-4 lines) | Covered by integration tests later |
+| Layer          | How                                                 | What to cover                                         |
+| -------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| **Repository** | sqlmock (mock `*sql.DB`)                            | Every query path: found, not found, error, edge cases |
+| **Service**    | Mock repository (hand-written interface or structs) | Validation, error mapping, happy path                 |
+| **Resolver**   | NOT tested (thin wrappers, 2-4 lines)               | Covered by integration tests later                    |
 
 **Coverage target:** 90%+ for `repository/` package only (enforced in CI).
 
@@ -317,19 +285,44 @@ cover:
 
 ---
 
-## 10. Summary Checklist
+## 10. REST Architecture & Session Security
 
-- [ ] Three layers: Resolver → Service → Repository
-- [ ] Resolver is ≤4 lines per method — calls service only
+For REST-based microservices (like the `user` service), follow these strict architectural and security conventions:
+
+### 10a. Request / Response Abstraction (`httpx`)
+
+- Handlers should not contain low-level JSON parsing, writing, or header configuration.
+- Use `httpx.Decode[T](r)` to parse request payloads into defined DTO structs.
+- Use `httpx.OK`, `httpx.Created`, or `httpx.Error` to send formatted JSON envelopes.
+- Register endpoints with `mux.Handle` or `mux.HandleFunc` depending on whether they are wrapped by middleware.
+
+### 10b. Session-Backed Token Management
+
+- **Stateless Tokens with Stateful Revocation**: The Access Token is a JWT and contains a `sessionId` claim.
+- **Active Session Check**: Routes protected by `middleware.AuthMiddleware` query the database via a callback to confirm the `sessionId` is not revoked (`revoked = false`). This provides instantaneous token revocation on logout.
+- **Refresh Token Rotation (RTR)**: Every call to `/refresh-token` generates a new refresh token and revokes the old database session, returning a new rotated token. This mitigates replay attacks if a refresh token is leaked.
+- **Separate TTLs**:
+  - `accessTokenTTL` (e.g. 15 minutes) controls short-lived client tokens.
+  - `refreshTokenTTL` (e.g. 7 days) defines the session's overall database lifetime.
+
+---
+
+## 11. Summary Checklist
+
+- [ ] Three layers: Resolver/Handler → Service → Repository
+- [ ] Resolver/Handler is thin (delegates logic to service, returns response via helpers)
 - [ ] Service has all validation and business logic
 - [ ] Repository uses struct methods — not free functions
 - [ ] `*bun.DB` injected into repository struct, never passed as parameter
 - [ ] Repository checks `sql.ErrNoRows` for not-found cases
-- [ ] Resolver never imports `*bun.DB` or `repository/` directly
+- [ ] Handler never imports `*bun.DB` or `repository/` directly
 - [ ] Service never imports `*bun.DB` — depends on repository interface
 - [ ] Service tested with mock repository (all validation paths)
 - [ ] Repository tested with sqlmock (every query path)
 - [ ] Repository coverage 90%+
-- [ ] `main.go` wires the full chain: DB → repo → service → resolver
+- [ ] `main.go` wires the full chain: DB → repo → service → handler
 - [ ] JWT auth via `shared/middleware/authentication.go` or service-specific middleware
 - [ ] User context resolved via `CurrentUserFn`, not direct middleware import
+- [ ] REST API endpoints utilize `shared/httpx` for JSON decode/encode and mapping
+- [ ] Session-backed route verification handles active revocation checks inside middleware callback
+- [ ] Refresh token refresh endpoints rotate refresh keys (RTR) on every access token issue

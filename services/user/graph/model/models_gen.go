@@ -2,12 +2,21 @@
 
 package model
 
+type Branch struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func (Branch) IsEntity() {}
+
 type Permission struct {
 	ID       string `json:"id"`
 	Resource string `json:"resource"`
 	Action   string `json:"action"`
 	Scope    string `json:"scope"`
 }
+
+func (Permission) IsEntity() {}
 
 type Query struct {
 }
@@ -18,6 +27,15 @@ type Role struct {
 	Description *string       `json:"description,omitempty"`
 	Permissions []*Permission `json:"permissions"`
 }
+
+func (Role) IsEntity() {}
+
+type Tenant struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func (Tenant) IsEntity() {}
 
 type User struct {
 	ID          string                  `json:"id"`
@@ -31,12 +49,11 @@ type User struct {
 func (User) IsEntity() {}
 
 type UserBranchAssignment struct {
-	ID         string `json:"id"`
-	UserID     string `json:"userId"`
-	BranchID   string `json:"branchId"`
-	TenantID   string `json:"tenantId"`
-	Role       *Role  `json:"role"`
-	AssignedBy string `json:"assignedBy"`
-	AssignedAt string `json:"assignedAt"`
-	IsActive   bool   `json:"isActive"`
+	ID         string  `json:"id"`
+	Branch     *Branch `json:"branch"`
+	Tenant     *Tenant `json:"tenant"`
+	Role       *Role   `json:"role"`
+	AssignedBy string  `json:"assignedBy"`
+	AssignedAt string  `json:"assignedAt"`
+	IsActive   bool    `json:"isActive"`
 }

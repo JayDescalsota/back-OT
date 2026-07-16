@@ -9,27 +9,36 @@ type User @key(fields: "id") {
 
 type UserBranchAssignment {
   id: ID!
-  userId: String!
-  branchId: String!
-  tenantId: String!
+  branch: Branch!
+  tenant: Tenant!
   role: Role!
   assignedBy: String!
   assignedAt: String!
   isActive: Boolean!
 }
 
-type Role {
+type Role @key(fields: "id") {
   id: ID!
   name: String!
   description: String
   permissions: [Permission!]!
 }
 
-type Permission {
+type Permission @key(fields: "id") {
   id: ID!
   resource: String!
   action: String!
   scope: String!
+}
+
+type Tenant @key(fields: "id") {
+  id: ID!
+  name: String!
+}
+
+type Branch @key(fields: "id") {
+  id: ID!
+  name: String!
 }
 
 type Query {

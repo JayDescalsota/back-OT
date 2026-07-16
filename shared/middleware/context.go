@@ -8,9 +8,10 @@ import (
 type contextKey string
 
 const (
-	tenantIDKey contextKey = "tenant_id"
-	branchIDKey contextKey = "branch_id"
-	userIDKey   contextKey = "user_id"
+	tenantIDKey   contextKey = "tenant_id"
+	branchIDKey   contextKey = "branch_id"
+	userIDKey     contextKey = "user_id"
+	userRoleKey   contextKey = "user_role"
 )
 
 type TenantCtx struct {
@@ -25,14 +26,16 @@ func Tenant(next http.Handler) http.Handler {
 		branchID := r.Header.Get("x-branch-id")
 		userID := r.Header.Get("x-user-id")
 
-		if tenantID == "" || branchID == "" || userID == "" {
-			http.Error(w, "Missing required headers", http.StatusBadRequest)
-			return
+		ctx := r.Context()
+		if tenantID != "" {
+			ctx = context.WithValue(ctx, tenantIDKey, tenantID)
 		}
-
-		ctx := context.WithValue(r.Context(), tenantIDKey, tenantID)
-		ctx = context.WithValue(ctx, branchIDKey, branchID)
-		ctx = context.WithValue(ctx, userIDKey, userID)
+		if branchID != "" {
+			ctx = context.WithValue(ctx, branchIDKey, branchID)
+		}
+		if userID != "" {
+			ctx = context.WithValue(ctx, userIDKey, userID)
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -49,6 +52,20 @@ func UserIDFromCtx(ctx context.Context) string {
 	return id
 }
 
+func TenantIDFromCtx(ctx context.Context) string {
+	id, _ := ctx.Value(tenantIDKey).(string)
+	return id
+}
+
 func SetUserID(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
+}
+
+func SetUserRole(ctx context.Context, role string) context.Context {
+	return context.WithValue(ctx, userRoleKey, role)
+}
+
+func UserRoleFromCtx(ctx context.Context) string {
+	role, _ := ctx.Value(userRoleKey).(string)
+	return role
 }

@@ -10,9 +10,10 @@ model:
   package: model
 
 resolver:
-  filename: graph/schema.resolvers.go
-  type: ""
+  layout: follow-schema
+  dir: graph
   package: graph
+  filename_template: "{name}.resolvers.go"
 
 federation:
   filename: graph/generated/federation.go

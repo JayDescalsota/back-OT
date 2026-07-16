@@ -2,21 +2,20 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/playground"
 
 	"github.com/clinicmanager/services/user/graph"
 	"github.com/clinicmanager/services/user/graph/generated"
 	"github.com/clinicmanager/services/user/repository"
 	"github.com/clinicmanager/services/user/service"
 	sharedDB "github.com/clinicmanager/shared/db"
+	"github.com/clinicmanager/shared/logger"
 	"github.com/clinicmanager/shared/middleware"
 	"github.com/clinicmanager/shared/setting"
 	"github.com/clinicmanager/shared/tools"
@@ -36,49 +35,85 @@ func main() {
 		"BASE_URL",
 	})
 	if errorEnv != nil {
-		log.Fatal("failed to load user service settings: ", errorEnv)
+		logger.Error(context.Background(), "failed to load user service settings", "missing", errorEnv)
+		os.Exit(1)
 	}
 	port := env["USER_PORT"]
 	userDbUrl := env["USERDB_URL"]
-	if os.Getenv("IN_DOCKER") == "true" {
-		userDbUrl = strings.Replace(userDbUrl, "localhost:5432", "db:5432", 1)
+	if dockerUrl := os.Getenv("USERDB_DOCKER_URL"); dockerUrl != "" {
+		userDbUrl = dockerUrl
 	}
 	jwtSecret := env["JWT_SECRET"]
 	baseURL := env["BASE_URL"] + ":" + env["USER_PORT"]
 
 	db, err := sharedDB.NewDB(userDbUrl)
 	if err != nil {
-		log.Fatal("failed to connect to user database: ", err)
+		logger.Error(context.Background(), "failed to connect to user database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	userRepo := repository.NewUserRepo(db)
-	userService := service.NewUserService(userRepo, middleware.UserIDFromCtx)
-	authService := service.NewAuthService(userRepo, jwtSecret, SMTPMailer{}, baseURL)
 
+	const (
+		accessTokenTTL        = 15 * time.Minute
+		refreshTokenTTL       = 7 * 24 * time.Hour
+		superAdminAccessTTL   = 5 * time.Minute
+		superAdminRefreshTTL  = 24 * time.Hour
+	)
+	authService := service.NewAuthService(userRepo, jwtSecret, SMTPMailer{}, baseURL, accessTokenTTL, refreshTokenTTL)
+
+	isSessionRevoked := func(ctx context.Context, sessionID string) (bool, error) {
+		session, err := userRepo.FindSessionByID(ctx, sessionID)
+		if err != nil {
+			return true, err
+		}
+		if session == nil || session.Revoked {
+			return true, nil
+		}
+		return false, nil
+	}
+
+	userService := service.NewUserService(userRepo, middleware.UserIDFromCtx, middleware.TenantIDFromCtx, middleware.UserRoleFromCtx)
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{
 		Resolvers: &graph.Resolver{UserService: userService},
 	}))
 
+	loginLimiter := middleware.NewRateLimiter(10, time.Minute)
+	registerLimiter := middleware.NewRateLimiter(5, time.Minute)
+
 	mux := http.NewServeMux()
-	mux.Handle("/graphql", srv)
-	mux.Handle("/playground", playground.Handler("User", "/graphql"))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
-	mux.HandleFunc("POST /register", registerHandler(authService))
-	mux.HandleFunc("POST /login", loginHandler(authService))
-	mux.HandleFunc("GET /verify", verifyHandler(authService))
-	mux.Handle("POST /change-password", middleware.AuthMiddleware(changePasswordHandler(authService)))
+	mux.Handle("/graphql", middleware.Tenant(srv))
 
-	server := &http.Server{Addr: ":" + port, Handler: middleware.LoggingMiddleware(mux)}
+	mux.Handle("POST /register", registerLimiter.Limit(registerHandler(authService)))
+	mux.Handle("POST /login", loginLimiter.Limit(loginHandler(authService)))
+	mux.HandleFunc("GET /verify", verifyHandler(authService))
+	mux.Handle("POST /change-password", middleware.AuthMiddleware(jwtSecret, isSessionRevoked, changePasswordHandler(authService)))
+	mux.HandleFunc("POST /logout", logoutHandler(authService))
+	mux.Handle("POST /logout-all", middleware.AuthMiddleware(jwtSecret, isSessionRevoked, logoutAllHandler(authService)))
+	mux.HandleFunc("POST /refresh-token", refreshTokenHandler(authService))
+	mux.HandleFunc("POST /forgot-password", forgotPasswordHandler(authService))
+	mux.HandleFunc("POST /reset-password", resetPasswordHandler(authService))
+
+	recovery := middleware.RecoveryMiddleware(middleware.LoggingMiddleware(mux))
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      recovery,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  30 * time.Second,
+	}
 
 	go func() {
-		log.Printf("user service listening on :%s", port)
+		logger.Info(context.Background(), "user service starting", "port", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatal("listen error: ", err)
+			logger.Error(context.Background(), "listen error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -86,8 +121,8 @@ func main() {
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	<-quit
 
-	log.Println("shutting down user service...")
+	logger.Info(context.Background(), "shutting down user service")
 	if err := server.Shutdown(context.Background()); err != nil {
-		log.Printf("shutdown error: %v", err)
+		logger.Error(context.Background(), "shutdown error", "error", err)
 	}
 }

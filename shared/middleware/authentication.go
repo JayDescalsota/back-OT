@@ -1,25 +1,15 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
-	"github.com/clinicmanager/shared/setting"
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-func AuthMiddleware(next http.Handler) http.Handler {
-
-	env, errorEnv := setting.LoadAndValidateEnv([]string{
-		"JWT_SECRET",
-	})
-	if errorEnv != nil {
-		log.Fatal("failed to load user service settings: ", errorEnv)
-	}
-	jwtKey := env["JWT_SECRET"]
-
+func AuthMiddleware(jwtKey string, isRevoked func(ctx context.Context, sessionID string) (bool, error), next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -49,6 +39,19 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		ctx := r.Context()
 		if userID, ok := claims["userId"].(string); ok {
 			ctx = SetUserID(ctx, userID)
+		}
+		if role, ok := claims["role"].(string); ok {
+			ctx = SetUserRole(ctx, role)
+		}
+
+		if isRevoked != nil {
+			if sessionID, ok := claims["sessionId"].(string); ok && sessionID != "" {
+				revoked, err := isRevoked(ctx, sessionID)
+				if err != nil || revoked {
+					http.Error(w, `{"errors":[{"message":"unauthorized"}]}`, http.StatusUnauthorized)
+					return
+				}
+			}
 		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
