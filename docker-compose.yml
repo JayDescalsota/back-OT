@@ -1,4 +1,41 @@
 services:
+  loki:
+    image: grafana/loki:2.9.8
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/config.yml:/etc/loki/config.yml
+    command: -config.file=/etc/loki/config.yml
+
+  promtail:
+    image: grafana/promtail:2.9.8
+    container_name: promtail
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/promtail/config.yml:/etc/promtail/config.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+
   db:
     image: postgres:17
     container_name: postgres
@@ -20,6 +57,18 @@ services:
     ports:
       - "6379:6379"
 
+  router:
+    image: ghcr.io/apollographql/router:v1.45.0
+    container_name: apollo_router
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./rover/supergraph.graphql:/dist/config/supergraph.graphql
+      - ./rover/router.yaml:/dist/config/router.yaml
+    command: -s /dist/config/supergraph.graphql -c /dist/config/router.yaml
+    depends_on:
+      - user
+
   user:
     build:
       context: .
@@ -30,7 +79,8 @@ services:
     env_file:
       - .env
     environment:
-      USERDB_URL: postgres://postgres:1@db:5432/auth?sslmode=disable
+      USERDB_URL: postgres://postgres:1@db:5432/user?sslmode=disable
+      IN_DOCKER: "true"
     ports:
       - "8081:8081"
     volumes:
@@ -39,17 +89,6 @@ services:
       - db
       - redis
 
-  router:
-    image: ghcr.io/apollographql/router:v1.45.0
-    container_name: apollo_router
-    ports:
-      - "4000:4000"
-    volumes:
-      - ./supergraph.graphql:/dist/config/supergraph.graphql
-      - ./router.yaml:/dist/config/router.yaml
-    command: -s /dist/config/supergraph.graphql -c /dist/config/router.yaml
-    depends_on:
-      - user
-
 volumes:
   postgres_data:
+  grafana-data:

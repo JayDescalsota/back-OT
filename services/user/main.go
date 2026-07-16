@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/99designs/gqlgen/graphql/handler"
@@ -39,6 +40,9 @@ func main() {
 	}
 	port := env["USER_PORT"]
 	userDbUrl := env["USERDB_URL"]
+	if os.Getenv("IN_DOCKER") == "true" {
+		userDbUrl = strings.Replace(userDbUrl, "localhost:5432", "db:5432", 1)
+	}
 	jwtSecret := env["JWT_SECRET"]
 	baseURL := env["BASE_URL"] + ":" + env["USER_PORT"]
 
@@ -67,8 +71,9 @@ func main() {
 	mux.HandleFunc("POST /register", registerHandler(authService))
 	mux.HandleFunc("POST /login", loginHandler(authService))
 	mux.HandleFunc("GET /verify", verifyHandler(authService))
+	mux.Handle("POST /change-password", middleware.AuthMiddleware(changePasswordHandler(authService)))
 
-	server := &http.Server{Addr: ":" + port, Handler: mux}
+	server := &http.Server{Addr: ":" + port, Handler: middleware.LoggingMiddleware(mux)}
 
 	go func() {
 		log.Printf("user service listening on :%s", port)

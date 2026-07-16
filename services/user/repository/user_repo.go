@@ -24,6 +24,17 @@ type BunUserBranchAssignment struct {
 	IsActive   bool      `bun:"is_active,default:true"`
 }
 
+type UserRepository interface {
+	FindByID(ctx context.Context, id string) (*models.User, error)
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
+	Register(ctx context.Context, email, password, validationToken string) (*models.User, error)
+	UpdateLastLogin(ctx context.Context, userID string) error
+	FindByValidationToken(ctx context.Context, token string) (*models.User, error)
+	MarkAsValidated(ctx context.Context, userID string) error
+	UpdatePassword(ctx context.Context, userID, newPassword string) error
+	FindAssignmentsByUser(ctx context.Context, userID string) ([]*BunUserBranchAssignment, error)
+}
+
 type UserRepo struct {
 	db *bun.DB
 }
@@ -87,6 +98,20 @@ func (r *UserRepo) UpdateLastLogin(ctx context.Context, userID string) error {
 	now := time.Now().UTC()
 	_, err := r.db.NewUpdate().Model(&models.User{}).
 		Set("last_login = ?", now).
+		Set("updated_at = ?", now).
+		Where("id = ?", userID).
+		Exec(ctx)
+	return err
+}
+
+func (r *UserRepo) UpdatePassword(ctx context.Context, userID, newPassword string) error {
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	_, err = r.db.NewUpdate().Model(&models.User{}).
+		Set("password_hash = ?", hash).
 		Set("updated_at = ?", now).
 		Where("id = ?", userID).
 		Exec(ctx)

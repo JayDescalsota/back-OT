@@ -7,7 +7,7 @@ import (
 	"github.com/clinicmanager/services/user/graph/model"
 	"github.com/clinicmanager/services/user/models"
 	"github.com/clinicmanager/services/user/repository"
-	"github.com/clinicmanager/shared/errors"
+	"github.com/clinicmanager/shared/response"
 )
 
 type UserRepository interface {
@@ -29,7 +29,7 @@ func NewUserService(userRepo UserRepository, currentUser CurrentUserFn) *UserSer
 func (s *UserService) fetchUserWithAssignments(ctx context.Context, id string) (*model.User, error) {
 	user, err := s.userRepo.FindByID(ctx, id)
 	if err != nil || user == nil {
-		return nil, errors.NotFound("User")
+		return nil, response.NotFound("User")
 	}
 
 	assignments, err := s.userRepo.FindAssignmentsByUser(ctx, id)
@@ -57,7 +57,7 @@ func (s *UserService) fetchUserWithAssignments(ctx context.Context, id string) (
 func (s *UserService) GetMe(ctx context.Context) (*model.User, error) {
 	userID := s.currentUser(ctx)
 	if userID == "" {
-		return nil, errors.Unauthorized("not authenticated")
+		return nil, response.Unauthorized("not authenticated")
 	}
 
 	return s.fetchUserWithAssignments(ctx, userID)
@@ -70,7 +70,7 @@ func (s *UserService) GetByID(ctx context.Context, id string) (*model.User, erro
 func (s *UserService) GetMyAssignments(ctx context.Context) ([]*model.UserBranchAssignment, error) {
 	userID := s.currentUser(ctx)
 	if userID == "" {
-		return nil, errors.Unauthorized("not authenticated")
+		return nil, response.Unauthorized("not authenticated")
 	}
 
 	assignments, err := s.userRepo.FindAssignmentsByUser(ctx, userID)
