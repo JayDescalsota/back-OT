@@ -28,13 +28,15 @@ get_db_name() {
 }
 
 usage() {
-  echo "Usage: $0 {up|down|build|setup} [options]"
+  echo "Usage: $0 {up|down|build|setup|migrate|gqlgen} [options]"
   echo ""
   echo "Commands:"
   echo "  up          Start services via docker-compose"
   echo "  down        Stop services via docker-compose"
   echo "  build       Build Go binaries"
   echo "  setup       Run migrations and seed data"
+  echo "  migrate     Run migrations only"
+  echo "  gqlgen      Generate GraphQL models and recompose supergraph"
   echo ""
   echo "Options:"
   for s in "${ALL_SERVICES[@]}"; do
@@ -75,7 +77,7 @@ if [ ${#TARGETS[@]} -eq 0 ]; then
 fi
 
 case "$CMD" in
-  up|down|build|setup) ;;
+  up|down|build|setup|migrate|gqlgen) ;;
   *) echo "Unknown command: $CMD"; usage ;;
 esac
 
@@ -95,6 +97,9 @@ case "$CMD" in
     done
     ;;
   setup)
+    echo "Stopping and removing all services..."
+    docker compose down -v
+
     echo "Starting database and redis..."
     docker-compose up -d db redis
 
@@ -107,6 +112,9 @@ case "$CMD" in
     for svc in "${TARGETS[@]}"; do
       VAR_NAME="$(echo "$svc" | tr '[:lower:]' '[:upper:]')DB_URL"
       SVC_DB_URL="${!VAR_NAME}"
+      if [ -z "$SVC_DB_URL" ]; then
+        SVC_DB_URL="$DB_URL"
+      fi
       DB_NAME=$(get_db_name "$SVC_DB_URL")
       if [ -n "$DB_NAME" ] && [ "$DB_NAME" != "postgres" ]; then
         docker-compose exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
@@ -121,6 +129,9 @@ case "$CMD" in
         # Resolve DB URL for this service
         VAR_NAME="$(echo "$svc" | tr '[:lower:]' '[:upper:]')DB_URL"
         SVC_DB_URL="${!VAR_NAME}"
+        if [ -z "$SVC_DB_URL" ]; then
+          SVC_DB_URL="$DB_URL"
+        fi
         
         for f in "$migration_dir"/*.up.sql; do
           [ -f "$f" ] || continue
@@ -132,5 +143,69 @@ case "$CMD" in
         echo "  No migrations directory found for $svc"
       fi
     done
+
+    echo "Composing Apollo Federation supergraph..."
+    rover supergraph compose --config "$SCRIPT_DIR/supergraph-config.yaml" > "$SCRIPT_DIR/rover/supergraph.graphql"
+
+    echo "Building and starting all services..."
+    docker-compose up -d --build
+    ;;
+  migrate)
+    echo "Starting database..."
+    docker-compose up -d db
+
+    echo "Waiting for database to be ready..."
+    until docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do
+      sleep 1
+    done
+
+    # Ensure databases exist for target services dynamically
+    for svc in "${TARGETS[@]}"; do
+      VAR_NAME="$(echo "$svc" | tr '[:lower:]' '[:upper:]')DB_URL"
+      SVC_DB_URL="${!VAR_NAME}"
+      if [ -z "$SVC_DB_URL" ]; then
+        SVC_DB_URL="$DB_URL"
+      fi
+      DB_NAME=$(get_db_name "$SVC_DB_URL")
+      if [ -n "$DB_NAME" ] && [ "$DB_NAME" != "postgres" ]; then
+        docker-compose exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
+      fi
+    done
+
+    echo "Running migrations..."
+    for svc in "${TARGETS[@]}"; do
+      echo "--- $svc migrations ---"
+      migration_dir="$SERVICES_DIR/$svc/migrations"
+      if [ -d "$migration_dir" ]; then
+        # Resolve DB URL for this service
+        VAR_NAME="$(echo "$svc" | tr '[:lower:]' '[:upper:]')DB_URL"
+        SVC_DB_URL="${!VAR_NAME}"
+        if [ -z "$SVC_DB_URL" ]; then
+          SVC_DB_URL="$DB_URL"
+        fi
+        
+        for f in "$migration_dir"/*.up.sql; do
+          [ -f "$f" ] || continue
+          echo "  Applying $(basename "$f")..."
+          docker-compose exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
+          echo "  WARN: could not run $(basename "$f") — check DB_URL"
+        done
+      else
+        echo "  No migrations directory found for $svc"
+      fi
+    done
+    ;;
+  gqlgen)
+    echo "Running gqlgen generate..."
+    for svc in "${TARGETS[@]}"; do
+      svc_dir="$SERVICES_DIR/$svc"
+      if [ -f "$svc_dir/gqlgen.yml" ]; then
+        echo "--- Generating gqlgen for $svc ---"
+        (cd "$svc_dir" && go run github.com/99designs/gqlgen generate)
+      fi
+    done
+
+    echo "Composing Apollo Federation supergraph..."
+    rover supergraph compose --config "$SCRIPT_DIR/supergraph-config.yaml" > "$SCRIPT_DIR/rover/supergraph.graphql"
     ;;
 esac

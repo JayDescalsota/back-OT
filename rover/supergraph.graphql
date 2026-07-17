@@ -30,56 +30,95 @@ enum link__Purpose {
 scalar link__Import
 
 enum join__Graph {
+  TENANT @join__graph(name: "tenant", url: "http://tenant:8082/graphql")
   USER @join__graph(name: "user", url: "http://user:8081/graphql")
 }
 
 scalar join__FieldSet
 
-type User @join__type(graph: USER, key: "id") {
+type Tenant @join__type(graph: TENANT, key: "id") {
   id: ID!
-  email: String!
   name: String!
-  isActive: Boolean!
-  lastLogin: String
-  assignments: [UserBranchAssignment!]!
+  slug: String!
+  domain: String
+  status: String!
 }
 
-type UserBranchAssignment @join__type(graph: USER) {
+type Branch @join__type(graph: TENANT, key: "id") {
   id: ID!
-  branch: Branch!
-  tenant: Tenant!
-  role: Role!
-  assignedBy: String!
-  assignedAt: String!
+  tenantId: String!
+  name: String!
+  address: String
+  timezone: String!
+  phone: String
   isActive: Boolean!
 }
 
-type Role @join__type(graph: USER, key: "id") {
+type TenantRole @join__type(graph: TENANT, key: "id") {
   id: ID!
   name: String!
   description: String
-  permissions: [Permission!]!
+  isSystemRole: Boolean!
+  tenantId: String
+  permissions: [TenantPermission!]!
 }
 
-type Permission @join__type(graph: USER, key: "id") {
+type TenantPermission @join__type(graph: TENANT, key: "id") {
   id: ID!
   resource: String!
   action: String!
   scope: String!
+  description: String
 }
 
-type Tenant @join__type(graph: USER, key: "id") {
+type TenantUserAssignment @join__type(graph: TENANT) {
+  id: ID!
+  userId: String!
+  branch: Branch!
+  tenant: Tenant!
+  role: TenantRole!
+  isActive: Boolean!
+}
+
+type Query @join__type(graph: TENANT) @join__type(graph: USER) {
+  meTenant: User! @join__field(graph: TENANT)
+  tenant(id: ID!): Tenant @join__field(graph: TENANT)
+  branch(id: ID!): Branch @join__field(graph: TENANT)
+  tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
+  tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
+  myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
+  assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
+  meUser: User! @join__field(graph: USER)
+  user(id: ID!): User @join__field(graph: USER)
+}
+
+type User @join__type(graph: TENANT, key: "id") @join__type(graph: USER, key: "id") {
+  id: ID!
+  assignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
+  email: String! @join__field(graph: USER)
+  name: String! @join__field(graph: USER)
+  isActive: Boolean! @join__field(graph: USER)
+  lastLogin: String @join__field(graph: USER)
+  appRoles: [AppRole!]! @join__field(graph: USER)
+  isValidated: Boolean! @join__field(graph: USER)
+  validatedAt: String @join__field(graph: USER)
+  createdAt: String! @join__field(graph: USER)
+  updatedAt: String! @join__field(graph: USER)
+  createdBy: String @join__field(graph: USER)
+  updatedBy: String @join__field(graph: USER)
+  createdAction: String @join__field(graph: USER)
+  updatedAction: String @join__field(graph: USER)
+}
+
+type AppRole @join__type(graph: USER, key: "id") {
   id: ID!
   name: String!
+  description: String
+  createdAt: String!
+  createdBy: String
+  createdAction: String
+  updatedAt: String
+  updatedBy: String
+  updatedAction: String
 }
 
-type Branch @join__type(graph: USER, key: "id") {
-  id: ID!
-  name: String!
-}
-
-type Query @join__type(graph: USER) {
-  me: User!
-  user(id: ID!): User
-  myAssignments: [UserBranchAssignment!]!
-}

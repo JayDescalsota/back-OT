@@ -2,12 +2,16 @@ package models
 
 import (
 	"time"
+
+	"github.com/uptrace/bun"
 )
 
 type Session struct {
-	ID           string    `bun:"id,pk,type:uuid"`
+	bun.BaseModel `bun:"table:sessions"`
+
+	ID           int64     `bun:"id,pk,autoincrement"`
 	UserID       string    `bun:"user_id,type:uuid"`
-	AccessToken  string    `bun:"access_token,type:text,unique"`
+	AccessToken  string    `bun:"access_token,type:text"`
 	RefreshToken string    `bun:"refresh_token,type:text,unique"`
 	UserAgent    string    `bun:"user_agent,type:text"`
 	IPAddress    string    `bun:"ip_address,type:text"`

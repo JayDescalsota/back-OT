@@ -4,3 +4,7 @@ subgraphs:
     routing_url: http://user:8081/graphql
     schema:
       file: ./services/user/graph/schema.graphqls
+  tenant:
+    routing_url: http://tenant:8082/graphql
+    schema:
+      file: ./services/tenant/graph/schema.graphqls

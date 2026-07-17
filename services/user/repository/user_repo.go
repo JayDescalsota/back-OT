@@ -8,28 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
 
-	"github.com/clinicmanager/services/user/graph/model"
 	"github.com/clinicmanager/services/user/models"
 )
-
-type BunUserBranchAssignment struct {
-	bun.BaseModel `bun:"table:user_branch_assignments"`
-
-	ID         string    `bun:"id,pk"`
-	UserID     string    `bun:"user_id,notnull"`
-	BranchID   string    `bun:"branch_id,notnull"`
-	TenantID   string    `bun:"tenant_id,notnull"`
-	RoleID     string    `bun:"role_id,notnull"`
-	AssignedBy string    `bun:"assigned_by,notnull"`
-	AssignedAt time.Time `bun:"assigned_at"`
-	IsActive   bool      `bun:"is_active,default:true"`
-
-	// Joined fields
-	RoleName        string `bun:"role_name"`
-	RoleDescription string `bun:"role_description"`
-	BranchName      string `bun:"branch_name"`
-	TenantName      string `bun:"tenant_name"`
-}
 
 type UserRepository interface {
 	FindUserByID(ctx context.Context, id string) (*models.User, error)
@@ -42,18 +22,16 @@ type UserRepository interface {
 	SetPasswordResetToken(ctx context.Context, userID, token string, expiresAt time.Time) error
 	FindUserByPasswordResetToken(ctx context.Context, token string) (*models.User, error)
 	ResetPassword(ctx context.Context, userID, newPassword string) error
-	FindAssignmentsByUser(ctx context.Context, userID string) ([]*BunUserBranchAssignment, error)
-	FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*BunUserBranchAssignment, error)
 	CreateSession(ctx context.Context, session *models.Session) error
-	FindSessionByID(ctx context.Context, id string) (*models.Session, error)
+	FindSessionByID(ctx context.Context, id int64) (*models.Session, error)
 	FindSessionByToken(ctx context.Context, token string) (*models.Session, error)
 	FindSessionsByUser(ctx context.Context, userID string) ([]*models.Session, error)
-	RevokeSession(ctx context.Context, sessionID string) error
+	RevokeSession(ctx context.Context, sessionID int64) error
 	RevokeAllSessionsForUser(ctx context.Context, userID string) error
-	FindTenantByID(ctx context.Context, id string) (*model.Tenant, error)
-	FindBranchByID(ctx context.Context, id string) (*model.Branch, error)
-	FindRoleByID(ctx context.Context, id string) (*model.Role, error)
-	FindPermissionByID(ctx context.Context, id string) (*model.Permission, error)
+	UpdateSessionAccessToken(ctx context.Context, sessionID int64, accessToken string) error
+	HasAppRole(ctx context.Context, userID, roleName string) (bool, error)
+	FindUserAppRoles(ctx context.Context, userID string) ([]*models.AppRole, error)
+	GetAppRoleByID(ctx context.Context, id int) (*models.AppRole, error)
 }
 
 type UserRepo struct {
@@ -65,11 +43,11 @@ func NewUserRepo(db *bun.DB) *UserRepo {
 }
 
 func (r *UserRepo) CreateSession(ctx context.Context, session *models.Session) error {
-	_, err := r.db.NewInsert().Model(session).Exec(ctx)
+	_, err := r.db.NewInsert().Model(session).Returning("*").Exec(ctx)
 	return err
 }
 
-func (r *UserRepo) FindSessionByID(ctx context.Context, id string) (*models.Session, error) {
+func (r *UserRepo) FindSessionByID(ctx context.Context, id int64) (*models.Session, error) {
 	var session models.Session
 	err := r.db.NewSelect().Model(&session).
 		Where("id = ?", id).
@@ -110,10 +88,18 @@ func (r *UserRepo) FindSessionsByUser(ctx context.Context, userID string) ([]*mo
 	return sessions, nil
 }
 
-func (r *UserRepo) RevokeSession(ctx context.Context, sessionID string) error {
+func (r *UserRepo) RevokeSession(ctx context.Context, sessionID int64) error {
 	_, err := r.db.NewUpdate().Model((*models.Session)(nil)).
 		Where("id = ?", sessionID).
 		Set("revoked = true").
+		Exec(ctx)
+	return err
+}
+
+func (r *UserRepo) UpdateSessionAccessToken(ctx context.Context, sessionID int64, accessToken string) error {
+	_, err := r.db.NewUpdate().Model((*models.Session)(nil)).
+		Where("id = ?", sessionID).
+		Set("access_token = ?", accessToken).
 		Exec(ctx)
 	return err
 }
@@ -265,88 +251,36 @@ func (r *UserRepo) MarkUserAsValidated(ctx context.Context, userID string) error
 	return err
 }
 
-func (r *UserRepo) FindAssignmentsByUser(ctx context.Context, userID string) ([]*BunUserBranchAssignment, error) {
-	var assignments []*BunUserBranchAssignment
-	err := r.db.NewSelect().Model(&assignments).
-		ModelTableExpr("user_branch_assignments AS uba").
-		Column("uba.*").
-		ColumnExpr("r.name AS role_name").
-		ColumnExpr("r.description AS role_description").
-		ColumnExpr("b.name AS branch_name").
-		ColumnExpr("t.name AS tenant_name").
-		Join("JOIN roles AS r ON r.id = uba.role_id").
-		Join("JOIN branches AS b ON b.id = uba.branch_id").
-		Join("JOIN tenants AS t ON t.id = uba.tenant_id").
-		Where("uba.user_id = ? AND uba.is_active = ?", userID, true).
-		Scan(ctx)
-	return assignments, err
-}
-
-func (r *UserRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*BunUserBranchAssignment, error) {
-	var assignments []*BunUserBranchAssignment
-	err := r.db.NewSelect().Model(&assignments).
-		ModelTableExpr("user_branch_assignments AS uba").
-		Column("uba.*").
-		ColumnExpr("r.name AS role_name").
-		ColumnExpr("r.description AS role_description").
-		ColumnExpr("b.name AS branch_name").
-		ColumnExpr("t.name AS tenant_name").
-		Join("JOIN roles AS r ON r.id = uba.role_id").
-		Join("JOIN branches AS b ON b.id = uba.branch_id").
-		Join("JOIN tenants AS t ON t.id = uba.tenant_id").
-		Where("uba.user_id = ? AND uba.tenant_id = ? AND uba.is_active = ?", userID, tenantID, true).
-		Scan(ctx)
-	return assignments, err
-}
-
-func (r *UserRepo) FindTenantByID(ctx context.Context, id string) (*model.Tenant, error) {
-	tenant := new(model.Tenant)
-	err := r.db.NewSelect().Model(tenant).Where("id = ?", id).Scan(ctx)
-	if err == sql.ErrNoRows {
-		return nil, nil
+func (r *UserRepo) HasAppRole(ctx context.Context, userID, roleName string) (bool, error) {
+	var count int
+	err := r.db.NewSelect().
+		Model((*models.UserAppRole)(nil)).
+		ColumnExpr("COUNT(*)").
+		Join("JOIN app_roles AS ar ON ar.id = user_app_role.app_role_id").
+		Where("user_app_role.user_id = ?", userID).
+		Where("ar.name = ?", roleName).
+		Scan(ctx, &count)
+	if err != nil {
+		return false, err
 	}
-	return tenant, err
+	return count > 0, nil
 }
 
-func (r *UserRepo) FindBranchByID(ctx context.Context, id string) (*model.Branch, error) {
-	branch := new(model.Branch)
-	err := r.db.NewSelect().Model(branch).Where("id = ?", id).Scan(ctx)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return branch, err
+func (r *UserRepo) FindUserAppRoles(ctx context.Context, userID string) ([]*models.AppRole, error) {
+	var roles []*models.AppRole
+	err := r.db.NewSelect().
+		Model(&roles).
+		Join("JOIN user_app_roles AS uar ON uar.app_role_id = app_role.id").
+		Where("uar.user_id = ?", userID).
+		Scan(ctx)
+	return roles, err
 }
 
-func (r *UserRepo) FindRoleByID(ctx context.Context, id string) (*model.Role, error) {
-	role := new(model.Role)
+func (r *UserRepo) GetAppRoleByID(ctx context.Context, id int) (*models.AppRole, error) {
+	role := new(models.AppRole)
 	err := r.db.NewSelect().Model(role).Where("id = ?", id).Scan(ctx)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
-	// Fetch role permissions
-	var permissions []*model.Permission
-	err = r.db.NewSelect().
-		Model(&permissions).
-		Column("p.*").
-		TableExpr("role_permissions AS rp").
-		Join("JOIN permissions AS p ON p.id = rp.permission_id").
-		Where("rp.role_id = ?", id).
-		Scan(ctx)
-	if err != nil {
-		return nil, err
-	}
-	role.Permissions = permissions
 	return role, nil
-}
-
-func (r *UserRepo) FindPermissionByID(ctx context.Context, id string) (*model.Permission, error) {
-	permission := new(model.Permission)
-	err := r.db.NewSelect().Model(permission).Where("id = ?", id).Scan(ctx)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	return permission, err
 }

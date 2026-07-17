@@ -12,19 +12,14 @@ import (
 	"github.com/clinicmanager/services/user/graph/model"
 )
 
-// Me returns the currently authenticated user with all their tenant/branch assignments.
-func (r *queryResolver) Me(ctx context.Context) (*model.User, error) {
+// MeUser is the resolver for the meUser field.
+func (r *queryResolver) MeUser(ctx context.Context) (*model.User, error) {
 	return r.UserService.GetMe(ctx)
 }
 
-// User returns a user by ID scoped to the caller's tenant.
+// User returns a user by ID (super admin can access any user).
 func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error) {
 	return r.UserService.GetUserByID(ctx, id)
-}
-
-// MyAssignments returns all branch assignments for the currently authenticated user.
-func (r *queryResolver) MyAssignments(ctx context.Context) ([]*model.UserBranchAssignment, error) {
-	return r.UserService.GetMyAssignments(ctx)
 }
 
 // Query returns generated.QueryResolver implementation.

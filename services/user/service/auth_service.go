@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,10 +15,11 @@ import (
 )
 
 type AuthUser struct {
-	ID        string  `json:"id"`
-	Email     string  `json:"email"`
-	IsActive  bool    `json:"isActive"`
-	LastLogin *string `json:"lastLogin"`
+	ID        string   `json:"id"`
+	Email     string   `json:"email"`
+	IsActive  bool     `json:"isActive"`
+	LastLogin *string  `json:"lastLogin"`
+	AppRoles  []string `json:"appRoles,omitempty"`
 }
 
 type AuthPayload struct {
@@ -36,21 +38,21 @@ type Mailer interface {
 }
 
 type AuthService struct {
-	userRepo      repository.UserRepository
-	jwtSecret     string
-	mailer        Mailer
-	baseURL       string
-	accessTokenTTL time.Duration
+	userRepo        repository.UserRepository
+	jwtSecret       string
+	mailer          Mailer
+	baseURL         string
+	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
 }
 
 func NewAuthService(userRepo repository.UserRepository, jwtSecret string, mailer Mailer, baseURL string, accessTokenTTL, refreshTokenTTL time.Duration) *AuthService {
 	return &AuthService{
-		userRepo:      userRepo,
-		jwtSecret:     jwtSecret,
-		mailer:        mailer,
-		baseURL:       baseURL,
-		accessTokenTTL: accessTokenTTL,
+		userRepo:        userRepo,
+		jwtSecret:       jwtSecret,
+		mailer:          mailer,
+		baseURL:         baseURL,
+		accessTokenTTL:  accessTokenTTL,
 		refreshTokenTTL: refreshTokenTTL,
 	}
 }
@@ -90,24 +92,13 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (*Au
 		logger.Warn(ctx, "failed to send validation email", "error", err, "email", email)
 	}
 
-	sessionID, err := repository.GenerateSessionID()
+	appRoleNames, err := s.getAppRoleNames(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	role := ""
-	accessTTL := s.accessTokenTTL
-	refreshTTL := s.refreshTokenTTL
-	if user.IsSuperAdmin {
-		role = "super_admin"
-		accessTTL = superAdminAccessTokenTTL
-		refreshTTL = superAdminRefreshTokenTTL
-	}
-
-	accessToken, err := repository.GenerateToken(user.ID, sessionID, role, s.jwtSecret, accessTTL)
-	if err != nil {
-		return nil, err
-	}
+	role := s.resolveJwtRole(appRoleNames)
+	accessTTL, refreshTTL := s.resolveTokenTTLs(role)
 
 	refreshTokenBytes := make([]byte, 32)
 	if _, err := rand.Read(refreshTokenBytes); err != nil {
@@ -115,22 +106,27 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (*Au
 	}
 	refreshToken := hex.EncodeToString(refreshTokenBytes)
 
-	err = s.userRepo.CreateSession(ctx, &models.Session{
-		ID:           sessionID,
+	session := &models.Session{
 		UserID:       user.ID,
-		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		UserAgent:    "",
 		IPAddress:    "",
 		ExpiresAt:    time.Now().Add(refreshTTL),
-		Revoked:      false,
-		CreatedAt:    time.Now(),
-	})
+	}
+	err = s.userRepo.CreateSession(ctx, session)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthPayload{Token: accessToken, RefreshToken: refreshToken, User: toAuthUserModel(user)}, nil
+	accessToken, err := repository.GenerateToken(user.ID, strconv.FormatInt(session.ID, 10), role, s.jwtSecret, accessTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdateSessionAccessToken(ctx, session.ID, accessToken); err != nil {
+		return nil, err
+	}
+
+	return &AuthPayload{Token: accessToken, RefreshToken: refreshToken, User: toAuthUserModel(user, appRoleNames)}, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipAddress string) (*AuthPayload, error) {
@@ -144,8 +140,8 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 
 	user, err := s.userRepo.FindUserByEmail(ctx, email)
 	if err != nil {
-		logger.Error(ctx, "login: error fetching user", "error", err, "email", email)
-		return nil, response.Unauthorized("Invalid email or password")
+		logger.Error(ctx, "login: error fetching user", "email", email, "error", err)
+		return nil, response.Internal("Internal server error", err.Error())
 	}
 	if user == nil {
 		logger.Warn(ctx, "login: user not found", "email", email)
@@ -171,25 +167,13 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 		return nil, err
 	}
 
-	// Generate session ID
-	sessionID, err := repository.GenerateSessionID()
+	appRoleNames, err := s.getAppRoleNames(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	role := ""
-	accessTTL := s.accessTokenTTL
-	refreshTTL := s.refreshTokenTTL
-	if user.IsSuperAdmin {
-		role = "super_admin"
-		accessTTL = superAdminAccessTokenTTL
-		refreshTTL = superAdminRefreshTokenTTL
-	}
-
-	accessToken, err := repository.GenerateToken(user.ID, sessionID, role, s.jwtSecret, accessTTL)
-	if err != nil {
-		return nil, err
-	}
+	role := s.resolveJwtRole(appRoleNames)
+	accessTTL, refreshTTL := s.resolveTokenTTLs(role)
 
 	refreshTokenBytes := make([]byte, 32)
 	if _, err := rand.Read(refreshTokenBytes); err != nil {
@@ -197,34 +181,72 @@ func (s *AuthService) Login(ctx context.Context, email, password, userAgent, ipA
 	}
 	refreshToken := hex.EncodeToString(refreshTokenBytes)
 
-	err = s.userRepo.CreateSession(ctx, &models.Session{
-		ID:           sessionID,
+	session := &models.Session{
 		UserID:       user.ID,
-		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		UserAgent:    userAgent,
 		IPAddress:    ipAddress,
 		ExpiresAt:    time.Now().Add(refreshTTL),
-		Revoked:      false,
-		CreatedAt:    time.Now(),
-	})
+	}
+	err = s.userRepo.CreateSession(ctx, session)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthPayload{Token: accessToken, RefreshToken: refreshToken, User: toAuthUserModel(user)}, nil
+	accessToken, err := repository.GenerateToken(user.ID, strconv.FormatInt(session.ID, 10), role, s.jwtSecret, accessTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdateSessionAccessToken(ctx, session.ID, accessToken); err != nil {
+		return nil, err
+	}
+
+	return &AuthPayload{Token: accessToken, RefreshToken: refreshToken, User: toAuthUserModel(user, appRoleNames)}, nil
 }
 
-func toAuthUserModel(u *models.User) *AuthUser {
+func (s *AuthService) getAppRoleNames(ctx context.Context, userID string) ([]string, error) {
+	roles, err := s.userRepo.FindUserAppRoles(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(roles))
+	for i, r := range roles {
+		names[i] = r.Name
+	}
+	return names, nil
+}
+
+func (s *AuthService) resolveJwtRole(appRoleNames []string) string {
+	for _, name := range appRoleNames {
+		if name == "super_admin" {
+			return "super_admin"
+		}
+	}
+	return ""
+}
+
+func (s *AuthService) resolveTokenTTLs(role string) (access, refresh time.Duration) {
+	if role == "super_admin" {
+		return superAdminAccessTokenTTL, superAdminRefreshTokenTTL
+	}
+	return s.accessTokenTTL, s.refreshTokenTTL
+}
+
+func toAuthUserModel(u *models.User, appRoleNames []string) *AuthUser {
 	lastLogin := ""
 	if u.LastLogin != nil {
 		lastLogin = u.LastLogin.Format("2006-01-02T15:04:05Z")
+	}
+	roles := appRoleNames
+	if roles == nil {
+		roles = []string{}
 	}
 	return &AuthUser{
 		ID:        u.ID,
 		Email:     u.Email,
 		IsActive:  u.IsActive,
 		LastLogin: &lastLogin,
+		AppRoles:  roles,
 	}
 }
 
@@ -290,7 +312,6 @@ func (s *AuthService) ChangePassword(ctx context.Context, email, oldPassword, ne
 	return nil
 }
 
-
 func (s *AuthService) ForgotPassword(ctx context.Context, email string) error {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
@@ -347,13 +368,16 @@ func (s *AuthService) ResetPassword(ctx context.Context, token, newPassword stri
 }
 
 func (s *AuthService) Logout(ctx context.Context, sessionID string) error {
-	return s.userRepo.RevokeSession(ctx, sessionID)
+	id, err := strconv.ParseInt(sessionID, 10, 64)
+	if err != nil {
+		return response.Validation("invalid session ID")
+	}
+	return s.userRepo.RevokeSession(ctx, id)
 }
 
 func (s *AuthService) LogoutAll(ctx context.Context, userID string) error {
 	return s.userRepo.RevokeAllSessionsForUser(ctx, userID)
 }
-
 
 func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*AuthPayload, error) {
 	session, err := s.userRepo.FindSessionByToken(ctx, refreshToken)
@@ -367,7 +391,6 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*A
 		return nil, response.Unauthorized("Session has expired")
 	}
 
-	// Get user to check super admin status before generating token
 	user, err := s.userRepo.FindUserByID(ctx, session.UserID)
 	if err != nil {
 		return nil, err
@@ -376,10 +399,13 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*A
 		return nil, response.Unauthorized("User not found")
 	}
 
-	newSessionID, err := repository.GenerateSessionID()
+	appRoleNames, err := s.getAppRoleNames(ctx, session.UserID)
 	if err != nil {
 		return nil, err
 	}
+
+	role := s.resolveJwtRole(appRoleNames)
+	accessTTL, refreshTTL := s.resolveTokenTTLs(role)
 
 	newRefreshTokenBytes := make([]byte, 32)
 	if _, err := rand.Read(newRefreshTokenBytes); err != nil {
@@ -387,41 +413,30 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*A
 	}
 	newRefreshToken := hex.EncodeToString(newRefreshTokenBytes)
 
-	role := ""
-	accessTTL := s.accessTokenTTL
-	refreshTTL := s.refreshTokenTTL
-	if user.IsSuperAdmin {
-		role = "super_admin"
-		accessTTL = superAdminAccessTokenTTL
-		refreshTTL = superAdminRefreshTokenTTL
-	}
-
-	accessToken, err := repository.GenerateToken(session.UserID, newSessionID, role, s.jwtSecret, accessTTL)
-	if err != nil {
-		return nil, err
-	}
-
 	err = s.userRepo.RevokeSession(ctx, session.ID)
 	if err != nil {
 		return nil, err
 	}
 
 	newSession := &models.Session{
-		ID:           newSessionID,
 		UserID:       session.UserID,
-		AccessToken:  accessToken,
 		RefreshToken: newRefreshToken,
 		UserAgent:    session.UserAgent,
 		IPAddress:    session.IPAddress,
 		ExpiresAt:    time.Now().Add(refreshTTL),
-		Revoked:      false,
-		CreatedAt:    time.Now(),
 	}
-
 	err = s.userRepo.CreateSession(ctx, newSession)
 	if err != nil {
 		return nil, err
 	}
 
-	return &AuthPayload{Token: accessToken, RefreshToken: newRefreshToken, User: toAuthUserModel(user)}, nil
+	accessToken, err := repository.GenerateToken(session.UserID, strconv.FormatInt(newSession.ID, 10), role, s.jwtSecret, accessTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdateSessionAccessToken(ctx, newSession.ID, accessToken); err != nil {
+		return nil, err
+	}
+
+	return &AuthPayload{Token: accessToken, RefreshToken: newRefreshToken, User: toAuthUserModel(user, appRoleNames)}, nil
 }

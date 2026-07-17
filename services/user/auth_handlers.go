@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	"github.com/clinicmanager/services/user/service"
+	"github.com/clinicmanager/shared/context"
 	"github.com/clinicmanager/shared/httpx"
-	"github.com/clinicmanager/shared/middleware"
 	"github.com/clinicmanager/shared/response"
 )
 
@@ -41,13 +41,14 @@ func registerHandler(svc *service.AuthService) http.HandlerFunc {
 			return
 		}
 
-		res, err := svc.Register(r.Context(), req.Email, req.Password)
+		_, err = svc.Register(r.Context(), req.Email, req.Password)
+
 		if err != nil {
 			httpx.Error(w, err)
 			return
 		}
 
-		httpx.Created(w, res)
+		httpx.Created(w, response.Success("user registered successfully"))
 	}
 }
 
@@ -125,7 +126,7 @@ func logoutHandler(svc *service.AuthService) http.HandlerFunc {
 
 func logoutAllHandler(svc *service.AuthService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID := middleware.UserIDFromCtx(r.Context())
+		userID := context.UserIDFromCtx(r.Context())
 		if userID == "" {
 			httpx.Error(w, response.Unauthorized("unauthorized"))
 			return

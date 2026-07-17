@@ -153,21 +153,78 @@ func (ec *executionContext) resolveEntity(
 	}()
 
 	switch typeName {
-	case "AppRole":
-		resolverName, err := entityResolverNameForAppRole(ctx, rep)
+	case "Branch":
+		resolverName, err := entityResolverNameForBranch(ctx, rep)
 		if err != nil {
-			return nil, fmt.Errorf(`finding resolver for Entity "AppRole": %w`, err)
+			return nil, fmt.Errorf(`finding resolver for Entity "Branch": %w`, err)
 		}
 		switch resolverName {
 
-		case "findAppRoleByID":
+		case "findBranchByID":
 			id0, err := ec.unmarshalNID2string(ctx, rep["id"])
 			if err != nil {
-				return nil, fmt.Errorf(`unmarshalling param 0 for findAppRoleByID(): %w`, err)
+				return nil, fmt.Errorf(`unmarshalling param 0 for findBranchByID(): %w`, err)
 			}
-			entity, err := ec.Resolvers.Entity().FindAppRoleByID(ctx, id0)
+			entity, err := ec.Resolvers.Entity().FindBranchByID(ctx, id0)
 			if err != nil {
-				return nil, fmt.Errorf(`resolving Entity "AppRole": %w`, err)
+				return nil, fmt.Errorf(`resolving Entity "Branch": %w`, err)
+			}
+
+			return entity, nil
+		}
+	case "Tenant":
+		resolverName, err := entityResolverNameForTenant(ctx, rep)
+		if err != nil {
+			return nil, fmt.Errorf(`finding resolver for Entity "Tenant": %w`, err)
+		}
+		switch resolverName {
+
+		case "findTenantByID":
+			id0, err := ec.unmarshalNID2string(ctx, rep["id"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 0 for findTenantByID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindTenantByID(ctx, id0)
+			if err != nil {
+				return nil, fmt.Errorf(`resolving Entity "Tenant": %w`, err)
+			}
+
+			return entity, nil
+		}
+	case "TenantPermission":
+		resolverName, err := entityResolverNameForTenantPermission(ctx, rep)
+		if err != nil {
+			return nil, fmt.Errorf(`finding resolver for Entity "TenantPermission": %w`, err)
+		}
+		switch resolverName {
+
+		case "findTenantPermissionByID":
+			id0, err := ec.unmarshalNID2string(ctx, rep["id"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 0 for findTenantPermissionByID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindTenantPermissionByID(ctx, id0)
+			if err != nil {
+				return nil, fmt.Errorf(`resolving Entity "TenantPermission": %w`, err)
+			}
+
+			return entity, nil
+		}
+	case "TenantRole":
+		resolverName, err := entityResolverNameForTenantRole(ctx, rep)
+		if err != nil {
+			return nil, fmt.Errorf(`finding resolver for Entity "TenantRole": %w`, err)
+		}
+		switch resolverName {
+
+		case "findTenantRoleByID":
+			id0, err := ec.unmarshalNID2string(ctx, rep["id"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 0 for findTenantRoleByID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindTenantRoleByID(ctx, id0)
+			if err != nil {
+				return nil, fmt.Errorf(`resolving Entity "TenantRole": %w`, err)
 			}
 
 			return entity, nil
@@ -217,7 +274,7 @@ func (ec *executionContext) resolveManyEntities(
 	}
 }
 
-func entityResolverNameForAppRole(ctx context.Context, rep EntityRepresentation) (string, error) {
+func entityResolverNameForBranch(ctx context.Context, rep EntityRepresentation) (string, error) {
 	// we collect errors because a later entity resolver may work fine
 	// when an entity has multiple keys
 	entityResolverErrs := []error{}
@@ -235,7 +292,7 @@ func entityResolverNameForAppRole(ctx context.Context, rep EntityRepresentation)
 		val, ok = m["id"]
 		if !ok {
 			entityResolverErrs = append(entityResolverErrs,
-				fmt.Errorf("%w due to missing Key Field \"id\" for AppRole", ErrTypeNotFound))
+				fmt.Errorf("%w due to missing Key Field \"id\" for Branch", ErrTypeNotFound))
 			break
 		}
 		if allNull {
@@ -243,12 +300,117 @@ func entityResolverNameForAppRole(ctx context.Context, rep EntityRepresentation)
 		}
 		if allNull {
 			entityResolverErrs = append(entityResolverErrs,
-				fmt.Errorf("%w due to all null value KeyFields for AppRole", ErrTypeNotFound))
+				fmt.Errorf("%w due to all null value KeyFields for Branch", ErrTypeNotFound))
 			break
 		}
-		return "findAppRoleByID", nil
+		return "findBranchByID", nil
 	}
-	return "", fmt.Errorf("%w for AppRole due to %v", ErrTypeNotFound,
+	return "", fmt.Errorf("%w for Branch due to %v", ErrTypeNotFound,
+		errors.Join(entityResolverErrs...).Error())
+}
+
+func entityResolverNameForTenant(ctx context.Context, rep EntityRepresentation) (string, error) {
+	// we collect errors because a later entity resolver may work fine
+	// when an entity has multiple keys
+	entityResolverErrs := []error{}
+	for {
+		var (
+			m   EntityRepresentation
+			val any
+			ok  bool
+		)
+		_ = val
+		// if all of the KeyFields values for this resolver are null,
+		// we shouldn't use use it
+		allNull := true
+		m = rep
+		val, ok = m["id"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"id\" for Tenant", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
+		if allNull {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to all null value KeyFields for Tenant", ErrTypeNotFound))
+			break
+		}
+		return "findTenantByID", nil
+	}
+	return "", fmt.Errorf("%w for Tenant due to %v", ErrTypeNotFound,
+		errors.Join(entityResolverErrs...).Error())
+}
+
+func entityResolverNameForTenantPermission(ctx context.Context, rep EntityRepresentation) (string, error) {
+	// we collect errors because a later entity resolver may work fine
+	// when an entity has multiple keys
+	entityResolverErrs := []error{}
+	for {
+		var (
+			m   EntityRepresentation
+			val any
+			ok  bool
+		)
+		_ = val
+		// if all of the KeyFields values for this resolver are null,
+		// we shouldn't use use it
+		allNull := true
+		m = rep
+		val, ok = m["id"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"id\" for TenantPermission", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
+		if allNull {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to all null value KeyFields for TenantPermission", ErrTypeNotFound))
+			break
+		}
+		return "findTenantPermissionByID", nil
+	}
+	return "", fmt.Errorf("%w for TenantPermission due to %v", ErrTypeNotFound,
+		errors.Join(entityResolverErrs...).Error())
+}
+
+func entityResolverNameForTenantRole(ctx context.Context, rep EntityRepresentation) (string, error) {
+	// we collect errors because a later entity resolver may work fine
+	// when an entity has multiple keys
+	entityResolverErrs := []error{}
+	for {
+		var (
+			m   EntityRepresentation
+			val any
+			ok  bool
+		)
+		_ = val
+		// if all of the KeyFields values for this resolver are null,
+		// we shouldn't use use it
+		allNull := true
+		m = rep
+		val, ok = m["id"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"id\" for TenantRole", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
+		if allNull {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to all null value KeyFields for TenantRole", ErrTypeNotFound))
+			break
+		}
+		return "findTenantRoleByID", nil
+	}
+	return "", fmt.Errorf("%w for TenantRole due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
 }
 

@@ -1,4 +1,4 @@
-package middleware
+package context
 
 import (
 	"context"
@@ -8,10 +8,10 @@ import (
 type contextKey string
 
 const (
-	tenantIDKey   contextKey = "tenant_id"
-	branchIDKey   contextKey = "branch_id"
-	userIDKey     contextKey = "user_id"
-	userRoleKey   contextKey = "user_role"
+	tenantIDKey contextKey = "tenant_id"
+	branchIDKey contextKey = "branch_id"
+	userIDKey   contextKey = "user_id"
+	userRoleKey contextKey = "user_role"
 )
 
 type TenantCtx struct {

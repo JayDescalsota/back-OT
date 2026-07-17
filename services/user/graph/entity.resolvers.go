@@ -7,34 +7,33 @@ package graph
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/clinicmanager/services/user/graph/generated"
 	"github.com/clinicmanager/services/user/graph/model"
 )
 
-// FindBranchByID is the resolver for the findBranchByID field.
-func (r *entityResolver) FindBranchByID(ctx context.Context, id string) (*model.Branch, error) {
-	return r.UserService.GetBranchByID(ctx, id)
-}
-
-// FindPermissionByID is the resolver for the findPermissionByID field.
-func (r *entityResolver) FindPermissionByID(ctx context.Context, id string) (*model.Permission, error) {
-	return r.UserService.GetPermissionByID(ctx, id)
-}
-
-// FindRoleByID is the resolver for the findRoleByID field.
-func (r *entityResolver) FindRoleByID(ctx context.Context, id string) (*model.Role, error) {
-	return r.UserService.GetRoleByID(ctx, id)
-}
-
-// FindTenantByID is the resolver for the findTenantByID field.
-func (r *entityResolver) FindTenantByID(ctx context.Context, id string) (*model.Tenant, error) {
-	return r.UserService.GetTenantByID(ctx, id)
+// FindAppRoleByID is the resolver for the findAppRoleByID field.
+func (r *entityResolver) FindAppRoleByID(ctx context.Context, id string) (*model.AppRole, error) {
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, err
+	}
+	role, err := r.UserService.GetAppRoleByID(ctx, idInt)
+	if err != nil {
+		return nil, err
+	}
+	roleID := strconv.Itoa(role.ID)
+	return &model.AppRole{
+		ID:          roleID,
+		Name:        role.Name,
+		Description: &role.Description,
+	}, nil
 }
 
 // FindUserByID is used by Apollo Federation to resolve a User entity by its primary key.
 func (r *entityResolver) FindUserByID(ctx context.Context, id string) (*model.User, error) {
-	return r.UserService.GetUserByID(ctx, id)
+	return r.UserService.FindUserByID(ctx, id)
 }
 
 // Entity returns generated.EntityResolver implementation.

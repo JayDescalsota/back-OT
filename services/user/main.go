@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/clinicmanager/services/user/graph/generated"
 	"github.com/clinicmanager/services/user/repository"
 	"github.com/clinicmanager/services/user/service"
+	sharedCtx "github.com/clinicmanager/shared/context"
 	sharedDB "github.com/clinicmanager/shared/db"
 	"github.com/clinicmanager/shared/logger"
 	"github.com/clinicmanager/shared/middleware"
@@ -39,14 +41,11 @@ func main() {
 		os.Exit(1)
 	}
 	port := env["USER_PORT"]
-	userDbUrl := env["USERDB_URL"]
-	if dockerUrl := os.Getenv("USERDB_DOCKER_URL"); dockerUrl != "" {
-		userDbUrl = dockerUrl
-	}
+	DbUrl := env["USERDB_URL"]
 	jwtSecret := env["JWT_SECRET"]
 	baseURL := env["BASE_URL"] + ":" + env["USER_PORT"]
 
-	db, err := sharedDB.NewDB(userDbUrl)
+	db, err := sharedDB.NewDB(DbUrl)
 	if err != nil {
 		logger.Error(context.Background(), "failed to connect to user database", "error", err)
 		os.Exit(1)
@@ -56,15 +55,19 @@ func main() {
 	userRepo := repository.NewUserRepo(db)
 
 	const (
-		accessTokenTTL        = 15 * time.Minute
-		refreshTokenTTL       = 7 * 24 * time.Hour
-		superAdminAccessTTL   = 5 * time.Minute
-		superAdminRefreshTTL  = 24 * time.Hour
+		accessTokenTTL       = 15 * time.Minute
+		refreshTokenTTL      = 7 * 24 * time.Hour
+		superAdminAccessTTL  = 5 * time.Minute
+		superAdminRefreshTTL = 24 * time.Hour
 	)
 	authService := service.NewAuthService(userRepo, jwtSecret, SMTPMailer{}, baseURL, accessTokenTTL, refreshTokenTTL)
 
 	isSessionRevoked := func(ctx context.Context, sessionID string) (bool, error) {
-		session, err := userRepo.FindSessionByID(ctx, sessionID)
+		id, err := strconv.ParseInt(sessionID, 10, 64)
+		if err != nil {
+			return true, err
+		}
+		session, err := userRepo.FindSessionByID(ctx, id)
 		if err != nil {
 			return true, err
 		}
@@ -74,7 +77,7 @@ func main() {
 		return false, nil
 	}
 
-	userService := service.NewUserService(userRepo, middleware.UserIDFromCtx, middleware.TenantIDFromCtx, middleware.UserRoleFromCtx)
+	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx)
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{
 		Resolvers: &graph.Resolver{UserService: userService},
 	}))
@@ -88,7 +91,7 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	mux.Handle("/graphql", middleware.Tenant(srv))
+	mux.Handle("/graphql", sharedCtx.Tenant(srv))
 
 	mux.Handle("POST /register", registerLimiter.Limit(registerHandler(authService)))
 	mux.Handle("POST /login", loginLimiter.Limit(loginHandler(authService)))

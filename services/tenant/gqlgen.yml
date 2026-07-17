@@ -1,0 +1,29 @@
+schema:
+  - graph/schema.graphqls
+exec:
+  filename: graph/generated/generated.go
+
+model:
+  filename: graph/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+
+federation:
+  filename: graph/generated/federation.go
+  package: generated
+  version: 2
+
+models:
+  Tenant:
+    model: github.com/clinicmanager/services/tenant/db.BunTenant
+  Branch:
+    model: github.com/clinicmanager/services/tenant/db.BunBranch
+  TenantRole:
+    model: github.com/clinicmanager/services/tenant/db.BunTenantRole
+  TenantPermission:
+    model: github.com/clinicmanager/services/tenant/db.BunTenantPermission

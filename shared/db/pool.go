@@ -17,5 +17,8 @@ func NewDB(dsn string) (*bun.DB, error) {
 	sqldb.SetConnMaxIdleTime(1 * time.Minute)
 
 	db := bun.NewDB(sqldb, pgdialect.New())
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
 	return db, nil
 }

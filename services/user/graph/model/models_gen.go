@@ -2,58 +2,38 @@
 
 package model
 
-type Branch struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type AppRole struct {
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Description   *string `json:"description,omitempty"`
+	CreatedAt     string  `json:"createdAt"`
+	CreatedBy     *string `json:"createdBy,omitempty"`
+	CreatedAction *string `json:"createdAction,omitempty"`
+	UpdatedAt     *string `json:"updatedAt,omitempty"`
+	UpdatedBy     *string `json:"updatedBy,omitempty"`
+	UpdatedAction *string `json:"updatedAction,omitempty"`
 }
 
-func (Branch) IsEntity() {}
-
-type Permission struct {
-	ID       string `json:"id"`
-	Resource string `json:"resource"`
-	Action   string `json:"action"`
-	Scope    string `json:"scope"`
-}
-
-func (Permission) IsEntity() {}
+func (AppRole) IsEntity() {}
 
 type Query struct {
 }
 
-type Role struct {
-	ID          string        `json:"id"`
-	Name        string        `json:"name"`
-	Description *string       `json:"description,omitempty"`
-	Permissions []*Permission `json:"permissions"`
-}
-
-func (Role) IsEntity() {}
-
-type Tenant struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-func (Tenant) IsEntity() {}
-
 type User struct {
-	ID          string                  `json:"id"`
-	Email       string                  `json:"email"`
-	Name        string                  `json:"name"`
-	IsActive    bool                    `json:"isActive"`
-	LastLogin   *string                 `json:"lastLogin,omitempty"`
-	Assignments []*UserBranchAssignment `json:"assignments"`
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	Name          string     `json:"name"`
+	IsActive      bool       `json:"isActive"`
+	LastLogin     *string    `json:"lastLogin,omitempty"`
+	AppRoles      []*AppRole `json:"appRoles"`
+	IsValidated   bool       `json:"isValidated"`
+	ValidatedAt   *string    `json:"validatedAt,omitempty"`
+	CreatedAt     string     `json:"createdAt"`
+	UpdatedAt     string     `json:"updatedAt"`
+	CreatedBy     *string    `json:"createdBy,omitempty"`
+	UpdatedBy     *string    `json:"updatedBy,omitempty"`
+	CreatedAction *string    `json:"createdAction,omitempty"`
+	UpdatedAction *string    `json:"updatedAction,omitempty"`
 }
 
 func (User) IsEntity() {}
-
-type UserBranchAssignment struct {
-	ID         string  `json:"id"`
-	Branch     *Branch `json:"branch"`
-	Tenant     *Tenant `json:"tenant"`
-	Role       *Role   `json:"role"`
-	AssignedBy string  `json:"assignedBy"`
-	AssignedAt string  `json:"assignedAt"`
-	IsActive   bool    `json:"isActive"`
-}

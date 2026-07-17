@@ -44,7 +44,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 1
-      POSTGRES_DB: clinic_manager
+      POSTGRES_DB: clinic
     ports:
       - "5432:5432"
     volumes:
@@ -68,6 +68,7 @@ services:
     command: -s /dist/config/supergraph.graphql -c /dist/config/router.yaml
     depends_on:
       - user
+      - tenant
 
   user:
     build:
@@ -79,10 +80,28 @@ services:
     env_file:
       - .env
     environment:
-      USERDB_URL: postgres://postgres:1@db:5432/user?sslmode=disable
       IN_DOCKER: "true"
     ports:
       - "8081:8081"
+    volumes:
+      - ./.env:/app/.env
+    depends_on:
+      - db
+      - redis
+
+  tenant:
+    build:
+      context: .
+      dockerfile: services/tenant/Dockerfile
+    image: clinic/tenant:latest
+    container_name: tenant
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      IN_DOCKER: "true"
+    ports:
+      - "8082:8082"
     volumes:
       - ./.env:/app/.env
     depends_on:

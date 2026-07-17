@@ -1,48 +1,33 @@
+type AppRole @key(fields: "id") {
+  id: ID!
+  name: String!
+  description: String
+  createdAt: String!
+  createdBy: String
+  createdAction: String
+  updatedAt: String
+  updatedBy: String
+  updatedAction: String
+}
+
 type User @key(fields: "id") {
   id: ID!
   email: String!
   name: String!
   isActive: Boolean!
   lastLogin: String
-  assignments: [UserBranchAssignment!]!
-}
-
-type UserBranchAssignment {
-  id: ID!
-  branch: Branch!
-  tenant: Tenant!
-  role: Role!
-  assignedBy: String!
-  assignedAt: String!
-  isActive: Boolean!
-}
-
-type Role @key(fields: "id") {
-  id: ID!
-  name: String!
-  description: String
-  permissions: [Permission!]!
-}
-
-type Permission @key(fields: "id") {
-  id: ID!
-  resource: String!
-  action: String!
-  scope: String!
-}
-
-type Tenant @key(fields: "id") {
-  id: ID!
-  name: String!
-}
-
-type Branch @key(fields: "id") {
-  id: ID!
-  name: String!
+  appRoles: [AppRole!]!
+  isValidated: Boolean!
+  validatedAt: String
+  createdAt: String!
+  updatedAt: String!
+  createdBy: String
+  updatedBy: String
+  createdAction: String
+  updatedAction: String
 }
 
 type Query {
-  me: User!
+  meUser: User!
   user(id: ID!): User
-  myAssignments: [UserBranchAssignment!]!
 }

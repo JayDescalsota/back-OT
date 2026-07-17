@@ -9,47 +9,26 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/clinicmanager/services/user/models"
-	"github.com/clinicmanager/services/user/repository"
 	"github.com/clinicmanager/services/user/service"
-	"github.com/clinicmanager/services/user/graph/model"
 )
 
 type mockRepo struct {
-	findByIDFn                func(ctx context.Context, id string) (*models.User, error)
-	findAssignmentsByIDFn     func(ctx context.Context, userID string) ([]*repository.BunUserBranchAssignment, error)
-	findAssignmentsByTenantFn func(ctx context.Context, userID, tenantID string) ([]*repository.BunUserBranchAssignment, error)
+	findByIDFn       func(ctx context.Context, id string) (*models.User, error)
+	findUserAppRoles func(ctx context.Context, userID string) ([]*models.AppRole, error)
+	hasAppRoleFn     func(ctx context.Context, userID, roleName string) (bool, error)
 }
 
 func (m *mockRepo) FindUserByID(ctx context.Context, id string) (*models.User, error) {
 	return m.findByIDFn(ctx, id)
 }
-func (m *mockRepo) FindAssignmentsByUser(ctx context.Context, userID string) ([]*repository.BunUserBranchAssignment, error) {
-	return m.findAssignmentsByIDFn(ctx, userID)
-}
-func (m *mockRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*repository.BunUserBranchAssignment, error) {
-	return m.findAssignmentsByTenantFn(ctx, userID, tenantID)
-}
-func (m *mockRepo) FindTenantByID(ctx context.Context, id string) (*model.Tenant, error) {
+func (m *mockRepo) FindUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	return nil, nil
 }
-func (m *mockRepo) FindBranchByID(ctx context.Context, id string) (*model.Branch, error) {
-	return nil, nil
-}
-func (m *mockRepo) FindRoleByID(ctx context.Context, id string) (*model.Role, error) {
-	return nil, nil
-}
-func (m *mockRepo) FindPermissionByID(ctx context.Context, id string) (*model.Permission, error) {
-	return nil, nil
-}
-
 func (m *mockRepo) Register(ctx context.Context, email, password, validationToken string) (*models.User, error) {
 	return nil, nil
 }
 func (m *mockRepo) UpdateLastLogin(ctx context.Context, userID string) error {
 	return nil
-}
-func (m *mockRepo) FindUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	return nil, nil
 }
 func (m *mockRepo) FindUserByValidationToken(ctx context.Context, token string) (*models.User, error) {
 	return nil, nil
@@ -72,7 +51,7 @@ func (m *mockRepo) ResetPassword(ctx context.Context, userID, newPassword string
 func (m *mockRepo) CreateSession(ctx context.Context, session *models.Session) error {
 	return nil
 }
-func (m *mockRepo) FindSessionByID(ctx context.Context, id string) (*models.Session, error) {
+func (m *mockRepo) FindSessionByID(ctx context.Context, id int64) (*models.Session, error) {
 	return nil, nil
 }
 func (m *mockRepo) FindSessionByToken(ctx context.Context, token string) (*models.Session, error) {
@@ -81,22 +60,34 @@ func (m *mockRepo) FindSessionByToken(ctx context.Context, token string) (*model
 func (m *mockRepo) FindSessionsByUser(ctx context.Context, userID string) ([]*models.Session, error) {
 	return nil, nil
 }
-func (m *mockRepo) RevokeSession(ctx context.Context, sessionID string) error {
+func (m *mockRepo) RevokeSession(ctx context.Context, sessionID int64) error {
 	return nil
 }
 func (m *mockRepo) RevokeAllSessionsForUser(ctx context.Context, userID string) error {
 	return nil
 }
+func (m *mockRepo) UpdateSessionAccessToken(ctx context.Context, sessionID int64, accessToken string) error {
+	return nil
+}
+func (m *mockRepo) HasAppRole(ctx context.Context, userID, roleName string) (bool, error) {
+	if m.hasAppRoleFn != nil {
+		return m.hasAppRoleFn(ctx, userID, roleName)
+	}
+	return false, nil
+}
+func (m *mockRepo) FindUserAppRoles(ctx context.Context, userID string) ([]*models.AppRole, error) {
+	if m.findUserAppRoles != nil {
+		return m.findUserAppRoles(ctx, userID)
+	}
+	return []*models.AppRole{}, nil
+}
+func (m *mockRepo) GetAppRoleByID(ctx context.Context, id int) (*models.AppRole, error) {
+	return nil, nil
+}
 
 func defaultMock() *mockRepo {
 	return &mockRepo{
 		findByIDFn: func(_ context.Context, _ string) (*models.User, error) { return nil, nil },
-		findAssignmentsByIDFn: func(_ context.Context, _ string) ([]*repository.BunUserBranchAssignment, error) {
-			return []*repository.BunUserBranchAssignment{}, nil
-		},
-		findAssignmentsByTenantFn: func(_ context.Context, _, _ string) ([]*repository.BunUserBranchAssignment, error) {
-			return []*repository.BunUserBranchAssignment{}, nil
-		},
 	}
 }
 
@@ -116,21 +107,13 @@ func currentUser(userID string) service.CurrentUserFn {
 	return func(_ context.Context) string { return userID }
 }
 
-func currentTenant(tenantID string) service.CurrentTenantFn {
-	return func(_ context.Context) string { return tenantID }
-}
-
-func currentRole(role string) service.CurrentRoleFn {
-	return func(_ context.Context) string { return role }
-}
-
 func TestGetMe_Success(t *testing.T) {
 	mock := defaultMock()
 	id := uuid.New().String()
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
 		return userStub(uid, "alice@test.com", "Alice"), nil
 	}
-	svc := service.NewUserService(mock, currentUser(id), currentTenant(""), currentRole(""))
+	svc := service.NewUserService(mock, currentUser(id))
 
 	user, err := svc.GetMe(context.Background())
 	if err != nil {
@@ -142,7 +125,7 @@ func TestGetMe_Success(t *testing.T) {
 }
 
 func TestGetMe_EmptyID(t *testing.T) {
-	svc := service.NewUserService(defaultMock(), currentUser(""), currentTenant(""), currentRole(""))
+	svc := service.NewUserService(defaultMock(), currentUser(""))
 	_, err := svc.GetMe(context.Background())
 	if err == nil {
 		t.Fatal("expected unauthorized error")
@@ -151,7 +134,7 @@ func TestGetMe_EmptyID(t *testing.T) {
 
 func TestGetMe_NotFound(t *testing.T) {
 	mock := defaultMock()
-	svc := service.NewUserService(mock, currentUser(uuid.New().String()), currentTenant(""), currentRole(""))
+	svc := service.NewUserService(mock, currentUser(uuid.New().String()))
 	_, err := svc.GetMe(context.Background())
 	if err == nil {
 		t.Fatal("expected not found error")
@@ -163,64 +146,48 @@ func TestGetMe_RepoError(t *testing.T) {
 	mock.findByIDFn = func(_ context.Context, _ string) (*models.User, error) {
 		return nil, errors.New("db error")
 	}
-	svc := service.NewUserService(mock, currentUser(uuid.New().String()), currentTenant(""), currentRole(""))
+	svc := service.NewUserService(mock, currentUser(uuid.New().String()))
 	_, err := svc.GetMe(context.Background())
 	if err == nil {
 		t.Fatal("expected error")
 	}
 }
 
-func TestGetByIDScopedToTenant_Success(t *testing.T) {
+func TestGetUserByID_NotAuthenticated(t *testing.T) {
 	mock := defaultMock()
-	id := uuid.New().String()
-	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
-		return userStub(uid, "bob@test.com", "Bob"), nil
-	}
-	svc := service.NewUserService(mock, currentUser(""), currentTenant("tenant-id"), currentRole(""))
-
-	user, err := svc.GetByIDScopedToTenant(context.Background(), id)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if user.Email != "bob@test.com" {
-		t.Errorf("expected bob@test.com, got %s", user.Email)
-	}
-}
-
-func TestGetByIDScopedToTenant_NotFound(t *testing.T) {
-	mock := defaultMock()
-	svc := service.NewUserService(mock, currentUser(""), currentTenant("tenant-id"), currentRole(""))
-	_, err := svc.GetByIDScopedToTenant(context.Background(), uuid.New().String())
+	svc := service.NewUserService(mock, currentUser(""))
+	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
 	if err == nil {
-		t.Fatal("expected not found error")
+		t.Fatal("expected unauthorized error")
 	}
 }
 
-func TestGetByID_SuperAdmin(t *testing.T) {
+func TestGetUserByID_SuperAdmin(t *testing.T) {
 	mock := defaultMock()
 	myID := uuid.New().String()
 	targetID := uuid.New().String()
 
-	// The current user lookup (super admin)
-	superAdmin := userStub(myID, "admin@test.com", "Admin")
-	superAdmin.IsSuperAdmin = true
-
-	// Target user
 	targetUser := userStub(targetID, "target@test.com", "Target")
 
 	var callCount int
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
 		callCount++
 		if uid == myID {
-			return superAdmin, nil
+			return userStub(myID, "admin@test.com", "Admin"), nil
 		}
 		if uid == targetID {
 			return targetUser, nil
 		}
 		return nil, nil
 	}
+	mock.hasAppRoleFn = func(_ context.Context, uid, role string) (bool, error) {
+		if uid == myID && role == "super_admin" {
+			return true, nil
+		}
+		return false, nil
+	}
 
-	svc := service.NewUserService(mock, currentUser(myID), currentTenant(""), currentRole("super_admin"))
+	svc := service.NewUserService(mock, currentUser(myID))
 	user, err := svc.GetUserByID(context.Background(), targetID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -230,129 +197,32 @@ func TestGetByID_SuperAdmin(t *testing.T) {
 	}
 }
 
-func TestGetByID_NotSuperAdmin_MissingTenant(t *testing.T) {
+func TestGetUserByID_NotSuperAdmin(t *testing.T) {
 	mock := defaultMock()
 	myID := uuid.New().String()
 
-	regularUser := userStub(myID, "user@test.com", "User")
-	regularUser.IsSuperAdmin = false
-
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
 		if uid == myID {
-			return regularUser, nil
+			return userStub(myID, "user@test.com", "User"), nil
 		}
 		return nil, nil
 	}
+	mock.hasAppRoleFn = func(_ context.Context, uid, role string) (bool, error) {
+		return false, nil
+	}
 
-	svc := service.NewUserService(mock, currentUser(myID), currentTenant(""), currentRole(""))
+	svc := service.NewUserService(mock, currentUser(myID))
 	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
 	if err == nil {
-		t.Fatal("expected unauthorized error for missing tenant context")
+		t.Fatal("expected forbidden error for non-super-admin")
 	}
 }
 
-func TestGetByID_ClaimMismatch(t *testing.T) {
-	mock := defaultMock()
-	myID := uuid.New().String()
-
-	// DB says super admin but JWT doesn't
-	regularUser := userStub(myID, "admin@test.com", "Admin")
-	regularUser.IsSuperAdmin = true
-
-	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
-		if uid == myID {
-			return regularUser, nil
-		}
-		return nil, nil
-	}
-
-	svc := service.NewUserService(mock, currentUser(myID), currentTenant("tenant-1"), currentRole(""))
-	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
-	if err == nil {
-		t.Fatal("expected unauthorized error for claim mismatch")
-	}
-}
-
-func TestGetByID_NotSuperAdmin_WithTenant(t *testing.T) {
-	mock := defaultMock()
-	myID := uuid.New().String()
-	targetID := uuid.New().String()
-
-	regularUser := userStub(myID, "user@test.com", "User")
-	regularUser.IsSuperAdmin = false
-	targetUser := userStub(targetID, "target@test.com", "Target")
-
-	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
-		if uid == myID {
-			return regularUser, nil
-		}
-		if uid == targetID {
-			return targetUser, nil
-		}
-		return nil, nil
-	}
-
-	svc := service.NewUserService(mock, currentUser(myID), currentTenant("tenant-1"), currentRole(""))
-	user, err := svc.GetUserByID(context.Background(), targetID)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if user.Email != "target@test.com" {
-		t.Errorf("expected target@test.com, got %s", user.Email)
-	}
-}
-
-func TestGetByID_NotAuthenticated(t *testing.T) {
-	mock := defaultMock()
-	svc := service.NewUserService(mock, currentUser(""), currentTenant(""), currentRole(""))
-	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
-	if err == nil {
-		t.Fatal("expected unauthorized error")
-	}
-}
-
-func TestGetByID_CurrentUserNotFound(t *testing.T) {
+func TestGetUserByID_CurrentUserNotFound(t *testing.T) {
 	mock := defaultMock()
 	mock.findByIDFn = func(_ context.Context, _ string) (*models.User, error) { return nil, nil }
-	svc := service.NewUserService(mock, currentUser(uuid.New().String()), currentTenant(""), currentRole(""))
+	svc := service.NewUserService(mock, currentUser(uuid.New().String()))
 	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
-	if err == nil {
-		t.Fatal("expected unauthorized error")
-	}
-}
-
-func TestGetMyAssignments_Success(t *testing.T) {
-	mock := defaultMock()
-	userID := uuid.New().String()
-	now := time.Now()
-	mock.findAssignmentsByIDFn = func(_ context.Context, uid string) ([]*repository.BunUserBranchAssignment, error) {
-		return []*repository.BunUserBranchAssignment{
-			{
-				ID:         uuid.New().String(),
-				UserID:     uid,
-				BranchID:   uuid.New().String(),
-				TenantID:   uuid.New().String(),
-				RoleID:     uuid.New().String(),
-				AssignedBy: uuid.New().String(),
-				AssignedAt: now,
-				IsActive:   true,
-			},
-		}, nil
-	}
-	svc := service.NewUserService(mock, currentUser(userID), currentTenant(""), currentRole(""))
-
-	assignments, err := svc.GetMyAssignments(context.Background())
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(assignments) != 1 {
-		t.Fatalf("expected 1 assignment, got %d", len(assignments))
-	}
-}
-
-func TestGetMyAssignments_EmptyID(t *testing.T) {
-	svc := service.NewUserService(defaultMock(), currentUser(""), currentTenant(""), currentRole(""))
-	_, err := svc.GetMyAssignments(context.Background())
 	if err == nil {
 		t.Fatal("expected unauthorized error")
 	}

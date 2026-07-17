@@ -1,0 +1,63 @@
+type Tenant @key(fields: "id") {
+  id: ID!
+  name: String!
+  slug: String!
+  domain: String
+  status: String!
+}
+
+type Branch @key(fields: "id") {
+  id: ID!
+  tenantId: String!
+  name: String!
+  address: String
+  timezone: String!
+  phone: String
+  isActive: Boolean!
+}
+
+type TenantRole @key(fields: "id") {
+  id: ID!
+  name: String!
+  description: String
+  isSystemRole: Boolean!
+  tenantId: String
+  permissions: [TenantPermission!]!
+}
+
+type TenantPermission @key(fields: "id") {
+  id: ID!
+  resource: String!
+  action: String!
+  scope: String!
+  description: String
+}
+
+type TenantUserAssignment {
+  id: ID!
+  userId: String!
+  branch: Branch!
+  tenant: Tenant!
+  role: TenantRole!
+  assignedBy: String
+  assignedAt: String!
+  updatedAt: String
+  updatedBy: String
+  updatedAction: String
+  isActive: Boolean!
+}
+
+extend type User @key(fields: "id") {
+  id: ID! @external
+  assignments: [TenantUserAssignment!]!
+}
+
+type Query {
+  meTenant: User!
+  tenant(id: ID!): Tenant
+  branch(id: ID!): Branch
+  tenantRole(id: ID!): TenantRole
+  tenantPermission(id: ID!): TenantPermission
+  myAssignments: [TenantUserAssignment!]!
+  assignmentsByUser(userId: ID!): [TenantUserAssignment!]!
+}
