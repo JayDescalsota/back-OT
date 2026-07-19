@@ -1,0 +1,133 @@
+type Patient @key(fields: "id") {
+  id: ID!
+  tenantId: String!
+  branchId: String!
+  firstName: String!
+  lastName: String!
+  dateOfBirth: String!
+  gender: String!
+  notes: String
+  height: String
+  weight: String
+  isActive: Boolean!
+  address: PatientAddress
+  tag: [PatientTags!]!
+  guardian: [Guardian!]!
+}
+
+type PatientTags {
+  id: ID!
+  name: String!
+}
+
+type Guardian @key(fields: "id") {
+  id: ID!
+  firstName: String!
+  lastName: String!
+  gender: String!
+  email: String
+  phone: String!
+  notes: String
+  isActive: Boolean!
+  address: PatientAddress!
+  patient: [Patient!]!
+}
+
+type PatientAddress {
+  id: ID!
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
+input PatientFilter {
+  search: String
+}
+
+input PatientPagination {
+  limit: Int = 10
+  offset: Int = 0
+}
+
+input PatientsFilter {
+  filter: [PatientFilter!]
+  pagination: [PatientPagination!]
+}
+
+input PatientAddressInput {
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
+input PatientInput {
+  firstName: String!
+  lastName: String!
+  dateOfBirth: String!
+  gender: String!
+  notes: String
+  height: String
+  weight: String
+  address: PatientAddressInput!
+}
+
+input PatientUpdateInput {
+  firstName: String
+  lastName: String
+  dateOfBirth: String
+  gender: String
+  notes: String
+  height: String
+  weight: String
+  address: PatientAddressInput
+}
+
+input GuardianInput {
+  firstName: String!
+  lastName: String!
+  gender: String!
+  email: String
+  phone: String
+  notes: String
+}
+
+input GuardianUpdateInput {
+  firstName: String
+  lastName: String
+  gender: String
+  email: String
+  phone: String
+  notes: String
+}
+
+type PatientGuardianRelationship {
+  patientId: ID!
+  guardianId: ID!
+  relationship: String!
+}
+
+type Query {
+  patient(id: ID!): Patient
+  patients(filter: PatientsFilter): [Patient!]!
+  guardian(id: ID!): Guardian
+}
+
+type Mutation {
+  createPatient(input: PatientInput!): Patient!
+  updatePatient(id: ID!, input: PatientUpdateInput!): Patient!
+  deletePatient(id: ID!): Patient!
+  inactivatePatient(id: ID!): Patient!
+  reactivatePatient(id: ID!): Patient!
+  createGuardian(input: GuardianInput!): Guardian!
+  updateGuardian(id: ID!, input: GuardianUpdateInput!): Guardian!
+  deleteGuardian(id: ID!): Guardian!
+  addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
+  updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
+  removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean!
+}

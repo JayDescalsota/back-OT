@@ -11,6 +11,7 @@ import (
 	"github.com/uptrace/bun/dialect/pgdialect"
 
 	"github.com/clinicmanager/services/user/repository"
+	sharedDB "github.com/clinicmanager/shared/db"
 )
 
 func newMockDB(t *testing.T) (*bun.DB, sqlmock.Sqlmock) {
@@ -27,7 +28,8 @@ func newMockDB(t *testing.T) (*bun.DB, sqlmock.Sqlmock) {
 func newUserRepo(t *testing.T) (*repository.UserRepo, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock := newMockDB(t)
-	return repository.NewUserRepo(db), mock
+	dbSet := sharedDB.NewDBSet(db)
+	return repository.NewUserRepo(dbSet), mock
 }
 
 func TestUserRepo_FindUserByID_Found(t *testing.T) {

@@ -52,7 +52,8 @@ func main() {
 	}
 	defer db.Close()
 
-	userRepo := repository.NewUserRepo(db)
+	dbSet := sharedDB.NewDBSet(db)
+	userRepo := repository.NewUserRepo(dbSet)
 
 	const (
 		accessTokenTTL       = 15 * time.Minute

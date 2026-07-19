@@ -7,6 +7,7 @@ import (
 	"github.com/clinicmanager/services/tenant/db"
 	"github.com/clinicmanager/services/tenant/graph/model"
 	sharedctx "github.com/clinicmanager/shared/context"
+	shareddb "github.com/clinicmanager/shared/db"
 	bun "github.com/uptrace/bun"
 )
 
@@ -26,16 +27,31 @@ type TenantRepository interface {
 }
 
 type TenantRepo struct {
-	db *bun.DB
+	// db: tenant_id + branch_id scoped (default, most restrictive).
+	db *shareddb.ScopedDB
+	// tenantdb: tenant_id scoped only (cross-branch access e.g. listing a tenant's branches).
+	tenantdb *shareddb.ScopedDB
+	// alldb: no automatic filters (for root entities like tenants themselves, or system-level data).
+	alldb *shareddb.ScopedDB
+	// raw: underlying *bun.DB for NewRaw queries that cannot be intercepted by ScopedDB.
+	// SECURITY: raw SQL queries in this file apply manual tenant/branch filtering via sharedctx.
+	raw *bun.DB
 }
 
-func NewTenantRepo(db *bun.DB) *TenantRepo {
-	return &TenantRepo{db: db}
+func NewTenantRepo(dbs *shareddb.DBSet) *TenantRepo {
+	return &TenantRepo{
+		db:       dbs.DB,
+		tenantdb: dbs.TenantDB,
+		alldb:    dbs.AllDB,
+		raw:      dbs.AllDB.Raw(),
+	}
 }
+
 
 func (r *TenantRepo) FindTenantByID(ctx context.Context, id string) (*db.BunTenant, error) {
+	// r.db safely checks if BunTenant has tenant/branch columns (skips if absent).
 	tenant := new(db.BunTenant)
-	err := r.db.NewSelect().Model(tenant).Where("id = ?", id).Scan(ctx)
+	err := r.db.NewSelect(ctx, tenant).Where("id = ?", id).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -47,7 +63,7 @@ func (r *TenantRepo) FindTenantByID(ctx context.Context, id string) (*db.BunTena
 
 func (r *TenantRepo) FindTenantBySlug(ctx context.Context, slug string) (*db.BunTenant, error) {
 	tenant := new(db.BunTenant)
-	err := r.db.NewSelect().Model(tenant).Where("slug = ?", slug).Scan(ctx)
+	err := r.db.NewSelect(ctx, tenant).Where("slug = ?", slug).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -58,14 +74,16 @@ func (r *TenantRepo) FindTenantBySlug(ctx context.Context, slug string) (*db.Bun
 }
 
 func (r *TenantRepo) ListTenants(ctx context.Context) ([]*db.BunTenant, error) {
+	// Admin-only: tenants table has no tenant_id column.
 	var tenants []*db.BunTenant
-	err := r.db.NewSelect().Model(&tenants).Scan(ctx)
+	err := r.db.NewSelect(ctx, &tenants).Scan(ctx)
 	return tenants, err
 }
 
 func (r *TenantRepo) FindBranchByID(ctx context.Context, id string) (*db.BunBranch, error) {
+	// Branches have tenant_id — tenantdb enforces it automatically.
 	branch := new(db.BunBranch)
-	err := r.db.NewSelect().Model(branch).Where("id = ?", id).Scan(ctx)
+	err := r.tenantdb.NewSelect(ctx, branch).Where("id = ?", id).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -77,20 +95,20 @@ func (r *TenantRepo) FindBranchByID(ctx context.Context, id string) (*db.BunBran
 
 func (r *TenantRepo) FindBranchesByTenant(ctx context.Context, tenantID string) ([]*db.BunBranch, error) {
 	var branches []*db.BunBranch
-	q := r.db.NewSelect().Model(&branches)
+	// tenantdb auto-applies ctx tenant_id. If no ctx tenant, fall back to the explicit param.
 	scopedTenantID := sharedctx.TenantIDFromCtx(ctx)
 	if scopedTenantID != "" {
-		q = q.Where("tenant_id = ?", scopedTenantID)
-	} else {
-		q = q.Where("tenant_id = ?", tenantID)
+		err := r.tenantdb.NewSelect(ctx, &branches).Scan(ctx)
+		return branches, err
 	}
-	err := q.Scan(ctx)
+	err := r.db.NewSelect(ctx, &branches).Where("tenant_id = ?", tenantID).Scan(ctx)
 	return branches, err
 }
 
 func (r *TenantRepo) FindRoleByID(ctx context.Context, id string) (*db.BunTenantRole, error) {
+	// Roles can be system-level (no tenant_id) — use alldb to avoid silently filtering them out.
 	role := new(db.BunTenantRole)
-	err := r.db.NewSelect().Model(role).Where("id = ? ", id).Scan(ctx)
+	err := r.db.NewSelect(ctx, role).Where("id = ?", id).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -102,26 +120,28 @@ func (r *TenantRepo) FindRoleByID(ctx context.Context, id string) (*db.BunTenant
 
 func (r *TenantRepo) ListSystemRoles(ctx context.Context) ([]*db.BunTenantRole, error) {
 	var roles []*db.BunTenantRole
-	err := r.db.NewSelect().Model(&roles).Where("is_system_role = ?", true).Scan(ctx)
+	err := r.db.NewSelect(ctx, &roles).Where("is_system_role = ?", true).Scan(ctx)
 	return roles, err
 }
 
 func (r *TenantRepo) ListTenantRoles(ctx context.Context, tenantID string) ([]*db.BunTenantRole, error) {
 	var roles []*db.BunTenantRole
-	q := r.db.NewSelect().Model(&roles)
+	// Roles overlap: tenant-specific AND system roles. Cannot use automatic scoping here
+	// because system roles have tenant_id = NULL — tenantdb would filter them out.
 	scopedTenantID := sharedctx.TenantIDFromCtx(ctx)
-	if scopedTenantID != "" {
-		q = q.Where("(tenant_id = ? OR is_system_role = ?)", scopedTenantID, true)
-	} else {
-		q = q.Where("(tenant_id = ? OR is_system_role = ?)", tenantID, true)
+	if scopedTenantID == "" {
+		scopedTenantID = tenantID
 	}
-	err := q.Scan(ctx)
+	err := r.alldb.NewSelect(ctx, &roles).
+		Where("(tenant_id = ? OR is_system_role = ?)", scopedTenantID, true).
+		Scan(ctx)
 	return roles, err
 }
 
 func (r *TenantRepo) FindPermissionByID(ctx context.Context, id string) (*db.BunTenantPermission, error) {
+	// Permissions are system-level definitions — use alldb.
 	perm := new(db.BunTenantPermission)
-	err := r.db.NewSelect().Model(perm).Where("id = ?", id).Scan(ctx)
+	err := r.db.NewSelect(ctx, perm).Where("id = ?", id).Scan(ctx)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -133,7 +153,9 @@ func (r *TenantRepo) FindPermissionByID(ctx context.Context, id string) (*db.Bun
 
 func (r *TenantRepo) FindPermissionsByRole(ctx context.Context, roleID string) ([]*db.BunTenantPermission, error) {
 	var permissions []*db.BunTenantPermission
-	err := r.db.NewSelect().
+	// JOIN query — model is tenant_role_permissions, not BunTenantPermission directly.
+	// Use r.raw directly since the primary model isn't BunTenantPermission.
+	err := r.raw.NewSelect().
 		Model(&permissions).
 		Column("p.*").
 		TableExpr("tenant_role_permissions AS trp").
@@ -145,6 +167,8 @@ func (r *TenantRepo) FindPermissionsByRole(ctx context.Context, roleID string) (
 
 func (r *TenantRepo) FindAssignmentsByUser(ctx context.Context, userID string) ([]*model.TenantUserAssignment, error) {
 	var rows []*assignmentRow
+	// SECURITY NOTE: This is a complex multi-JOIN raw query. ScopedDB cannot intercept NewRaw.
+	// Tenant/branch scoping is applied manually here via sharedctx.
 	query := `
 		SELECT tua.*, tr.name AS role_name, tr.description AS role_description,
 		       b.name AS branch_name, t.name AS tenant_name, t.slug AS tenant_slug
@@ -163,7 +187,7 @@ func (r *TenantRepo) FindAssignmentsByUser(ctx context.Context, userID string) (
 		query += " AND tua.branch_id = ?"
 		args = append(args, tctx.BranchID)
 	}
-	err := r.db.NewRaw(query, args...).Scan(ctx, &rows)
+	err := r.raw.NewRaw(query, args...).Scan(ctx, &rows)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +200,8 @@ func (r *TenantRepo) FindAssignmentsByUser(ctx context.Context, userID string) (
 
 func (r *TenantRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*model.TenantUserAssignment, error) {
 	var rows []*assignmentRow
+	// SECURITY NOTE: This is a complex multi-JOIN raw query. ScopedDB cannot intercept NewRaw.
+	// Tenant/branch scoping is applied manually here via sharedctx.
 	query := `
 		SELECT tua.*, tr.name AS role_name, tr.description AS role_description,
 		       b.name AS branch_name, t.name AS tenant_name, t.slug AS tenant_slug
@@ -190,7 +216,7 @@ func (r *TenantRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID,
 		query += " AND tua.branch_id = ?"
 		args = append(args, tctx.BranchID)
 	}
-	err := r.db.NewRaw(query, args...).Scan(ctx, &rows)
+	err := r.raw.NewRaw(query, args...).Scan(ctx, &rows)
 	if err != nil {
 		return nil, err
 	}

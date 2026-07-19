@@ -1,5 +1,6 @@
 schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) {
   query: Query
+  mutation: Mutation
 }
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
@@ -30,11 +31,155 @@ enum link__Purpose {
 scalar link__Import
 
 enum join__Graph {
+  PATIENT @join__graph(name: "patient", url: "http://patient:8083/graphql")
   TENANT @join__graph(name: "tenant", url: "http://tenant:8082/graphql")
   USER @join__graph(name: "user", url: "http://user:8081/graphql")
 }
 
 scalar join__FieldSet
+
+type Patient @join__type(graph: PATIENT, key: "id") {
+  id: ID!
+  tenantId: String!
+  branchId: String!
+  firstName: String!
+  lastName: String!
+  dateOfBirth: String!
+  gender: String!
+  notes: String
+  height: String
+  weight: String
+  isActive: Boolean!
+  address: PatientAddress
+  tag: [PatientTags!]!
+  guardian: [Guardian!]!
+}
+
+type PatientTags @join__type(graph: PATIENT) {
+  id: ID!
+  name: String!
+}
+
+type Guardian @join__type(graph: PATIENT, key: "id") {
+  id: ID!
+  firstName: String!
+  lastName: String!
+  gender: String!
+  email: String
+  phone: String!
+  notes: String
+  isActive: Boolean!
+  address: PatientAddress!
+  patient: [Patient!]!
+}
+
+type PatientAddress @join__type(graph: PATIENT) {
+  id: ID!
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
+input PatientFilter @join__type(graph: PATIENT) {
+  search: String
+}
+
+input PatientPagination @join__type(graph: PATIENT) {
+  limit: Int = 10
+  offset: Int = 0
+}
+
+input PatientsFilter @join__type(graph: PATIENT) {
+  filter: [PatientFilter!]
+  pagination: [PatientPagination!]
+}
+
+input PatientAddressInput @join__type(graph: PATIENT) {
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
+input PatientInput @join__type(graph: PATIENT) {
+  firstName: String!
+  lastName: String!
+  dateOfBirth: String!
+  gender: String!
+  notes: String
+  height: String
+  weight: String
+  address: PatientAddressInput!
+}
+
+input PatientUpdateInput @join__type(graph: PATIENT) {
+  firstName: String
+  lastName: String
+  dateOfBirth: String
+  gender: String
+  notes: String
+  height: String
+  weight: String
+  address: PatientAddressInput
+}
+
+input GuardianInput @join__type(graph: PATIENT) {
+  firstName: String!
+  lastName: String!
+  gender: String!
+  email: String
+  phone: String
+  notes: String
+}
+
+input GuardianUpdateInput @join__type(graph: PATIENT) {
+  firstName: String
+  lastName: String
+  gender: String
+  email: String
+  phone: String
+  notes: String
+}
+
+type PatientGuardianRelationship @join__type(graph: PATIENT) {
+  patientId: ID!
+  guardianId: ID!
+  relationship: String!
+}
+
+type Query @join__type(graph: PATIENT) @join__type(graph: TENANT) @join__type(graph: USER) {
+  patient(id: ID!): Patient @join__field(graph: PATIENT)
+  patients(filter: PatientsFilter): [Patient!]! @join__field(graph: PATIENT)
+  guardian(id: ID!): Guardian @join__field(graph: PATIENT)
+  meTenant: User! @join__field(graph: TENANT)
+  tenant(id: ID!): Tenant @join__field(graph: TENANT)
+  branch(id: ID!): Branch @join__field(graph: TENANT)
+  tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
+  tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
+  myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
+  assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
+  meUser: User! @join__field(graph: USER)
+  user(id: ID!): User @join__field(graph: USER)
+}
+
+type Mutation @join__type(graph: PATIENT) {
+  createPatient(input: PatientInput!): Patient!
+  updatePatient(id: ID!, input: PatientUpdateInput!): Patient!
+  deletePatient(id: ID!): Patient!
+  inactivatePatient(id: ID!): Patient!
+  reactivatePatient(id: ID!): Patient!
+  createGuardian(input: GuardianInput!): Guardian!
+  updateGuardian(id: ID!, input: GuardianUpdateInput!): Guardian!
+  deleteGuardian(id: ID!): Guardian!
+  addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
+  updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
+  removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean!
+}
 
 type Tenant @join__type(graph: TENANT, key: "id") {
   id: ID!
@@ -77,19 +222,12 @@ type TenantUserAssignment @join__type(graph: TENANT) {
   branch: Branch!
   tenant: Tenant!
   role: TenantRole!
+  assignedBy: String
+  assignedAt: String!
+  updatedAt: String
+  updatedBy: String
+  updatedAction: String
   isActive: Boolean!
-}
-
-type Query @join__type(graph: TENANT) @join__type(graph: USER) {
-  meTenant: User! @join__field(graph: TENANT)
-  tenant(id: ID!): Tenant @join__field(graph: TENANT)
-  branch(id: ID!): Branch @join__field(graph: TENANT)
-  tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
-  tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
-  myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
-  assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
-  meUser: User! @join__field(graph: USER)
-  user(id: ID!): User @join__field(graph: USER)
 }
 
 type User @join__type(graph: TENANT, key: "id") @join__type(graph: USER, key: "id") {

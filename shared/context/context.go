@@ -61,6 +61,14 @@ func SetUserID(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, userIDKey, userID)
 }
 
+func SetTenantID(ctx context.Context, tenantID string) context.Context {
+	return context.WithValue(ctx, tenantIDKey, tenantID)
+}
+
+func SetBranchID(ctx context.Context, branchID string) context.Context {
+	return context.WithValue(ctx, branchIDKey, branchID)
+}
+
 func SetUserRole(ctx context.Context, role string) context.Context {
 	return context.WithValue(ctx, userRoleKey, role)
 }

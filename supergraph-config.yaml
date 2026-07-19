@@ -8,3 +8,7 @@ subgraphs:
     routing_url: http://tenant:8082/graphql
     schema:
       file: ./services/tenant/graph/schema.graphqls
+  patient:
+    routing_url: http://patient:8083/graphql
+    schema:
+      file: ./services/patient/graph/schema.graphqls
