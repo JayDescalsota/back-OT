@@ -80,6 +80,7 @@ CREATE TABLE tenant_user_assignments (
     updated_by UUID,
     updated_action TEXT,
     is_active BOOLEAN NOT NULL DEFAULT true,
+    is_user_primary BOOLEAN NOT NULL DEFAULT false,
     UNIQUE (user_id, branch_id, tenant_id)
 );
 
