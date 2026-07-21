@@ -61,7 +61,7 @@ services:
     image: ghcr.io/apollographql/router:v1.45.0
     container_name: apollo_router
     ports:
-      - "4000:4000"
+      - "4001"  # internal — accessible via Docker DNS
     volumes:
       - ./rover/supergraph.graphql:/dist/config/supergraph.graphql
       - ./rover/router.yaml:/dist/config/router.yaml
@@ -71,6 +71,28 @@ services:
       - tenant
       - patient
       - booking
+      - messaging
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Dockerfile
+    image: clinic/gateway:latest
+    container_name: gateway
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    env_file:
+      - .env
+    environment:
+      IN_DOCKER: "true"
+      ROUTER_URL: http://router:4000/graphql
+      USER_SVC_URL: http://user:8081
+    volumes:
+      - ./.env:/app/.env
+    depends_on:
+      - router
+      - redis
 
   user:
     build:
@@ -142,6 +164,25 @@ services:
       IN_DOCKER: "true"
     ports:
       - "8084:8084"
+    volumes:
+      - ./.env:/app/.env
+    depends_on:
+      - db
+      - redis
+
+  messaging:
+    build:
+      context: .
+      dockerfile: services/messaging/Dockerfile
+    image: clinic/messaging:latest
+    container_name: messaging
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      IN_DOCKER: "true"
+    ports:
+      - "8085:8085"
     volumes:
       - ./.env:/app/.env
     depends_on:
