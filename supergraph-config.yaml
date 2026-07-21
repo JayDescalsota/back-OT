@@ -12,3 +12,7 @@ subgraphs:
     routing_url: http://patient:8083/graphql
     schema:
       file: ./services/patient/graph/schema.graphqls
+  booking:
+    routing_url: http://booking:8084/graphql
+    schema:
+      file: ./services/booking/graph/schema.graphqls

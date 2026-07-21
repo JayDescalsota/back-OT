@@ -1,0 +1,88 @@
+-- Seed Branch Hours
+INSERT INTO branch_hour (id, tenant_id, branch_id, recurrence_rule, open_time, close_time, effective_from, is_active, created_action)
+VALUES
+    -- Branch A1: Mon-Fri 08:00-17:00, Sat 08:00-12:00
+    ('b0000000-0001-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', NOW(), true, 'seed'),
+    ('b0000000-0001-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', 'FREQ=WEEKLY;BYDAY=SA', '1970-01-01 08:00:00+00', '1970-01-01 12:00:00+00', NOW(), true, 'seed'),
+    -- Branch A2: Mon-Fri 08:00-17:00
+    ('b0000000-0001-4000-8000-000000000003', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0002-4000-8000-000000000002', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', NOW(), true, 'seed'),
+    -- Branch B1: Mon-Fri 09:00-18:00
+    ('b0000000-0001-4000-8000-000000000004', 'a1b2c3d4-0002-4000-8000-000000000002', 'b1b2c3d4-0003-4000-8000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 09:00:00+00', '1970-01-01 18:00:00+00', NOW(), true, 'seed'),
+    -- Branch B2: Mon-Fri 09:00-17:00
+    ('b0000000-0001-4000-8000-000000000005', 'a1b2c3d4-0002-4000-8000-000000000002', 'b1b2c3d4-0004-4000-8000-000000000004', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 09:00:00+00', '1970-01-01 17:00:00+00', NOW(), true, 'seed')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Practitioner Branches (link users as practitioners to branches)
+INSERT INTO practitioner_branch (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
+VALUES
+    -- user01 (therapist) assigned to Clinic A branches
+    ('b0000000-0002-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'b1b2c3d4-0001-4000-8000-000000000001', 'therapist', true, true, NOW(), 'seed'),
+    ('b0000000-0002-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'b1b2c3d4-0002-4000-8000-000000000002', 'therapist', false, true, NOW(), 'seed'),
+    -- user02 (therapist) assigned to Clinic B branches
+    ('b0000000-0002-4000-8000-000000000003', 'a1b2c3d4-0002-4000-8000-000000000002', '00000000-0000-0000-0000-000000000004', 'b1b2c3d4-0003-4000-8000-000000000003', 'therapist', true, true, NOW(), 'seed'),
+    ('b0000000-0002-4000-8000-000000000004', 'a1b2c3d4-0002-4000-8000-000000000002', '00000000-0000-0000-0000-000000000004', 'b1b2c3d4-0004-4000-8000-000000000004', 'therapist', false, true, NOW(), 'seed')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Practitioner Availability
+INSERT INTO practitioner_availability (id, tenant_id, practitioner_id, recurrence_rule, available_from, available_to, effective_from, status, is_active, created_action)
+VALUES
+    -- user01: Mon-Fri 08:00-17:00
+    ('b0000000-0003-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', NOW(), 'ACTIVE', true, 'seed'),
+    -- user02: Mon-Fri 09:00-18:00
+    ('b0000000-0003-4000-8000-000000000002', 'a1b2c3d4-0002-4000-8000-000000000002', '00000000-0000-0000-0000-000000000004', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 09:00:00+00', '1970-01-01 18:00:00+00', NOW(), 'ACTIVE', true, 'seed')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Schedule Templates
+INSERT INTO schedule_template (id, tenant_id, branch_id, practitioner_id, recurrence_rule, start_time, end_time, slot_duration, buffer_duration, capacity, is_active, status, created_action)
+VALUES
+    -- Branch A1 - user01: Morning session (08:00-12:00)
+    ('b0000000-0004-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 12:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed'),
+    -- Branch A1 - user01: Afternoon session (13:00-17:00)
+    ('b0000000-0004-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 13:00:00+00', '1970-01-01 17:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed'),
+    -- Branch A2 - user01: Full day (08:00-17:00)
+    ('b0000000-0004-4000-8000-000000000003', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0002-4000-8000-000000000002', '00000000-0000-0000-0000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed'),
+    -- Branch B1 - user02: Full day (09:00-18:00)
+    ('b0000000-0004-4000-8000-000000000004', 'a1b2c3d4-0002-4000-8000-000000000002', 'b1b2c3d4-0003-4000-8000-000000000003', '00000000-0000-0000-0000-000000000004', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 09:00:00+00', '1970-01-01 18:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed'),
+    -- Branch B2 - user02: Full day (09:00-17:00)
+    ('b0000000-0004-4000-8000-000000000005', 'a1b2c3d4-0002-4000-8000-000000000002', 'b1b2c3d4-0004-4000-8000-000000000004', '00000000-0000-0000-0000-000000000004', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 09:00:00+00', '1970-01-01 17:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Appointment Slots (pre-generated slots for today)
+INSERT INTO appointment_slot (id, tenant_id, schedule_template_id, branch_id, practitioner_id, start_at, end_at, capacity, booked_count, status, generated_at, is_active, created_action)
+VALUES
+    -- Branch A1 - user01: 08:00-08:30 slot today
+    ('b0000000-0005-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', 1, 1, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch A1 - user01: 08:30-09:00 slot today
+    ('b0000000-0005-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours', 1, 1, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch A1 - user01: 09:00-09:30 slot today
+    ('b0000000-0005-4000-8000-000000000003', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', 1, 1, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch A1 - user01: 09:30-10:00 slot today
+    ('b0000000-0005-4000-8000-000000000004', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', DATE_TRUNC('day', NOW()) + INTERVAL '10 hours', 1, 0, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch A1 - user01: 10:00-10:30 slot today
+    ('b0000000-0005-4000-8000-000000000005', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '10 hours', DATE_TRUNC('day', NOW()) + INTERVAL '10 hours 30 minutes', 1, 0, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch A1 - user01: 10:30-11:00 slot today
+    ('b0000000-0005-4000-8000-000000000006', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '10 hours 30 minutes', DATE_TRUNC('day', NOW()) + INTERVAL '11 hours', 1, 0, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch B1 - user02: 09:00-09:30 slot today
+    ('b0000000-0005-4000-8000-000000000007', 'a1b2c3d4-0002-4000-8000-000000000002', 'b0000000-0004-4000-8000-000000000004', 'b1b2c3d4-0003-4000-8000-000000000003', '00000000-0000-0000-0000-000000000004', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', 1, 0, 'AVAILABLE', NOW(), true, 'seed'),
+    -- Branch B1 - user02: 09:30-10:00 slot today
+    ('b0000000-0005-4000-8000-000000000008', 'a1b2c3d4-0002-4000-8000-000000000002', 'b0000000-0004-4000-8000-000000000004', 'b1b2c3d4-0003-4000-8000-000000000003', '00000000-0000-0000-0000-000000000004', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', DATE_TRUNC('day', NOW()) + INTERVAL '10 hours', 1, 1, 'AVAILABLE', NOW(), true, 'seed')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Appointments (booked slots)
+INSERT INTO appointment (id, tenant_id, appointment_slot_id, branch_id, patient_id, practitioner_id, start_at, end_at, status, notes, created_action)
+VALUES
+    -- Juan Dela Cruz with user01 @ Branch A1, 08:00-08:30
+    ('b0000000-0006-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0005-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', 'e1a1c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', 'CONFIRMED', 'Initial assessment for fine motor skills', 'seed'),
+    -- Maria Santos with user01 @ Branch A1, 08:30-09:00
+    ('b0000000-0006-4000-8000-000000000002', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0005-4000-8000-000000000002', 'b1b2c3d4-0001-4000-8000-000000000001', 'e1a1c3d4-0002-4000-8000-000000000002', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours', 'CONFIRMED', 'Sensory integration therapy', 'seed'),
+    -- Pedro Gonzales with user01 @ Branch A2, 09:00-09:30
+    ('b0000000-0006-4000-8000-000000000003', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0005-4000-8000-000000000003', 'b1b2c3d4-0001-4000-8000-000000000001', 'e1a1c3d4-0003-4000-8000-000000000003', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', 'PENDING', 'Follow-up assessment', 'seed'),
+    -- Jose Mercado with user02 @ Branch B1, 09:30-10:00
+    ('b0000000-0006-4000-8000-000000000004', 'a1b2c3d4-0002-4000-8000-000000000002', 'b0000000-0005-4000-8000-000000000008', 'b1b2c3d4-0003-4000-8000-000000000003', 'e1a1c3d4-0005-4000-8000-000000000005', '00000000-0000-0000-0000-000000000004', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', DATE_TRUNC('day', NOW()) + INTERVAL '10 hours', 'CONFIRMED', 'Occupational therapy session', 'seed')
+ON CONFLICT (id) DO NOTHING;
+
+-- Seed Schedule Exceptions (lunch break for Branch A1 templates)
+INSERT INTO schedule_exception (id, tenant_id, schedule_template_id, type, reason, start_at, end_at, status, is_active, created_action)
+VALUES
+    ('b0000000-0007-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'LUNCH_BREAK', 'Staff lunch break', DATE_TRUNC('day', NOW()) + INTERVAL '12 hours', DATE_TRUNC('day', NOW()) + INTERVAL '13 hours', 'ACTIVE', true, 'seed')
+ON CONFLICT (id) DO NOTHING;

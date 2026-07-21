@@ -1,0 +1,266 @@
+scalar DateTime
+  @specifiedBy(
+    url: "https://scalars.graphql.org/andrewimario/graphql-go-datetime.html"
+  )
+
+type BranchHours @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  day_of_week: Int!
+  open_time: String
+  close_time: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  branch: Branch @requires(fields: "branch_id")
+}
+
+type PractitionerBranch @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  branch: Branch @requires(fields: "branch_id")
+  practitioner: User @requires(fields: "practitioner_id")
+}
+
+type PractitionerAvailability @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  start_time: DateTime!
+  end_time: DateTime!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type ScheduleTemplate @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  template_name: String!
+  day_of_week: Int!
+  start_time: String!
+  end_time: String!
+  slot_duration_minutes: Int!
+  break_start: String
+  break_end: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type AppointmentSlot @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  slot_date: DateTime!
+  slot_start: DateTime!
+  slot_end: DateTime!
+  status: String!
+  appointment_id: ID
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type Appointment @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  patient_id: ID!
+  practitioner_id: ID!
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  status: String!
+  note: String
+  slot_id: ID
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type ScheduleException @key(fields: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  exception_date: DateTime!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+input BranchHoursInput {
+  branch_id: ID!
+  day_of_week: Int!
+  open_time: String
+  close_time: String
+}
+
+input BranchHoursUpdateInput {
+  day_of_week: Int
+  open_time: String
+  close_time: String
+  is_active: Boolean
+}
+
+input PractitionerBranchInput {
+  branch_id: ID!
+  practitioner_id: ID!
+}
+
+input PractitionerAvailabilityInput {
+  branch_id: ID!
+  practitioner_id: ID!
+  start_time: DateTime!
+  end_time: DateTime!
+}
+
+input ScheduleTemplateInput {
+  branch_id: ID!
+  practitioner_id: ID!
+  template_name: String!
+  day_of_week: Int!
+  start_time: String!
+  end_time: String!
+  slot_duration_minutes: Int!
+  break_start: String
+  break_end: String
+}
+
+input ScheduleTemplateUpdateInput {
+  template_name: String
+  day_of_week: Int
+  start_time: String
+  end_time: String
+  slot_duration_minutes: Int
+  break_start: String
+  break_end: String
+  is_active: Boolean
+}
+
+input AppointmentInput {
+  branch_id: ID!
+  patient_id: ID!
+  practitioner_id: ID!
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  note: String
+  slot_id: ID
+}
+
+input AppointmentUpdateInput {
+  status: String
+  note: String
+}
+
+input ScheduleExceptionInput {
+  branch_id: ID!
+  practitioner_id: ID!
+  exception_date: DateTime!
+}
+
+input AppointmentSlotsFilter {
+  branch_id: ID
+  practitioner_id: ID
+  slot_date: DateTime
+  status: String
+}
+
+input AppointmentsFilter {
+  branch_id: ID
+  patient_id: ID
+  practitioner_id: ID
+  status: String
+  scheduled_start: DateTime
+  scheduled_end: DateTime
+}
+
+type Query {
+  # Branch hours
+  branchHour(id: ID!): BranchHours
+  branchHours(branch_id: ID): [BranchHours!]!
+
+  # Practitioner branch
+  practitionerBranch(id: ID!): PractitionerBranch
+  practitionerBranches(branch_id: ID): [PractitionerBranch!]!
+
+  # Practitioner availability
+  practitionerAvailability(id: ID!): PractitionerAvailability
+  practitionerAvailabilities(
+    branch_id: ID
+    practitioner_id: ID
+  ): [PractitionerAvailability!]!
+
+  # Schedule templates
+  scheduleTemplate(id: ID!): ScheduleTemplate
+  scheduleTemplates(branch_id: ID, practitioner_id: ID): [ScheduleTemplate!]!
+
+  # Appointment slots
+  appointmentSlot(id: ID!): AppointmentSlot
+  appointmentSlots(filter: AppointmentSlotsFilter!): [AppointmentSlot!]!
+
+  # Appointments
+  appointment(id: ID!): Appointment
+  appointments(filter: AppointmentsFilter!): [Appointment!]!
+
+  # Schedule exceptions
+  scheduleException(id: ID!): ScheduleException
+  scheduleExceptions(branch_id: ID, practitioner_id: ID): [ScheduleException!]!
+}
+
+type Mutation {
+  # Branch hours
+  createBranchHours(input: BranchHoursInput!): BranchHours!
+  updateBranchHours(id: ID!, input: BranchHoursUpdateInput!): BranchHours!
+  deleteBranchHours(id: ID!): Boolean!
+
+  # Practitioner branch
+  createPractitionerBranch(input: PractitionerBranchInput!): PractitionerBranch!
+  deletePractitionerBranch(id: ID!): Boolean!
+
+  # Practitioner availability
+  createPractitionerAvailability(
+    input: PractitionerAvailabilityInput!
+  ): PractitionerAvailability!
+  deletePractitionerAvailability(id: ID!): Boolean!
+
+  # Schedule templates
+  createScheduleTemplate(input: ScheduleTemplateInput!): ScheduleTemplate!
+  updateScheduleTemplate(
+    id: ID!
+    input: ScheduleTemplateUpdateInput!
+  ): ScheduleTemplate!
+  deleteScheduleTemplate(id: ID!): Boolean!
+
+  # Appointment slots
+  generateSlots(
+    branch_id: ID!
+    practitioner_id: ID!
+    date: DateTime!
+  ): [AppointmentSlot!]!
+  updateSlotStatus(id: ID!, status: String!): AppointmentSlot!
+
+  # Appointments
+  createAppointment(input: AppointmentInput!): Appointment!
+  updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
+  cancelAppointment(id: ID!): Appointment!
+
+  # Schedule exceptions
+  createScheduleException(input: ScheduleExceptionInput!): ScheduleException!
+  deleteScheduleException(id: ID!): Boolean!
+}

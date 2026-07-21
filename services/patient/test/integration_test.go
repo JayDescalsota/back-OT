@@ -43,7 +43,7 @@ func setupIntegrationTest(t *testing.T) (context.Context, *service.PatientServic
 
 	dbSet := sharedDB.NewDBSet(db)
 	repo := repository.NewPatientRepository(dbSet)
-	svc := service.NewPatientService(repo)
+	svc := service.NewPatientService(repo, nil)
 
 	ctx := context.Background()
 	ctx = sharedCtx.SetTenantID(ctx, uuid.NewString())
@@ -65,7 +65,7 @@ func setupTestServer(t *testing.T) *httptest.Server {
 
 	dbSet := sharedDB.NewDBSet(db)
 	repo := repository.NewPatientRepository(dbSet)
-	svc := service.NewPatientService(repo)
+	svc := service.NewPatientService(repo, nil)
 
 	resolver := graph.NewResolver(svc)
 	executableSchema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})

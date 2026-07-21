@@ -113,7 +113,7 @@ func TestGetMe_Success(t *testing.T) {
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
 		return userStub(uid, "alice@test.com", "Alice"), nil
 	}
-	svc := service.NewUserService(mock, currentUser(id))
+	svc := service.NewUserService(mock, currentUser(id), nil)
 
 	user, err := svc.GetMe(context.Background())
 	if err != nil {
@@ -125,7 +125,7 @@ func TestGetMe_Success(t *testing.T) {
 }
 
 func TestGetMe_EmptyID(t *testing.T) {
-	svc := service.NewUserService(defaultMock(), currentUser(""))
+	svc := service.NewUserService(defaultMock(), currentUser(""), nil)
 	_, err := svc.GetMe(context.Background())
 	if err == nil {
 		t.Fatal("expected unauthorized error")
@@ -134,7 +134,7 @@ func TestGetMe_EmptyID(t *testing.T) {
 
 func TestGetMe_NotFound(t *testing.T) {
 	mock := defaultMock()
-	svc := service.NewUserService(mock, currentUser(uuid.New().String()))
+	svc := service.NewUserService(mock, currentUser(uuid.New().String()), nil)
 	_, err := svc.GetMe(context.Background())
 	if err == nil {
 		t.Fatal("expected not found error")
@@ -146,7 +146,7 @@ func TestGetMe_RepoError(t *testing.T) {
 	mock.findByIDFn = func(_ context.Context, _ string) (*models.User, error) {
 		return nil, errors.New("db error")
 	}
-	svc := service.NewUserService(mock, currentUser(uuid.New().String()))
+	svc := service.NewUserService(mock, currentUser(uuid.New().String()), nil)
 	_, err := svc.GetMe(context.Background())
 	if err == nil {
 		t.Fatal("expected error")
@@ -155,7 +155,7 @@ func TestGetMe_RepoError(t *testing.T) {
 
 func TestGetUserByID_NotAuthenticated(t *testing.T) {
 	mock := defaultMock()
-	svc := service.NewUserService(mock, currentUser(""))
+	svc := service.NewUserService(mock, currentUser(""), nil)
 	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
 	if err == nil {
 		t.Fatal("expected unauthorized error")
@@ -187,7 +187,7 @@ func TestGetUserByID_SuperAdmin(t *testing.T) {
 		return false, nil
 	}
 
-	svc := service.NewUserService(mock, currentUser(myID))
+	svc := service.NewUserService(mock, currentUser(myID), nil)
 	user, err := svc.GetUserByID(context.Background(), targetID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -211,7 +211,7 @@ func TestGetUserByID_NotSuperAdmin(t *testing.T) {
 		return false, nil
 	}
 
-	svc := service.NewUserService(mock, currentUser(myID))
+	svc := service.NewUserService(mock, currentUser(myID), nil)
 	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
 	if err == nil {
 		t.Fatal("expected forbidden error for non-super-admin")
@@ -221,7 +221,7 @@ func TestGetUserByID_NotSuperAdmin(t *testing.T) {
 func TestGetUserByID_CurrentUserNotFound(t *testing.T) {
 	mock := defaultMock()
 	mock.findByIDFn = func(_ context.Context, _ string) (*models.User, error) { return nil, nil }
-	svc := service.NewUserService(mock, currentUser(uuid.New().String()))
+	svc := service.NewUserService(mock, currentUser(uuid.New().String()), nil)
 	_, err := svc.GetUserByID(context.Background(), uuid.New().String())
 	if err == nil {
 		t.Fatal("expected unauthorized error")

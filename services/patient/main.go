@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	sharedCache "github.com/clinicmanager/shared/cache"
 	sharedCtx "github.com/clinicmanager/shared/context"
 	sharedDB "github.com/clinicmanager/shared/db"
 	"github.com/clinicmanager/shared/logger"
@@ -25,6 +26,7 @@ func main() {
 	env, err := setting.LoadAndValidateEnv([]string{
 		"PATIENT_PORT",
 		"PATIENTDB_URL",
+		"REDIS_ADDR",
 	})
 	if err != nil {
 		logger.Error(context.Background(), "failed to load patient service settings", "error", err)
@@ -42,7 +44,15 @@ func main() {
 
 	dbSet := sharedDB.NewDBSet(db)
 	patientRepo := repository.NewPatientRepository(dbSet)
-	patientService := service.NewPatientService(patientRepo)
+
+	redisClient, redisErr := sharedCache.NewRedisClient(env["REDIS_ADDR"], env["REDIS_PASSWORD"])
+	if redisErr != nil {
+		logger.Error(context.Background(), "failed to connect to redis", "error", redisErr)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+
+	patientService := service.NewPatientService(patientRepo, redisClient)
 
 	resolver := graph.NewResolver(patientService)
 	schemaConfig := generated.Config{Resolvers: resolver}

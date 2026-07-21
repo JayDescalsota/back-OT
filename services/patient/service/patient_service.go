@@ -2,25 +2,74 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
-	"github.com/google/uuid"
-	sharedCtx "github.com/clinicmanager/shared/context"
 	"github.com/clinicmanager/services/patient/db"
 	"github.com/clinicmanager/services/patient/graph/model"
 	"github.com/clinicmanager/services/patient/repository"
+	"github.com/clinicmanager/shared/cache"
+	sharedCtx "github.com/clinicmanager/shared/context"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type PatientService struct {
 	PatientRepository *repository.PatientRepository
+	Cache             *redis.Client
 }
 
-func NewPatientService(patientRepository *repository.PatientRepository) *PatientService {
-	return &PatientService{PatientRepository: patientRepository}
+func NewPatientService(patientRepository *repository.PatientRepository, cacheClient *redis.Client) *PatientService {
+	return &PatientService{PatientRepository: patientRepository, Cache: cacheClient}
+}
+
+func (s *PatientService) cacheGet(ctx context.Context, key string, dest interface{}) (bool, error) {
+	if s.Cache == nil {
+		return false, nil
+	}
+	val, err := s.Cache.Get(ctx, key).Bytes()
+	if err != nil {
+		if err == redis.Nil {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := json.Unmarshal(val, dest); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *PatientService) cacheSet(ctx context.Context, key string, val interface{}) error {
+	if s.Cache == nil {
+		return nil
+	}
+	data, err := json.Marshal(val)
+	if err != nil {
+		return err
+	}
+	return s.Cache.Set(ctx, key, data, cache.DefaultTTL).Err()
+}
+
+func (s *PatientService) cacheDel(ctx context.Context, keys ...string) {
+	if s.Cache == nil {
+		return
+	}
+	s.Cache.Del(ctx, keys...)
 }
 
 func (s *PatientService) GetPatientByID(ctx context.Context, id string) (*db.BunPatients, error) {
-	return s.PatientRepository.FindPatientByID(ctx, id)
+	ck := cache.Key("patient", "patient", id)
+	var cached db.BunPatients
+	if ok, _ := s.cacheGet(ctx, ck, &cached); ok {
+		return &cached, nil
+	}
+	m, err := s.PatientRepository.FindPatientByID(ctx, id)
+	if err != nil || m == nil {
+		return m, err
+	}
+	s.cacheSet(ctx, ck, m)
+	return m, nil
 }
 
 func (s *PatientService) CreatePatient(ctx context.Context, input model.PatientInput) (*db.BunPatients, error) {
@@ -49,6 +98,7 @@ func (s *PatientService) CreatePatient(ctx context.Context, input model.PatientI
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "patient", patient.ID))
 	return patient, nil
 }
 
@@ -91,6 +141,7 @@ func (s *PatientService) UpdatePatient(ctx context.Context, id string, input mod
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "patient", id))
 	return existing, nil
 }
 
@@ -112,6 +163,7 @@ func (s *PatientService) InactivatePatient(ctx context.Context, id string) (*db.
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "patient", id))
 	return patient, nil
 }
 
@@ -129,6 +181,7 @@ func (s *PatientService) ReactivatePatient(ctx context.Context, id string) (*db.
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "patient", id))
 	return patient, nil
 }
 
@@ -137,7 +190,17 @@ func (s *PatientService) ListPatients(ctx context.Context, filter *model.Patient
 }
 
 func (s *PatientService) GetPatientAddress(ctx context.Context, patientID string) (*db.BunPatientAddress, error) {
-	return s.PatientRepository.GetPatientAddress(ctx, patientID)
+	ck := cache.Key("patient", "address", patientID)
+	var cached db.BunPatientAddress
+	if ok, _ := s.cacheGet(ctx, ck, &cached); ok {
+		return &cached, nil
+	}
+	m, err := s.PatientRepository.GetPatientAddress(ctx, patientID)
+	if err != nil || m == nil {
+		return m, err
+	}
+	s.cacheSet(ctx, ck, m)
+	return m, nil
 }
 
 func (s *PatientService) GetPatientTags(ctx context.Context, patientID string) ([]*db.BunPatientTags, error) {
@@ -172,6 +235,7 @@ func (s *PatientService) CreateGuardian(ctx context.Context, input model.Guardia
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "guardian", guardian.ID))
 	return guardian, nil
 }
 
@@ -207,6 +271,7 @@ func (s *PatientService) UpdateGuardian(ctx context.Context, id string, input mo
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "guardian", id))
 	return existing, nil
 }
 
@@ -224,6 +289,7 @@ func (s *PatientService) DeleteGuardian(ctx context.Context, id string) (*db.Bun
 		return nil, err
 	}
 
+	s.cacheDel(ctx, cache.Key("patient", "guardian", id))
 	return guardian, nil
 }
 
@@ -239,6 +305,10 @@ func (s *PatientService) AddPatientGuardian(ctx context.Context, patientID, guar
 		return nil, err
 	}
 
+	s.cacheDel(ctx,
+		cache.Key("patient", "guardian", guardianID),
+		cache.Key("patient", "patient", patientID),
+	)
 	return &model.PatientGuardianRelationship{
 		PatientID:    patientID,
 		GuardianID:   guardianID,
@@ -273,5 +343,15 @@ func (s *PatientService) ReactivatePatientGuardian(ctx context.Context, patientI
 }
 
 func (s *PatientService) GetGuardianByID(ctx context.Context, id string) (*db.BunGuardians, error) {
-	return s.PatientRepository.FindGuardianByID(ctx, id)
+	ck := cache.Key("patient", "guardian", id)
+	var cached db.BunGuardians
+	if ok, _ := s.cacheGet(ctx, ck, &cached); ok {
+		return &cached, nil
+	}
+	m, err := s.PatientRepository.FindGuardianByID(ctx, id)
+	if err != nil || m == nil {
+		return m, err
+	}
+	s.cacheSet(ctx, ck, m)
+	return m, nil
 }

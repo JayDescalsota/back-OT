@@ -1,0 +1,35 @@
+schema:
+  - graph/schema.graphqls
+exec:
+  filename: graph/generated/generated.go
+
+model:
+  filename: graph/model/models_gen.go
+  package: model
+
+resolver:
+  layout: follow-schema
+  dir: graph
+  package: graph
+  filename_template: "{name}.resolvers.go"
+
+federation:
+  filename: graph/generated/federation.go
+  package: generated
+  version: 2
+
+models:
+  BranchHours:
+    model: github.com/clinicmanager/services/booking/db.BunBranchHours
+  PractitionerBranch:
+    model: github.com/clinicmanager/services/booking/db.BunPractitionerBranch
+  PractitionerAvailability:
+    model: github.com/clinicmanager/services/booking/db.BunPractitionerAvailability
+  ScheduleTemplate:
+    model: github.com/clinicmanager/services/booking/db.BunScheduleTemplate
+  AppointmentSlot:
+    model: github.com/clinicmanager/services/booking/db.BunAppointmentSlot
+  Appointment:
+    model: github.com/clinicmanager/services/booking/db.BunAppointment
+  ScheduleException:
+    model: github.com/clinicmanager/services/booking/db.BunScheduleException

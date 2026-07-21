@@ -70,6 +70,7 @@ services:
       - user
       - tenant
       - patient
+      - booking
 
   user:
     build:
@@ -122,6 +123,25 @@ services:
       IN_DOCKER: "true"
     ports:
       - "8083:8083"
+    volumes:
+      - ./.env:/app/.env
+    depends_on:
+      - db
+      - redis
+
+  booking:
+    build:
+      context: .
+      dockerfile: services/booking/Dockerfile
+    image: clinic/booking:latest
+    container_name: booking
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      IN_DOCKER: "true"
+    ports:
+      - "8084:8084"
     volumes:
       - ./.env:/app/.env
     depends_on:

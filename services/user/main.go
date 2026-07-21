@@ -15,6 +15,7 @@ import (
 	"github.com/clinicmanager/services/user/graph/generated"
 	"github.com/clinicmanager/services/user/repository"
 	"github.com/clinicmanager/services/user/service"
+	sharedCache "github.com/clinicmanager/shared/cache"
 	sharedCtx "github.com/clinicmanager/shared/context"
 	sharedDB "github.com/clinicmanager/shared/db"
 	"github.com/clinicmanager/shared/logger"
@@ -35,6 +36,7 @@ func main() {
 		"USERDB_URL",
 		"JWT_SECRET",
 		"BASE_URL",
+		"REDIS_ADDR",
 	})
 	if errorEnv != nil {
 		logger.Error(context.Background(), "failed to load user service settings", "missing", errorEnv)
@@ -54,6 +56,13 @@ func main() {
 
 	dbSet := sharedDB.NewDBSet(db)
 	userRepo := repository.NewUserRepo(dbSet)
+
+	redisClient, redisErr := sharedCache.NewRedisClient(env["REDIS_ADDR"], env["REDIS_PASSWORD"])
+	if redisErr != nil {
+		logger.Error(context.Background(), "failed to connect to redis", "error", redisErr)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
 
 	const (
 		accessTokenTTL       = 15 * time.Minute
@@ -78,7 +87,7 @@ func main() {
 		return false, nil
 	}
 
-	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx)
+	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx, redisClient)
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{
 		Resolvers: &graph.Resolver{UserService: userService},
 	}))

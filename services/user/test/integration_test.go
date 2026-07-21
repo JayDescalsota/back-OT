@@ -39,7 +39,7 @@ func setupUserTestServer(t *testing.T) *httptest.Server {
 
 	dbSet := sharedDB.NewDBSet(db)
 	userRepo := repository.NewUserRepo(dbSet)
-	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx)
+	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx, nil)
 
 	resolver := &graph.Resolver{UserService: userService}
 	executableSchema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})
@@ -125,12 +125,12 @@ func TestUserService_Integration_MeUser(t *testing.T) {
 	}
 
 	var data map[string]struct {
-		ID         string `json:"id"`
-		Email      string `json:"email"`
-		Name       string `json:"name"`
-		IsActive   bool   `json:"isActive"`
-		IsValidated bool  `json:"isValidated"`
-		AppRoles   []struct {
+		ID          string `json:"id"`
+		Email       string `json:"email"`
+		Name        string `json:"name"`
+		IsActive    bool   `json:"isActive"`
+		IsValidated bool   `json:"isValidated"`
+		AppRoles    []struct {
 			ID   string `json:"id"`
 			Name string `json:"name"`
 		} `json:"appRoles"`
@@ -210,12 +210,12 @@ func TestUserService_Integration_UserByIDAsSuperAdmin(t *testing.T) {
 	}
 
 	var data map[string]struct {
-		ID         string `json:"id"`
-		Email      string `json:"email"`
-		Name       string `json:"name"`
-		IsActive   bool   `json:"isActive"`
-		IsValidated bool  `json:"isValidated"`
-		AppRoles   []struct {
+		ID          string `json:"id"`
+		Email       string `json:"email"`
+		Name        string `json:"name"`
+		IsActive    bool   `json:"isActive"`
+		IsValidated bool   `json:"isValidated"`
+		AppRoles    []struct {
 			ID   string `json:"id"`
 			Name string `json:"name"`
 		} `json:"appRoles"`
@@ -292,9 +292,9 @@ func TestUserService_Integration_FindUserByIDFederation(t *testing.T) {
 	}
 
 	var data map[string][]struct {
-		ID    string `json:"id"`
-		Email string `json:"email"`
-		Name  string `json:"name"`
+		ID       string `json:"id"`
+		Email    string `json:"email"`
+		Name     string `json:"name"`
 		AppRoles []struct {
 			ID   string `json:"id"`
 			Name string `json:"name"`

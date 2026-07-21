@@ -39,7 +39,7 @@ func setupTenantTestServer(t *testing.T) *httptest.Server {
 
 	dbSet := sharedDB.NewDBSet(db)
 	tenantRepo := repository.NewTenantRepo(dbSet)
-	tenantService := service.NewTenantService(tenantRepo)
+	tenantService := service.NewTenantService(tenantRepo, nil)
 
 	resolver := graph.NewResolver(tenantService)
 	executableSchema := generated.NewExecutableSchema(generated.Config{Resolvers: resolver})
@@ -594,7 +594,7 @@ func TestTenantService_Integration_FindUserAssignmentsFederation(t *testing.T) {
 	var data map[string][]struct {
 		ID          string `json:"id"`
 		Assignments []struct {
-			ID     string `json:"id"`
+			ID     string                `json:"id"`
 			Role   struct{ Name string } `json:"role"`
 			Branch struct{ Name string } `json:"branch"`
 			Tenant struct{ Name string } `json:"tenant"`

@@ -31,12 +31,259 @@ enum link__Purpose {
 scalar link__Import
 
 enum join__Graph {
+  BOOKING @join__graph(name: "booking", url: "http://booking:8084/graphql")
   PATIENT @join__graph(name: "patient", url: "http://patient:8083/graphql")
   TENANT @join__graph(name: "tenant", url: "http://tenant:8082/graphql")
   USER @join__graph(name: "user", url: "http://user:8081/graphql")
 }
 
 scalar join__FieldSet
+
+scalar DateTime @join__type(graph: BOOKING) @specifiedBy(url: "https://scalars.graphql.org/andrewimario/graphql-go-datetime.html")
+
+type BranchHours @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  day_of_week: Int!
+  open_time: String
+  close_time: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type PractitionerBranch @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type PractitionerAvailability @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  start_time: DateTime!
+  end_time: DateTime!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type ScheduleTemplate @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  template_name: String!
+  day_of_week: Int!
+  start_time: String!
+  end_time: String!
+  slot_duration_minutes: Int!
+  break_start: String
+  break_end: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type AppointmentSlot @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  slot_date: DateTime!
+  slot_start: DateTime!
+  slot_end: DateTime!
+  status: String!
+  appointment_id: ID
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type Appointment @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  patient_id: ID!
+  practitioner_id: ID!
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  status: String!
+  note: String
+  slot_id: ID
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+type ScheduleException @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  exception_date: DateTime!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+}
+
+input BranchHoursInput @join__type(graph: BOOKING) {
+  branch_id: ID!
+  day_of_week: Int!
+  open_time: String
+  close_time: String
+}
+
+input BranchHoursUpdateInput @join__type(graph: BOOKING) {
+  day_of_week: Int
+  open_time: String
+  close_time: String
+  is_active: Boolean
+}
+
+input PractitionerBranchInput @join__type(graph: BOOKING) {
+  branch_id: ID!
+  practitioner_id: ID!
+}
+
+input PractitionerAvailabilityInput @join__type(graph: BOOKING) {
+  branch_id: ID!
+  practitioner_id: ID!
+  start_time: DateTime!
+  end_time: DateTime!
+}
+
+input ScheduleTemplateInput @join__type(graph: BOOKING) {
+  branch_id: ID!
+  practitioner_id: ID!
+  template_name: String!
+  day_of_week: Int!
+  start_time: String!
+  end_time: String!
+  slot_duration_minutes: Int!
+  break_start: String
+  break_end: String
+}
+
+input ScheduleTemplateUpdateInput @join__type(graph: BOOKING) {
+  template_name: String
+  day_of_week: Int
+  start_time: String
+  end_time: String
+  slot_duration_minutes: Int
+  break_start: String
+  break_end: String
+  is_active: Boolean
+}
+
+input AppointmentInput @join__type(graph: BOOKING) {
+  branch_id: ID!
+  patient_id: ID!
+  practitioner_id: ID!
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  note: String
+  slot_id: ID
+}
+
+input AppointmentUpdateInput @join__type(graph: BOOKING) {
+  status: String
+  note: String
+}
+
+input ScheduleExceptionInput @join__type(graph: BOOKING) {
+  branch_id: ID!
+  practitioner_id: ID!
+  exception_date: DateTime!
+}
+
+input AppointmentSlotsFilter @join__type(graph: BOOKING) {
+  branch_id: ID
+  practitioner_id: ID
+  slot_date: DateTime
+  status: String
+}
+
+input AppointmentsFilter @join__type(graph: BOOKING) {
+  branch_id: ID
+  patient_id: ID
+  practitioner_id: ID
+  status: String
+  scheduled_start: DateTime
+  scheduled_end: DateTime
+}
+
+type Query @join__type(graph: BOOKING) @join__type(graph: PATIENT) @join__type(graph: TENANT) @join__type(graph: USER) {
+  branchHour(id: ID!): BranchHours @join__field(graph: BOOKING)
+  branchHours(branch_id: ID): [BranchHours!]! @join__field(graph: BOOKING)
+  practitionerBranch(id: ID!): PractitionerBranch @join__field(graph: BOOKING)
+  practitionerBranches(branch_id: ID): [PractitionerBranch!]! @join__field(graph: BOOKING)
+  practitionerAvailability(id: ID!): PractitionerAvailability @join__field(graph: BOOKING)
+  practitionerAvailabilities(branch_id: ID, practitioner_id: ID): [PractitionerAvailability!]! @join__field(graph: BOOKING)
+  scheduleTemplate(id: ID!): ScheduleTemplate @join__field(graph: BOOKING)
+  scheduleTemplates(branch_id: ID, practitioner_id: ID): [ScheduleTemplate!]! @join__field(graph: BOOKING)
+  appointmentSlot(id: ID!): AppointmentSlot @join__field(graph: BOOKING)
+  appointmentSlots(filter: AppointmentSlotsFilter!): [AppointmentSlot!]! @join__field(graph: BOOKING)
+  appointment(id: ID!): Appointment @join__field(graph: BOOKING)
+  appointments(filter: AppointmentsFilter!): [Appointment!]! @join__field(graph: BOOKING)
+  scheduleException(id: ID!): ScheduleException @join__field(graph: BOOKING)
+  scheduleExceptions(branch_id: ID, practitioner_id: ID): [ScheduleException!]! @join__field(graph: BOOKING)
+  patient(id: ID!): Patient @join__field(graph: PATIENT)
+  patients(filter: PatientsFilter): [Patient!]! @join__field(graph: PATIENT)
+  guardian(id: ID!): Guardian @join__field(graph: PATIENT)
+  meTenant: User! @join__field(graph: TENANT)
+  tenant(id: ID!): Tenant @join__field(graph: TENANT)
+  branch(id: ID!): Branch @join__field(graph: TENANT)
+  tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
+  tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
+  myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
+  assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
+  meUser: User! @join__field(graph: USER)
+  user(id: ID!): User @join__field(graph: USER)
+}
+
+type Mutation @join__type(graph: BOOKING) @join__type(graph: PATIENT) {
+  createBranchHours(input: BranchHoursInput!): BranchHours! @join__field(graph: BOOKING)
+  updateBranchHours(id: ID!, input: BranchHoursUpdateInput!): BranchHours! @join__field(graph: BOOKING)
+  deleteBranchHours(id: ID!): Boolean! @join__field(graph: BOOKING)
+  createPractitionerBranch(input: PractitionerBranchInput!): PractitionerBranch! @join__field(graph: BOOKING)
+  deletePractitionerBranch(id: ID!): Boolean! @join__field(graph: BOOKING)
+  createPractitionerAvailability(input: PractitionerAvailabilityInput!): PractitionerAvailability! @join__field(graph: BOOKING)
+  deletePractitionerAvailability(id: ID!): Boolean! @join__field(graph: BOOKING)
+  createScheduleTemplate(input: ScheduleTemplateInput!): ScheduleTemplate! @join__field(graph: BOOKING)
+  updateScheduleTemplate(id: ID!, input: ScheduleTemplateUpdateInput!): ScheduleTemplate! @join__field(graph: BOOKING)
+  deleteScheduleTemplate(id: ID!): Boolean! @join__field(graph: BOOKING)
+  generateSlots(branch_id: ID!, practitioner_id: ID!, date: DateTime!): [AppointmentSlot!]! @join__field(graph: BOOKING)
+  updateSlotStatus(id: ID!, status: String!): AppointmentSlot! @join__field(graph: BOOKING)
+  createAppointment(input: AppointmentInput!): Appointment! @join__field(graph: BOOKING)
+  updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment! @join__field(graph: BOOKING)
+  cancelAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
+  createScheduleException(input: ScheduleExceptionInput!): ScheduleException! @join__field(graph: BOOKING)
+  deleteScheduleException(id: ID!): Boolean! @join__field(graph: BOOKING)
+  createPatient(input: PatientInput!): Patient! @join__field(graph: PATIENT)
+  updatePatient(id: ID!, input: PatientUpdateInput!): Patient! @join__field(graph: PATIENT)
+  deletePatient(id: ID!): Patient! @join__field(graph: PATIENT)
+  inactivatePatient(id: ID!): Patient! @join__field(graph: PATIENT)
+  reactivatePatient(id: ID!): Patient! @join__field(graph: PATIENT)
+  createGuardian(input: GuardianInput!): Guardian! @join__field(graph: PATIENT)
+  updateGuardian(id: ID!, input: GuardianUpdateInput!): Guardian! @join__field(graph: PATIENT)
+  deleteGuardian(id: ID!): Guardian! @join__field(graph: PATIENT)
+  addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship! @join__field(graph: PATIENT)
+  updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship! @join__field(graph: PATIENT)
+  removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean! @join__field(graph: PATIENT)
+}
 
 type Patient @join__type(graph: PATIENT, key: "id") {
   id: ID!
@@ -150,35 +397,6 @@ type PatientGuardianRelationship @join__type(graph: PATIENT) {
   patientId: ID!
   guardianId: ID!
   relationship: String!
-}
-
-type Query @join__type(graph: PATIENT) @join__type(graph: TENANT) @join__type(graph: USER) {
-  patient(id: ID!): Patient @join__field(graph: PATIENT)
-  patients(filter: PatientsFilter): [Patient!]! @join__field(graph: PATIENT)
-  guardian(id: ID!): Guardian @join__field(graph: PATIENT)
-  meTenant: User! @join__field(graph: TENANT)
-  tenant(id: ID!): Tenant @join__field(graph: TENANT)
-  branch(id: ID!): Branch @join__field(graph: TENANT)
-  tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
-  tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
-  myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
-  assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
-  meUser: User! @join__field(graph: USER)
-  user(id: ID!): User @join__field(graph: USER)
-}
-
-type Mutation @join__type(graph: PATIENT) {
-  createPatient(input: PatientInput!): Patient!
-  updatePatient(id: ID!, input: PatientUpdateInput!): Patient!
-  deletePatient(id: ID!): Patient!
-  inactivatePatient(id: ID!): Patient!
-  reactivatePatient(id: ID!): Patient!
-  createGuardian(input: GuardianInput!): Guardian!
-  updateGuardian(id: ID!, input: GuardianUpdateInput!): Guardian!
-  deleteGuardian(id: ID!): Guardian!
-  addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
-  updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
-  removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean!
 }
 
 type Tenant @join__type(graph: TENANT, key: "id") {

@@ -14,6 +14,7 @@ import (
 	"github.com/clinicmanager/services/tenant/graph/generated"
 	"github.com/clinicmanager/services/tenant/repository"
 	"github.com/clinicmanager/services/tenant/service"
+	sharedCache "github.com/clinicmanager/shared/cache"
 	sharedCtx "github.com/clinicmanager/shared/context"
 	sharedDB "github.com/clinicmanager/shared/db"
 	"github.com/clinicmanager/shared/logger"
@@ -25,6 +26,7 @@ func main() {
 	env, err := setting.LoadAndValidateEnv([]string{
 		"TENANT_PORT",
 		"TENANTDB_URL",
+		"REDIS_ADDR",
 	})
 	if err != nil {
 		logger.Error(context.Background(), "failed to load tenant service settings", "missing", err)
@@ -42,7 +44,15 @@ func main() {
 
 	dbSet := sharedDB.NewDBSet(db)
 	tenantRepo := repository.NewTenantRepo(dbSet)
-	tenantService := service.NewTenantService(tenantRepo)
+
+	redisClient, redisErr := sharedCache.NewRedisClient(env["REDIS_ADDR"], env["REDIS_PASSWORD"])
+	if redisErr != nil {
+		logger.Error(context.Background(), "failed to connect to redis", "error", redisErr)
+		os.Exit(1)
+	}
+	defer redisClient.Close()
+
+	tenantService := service.NewTenantService(tenantRepo, redisClient)
 
 	// 1. Initialize the GraphQL Server
 	// We create a resolver with our service dependencies, wrap it in gqlgen's schema,
