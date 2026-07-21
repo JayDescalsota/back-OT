@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -72,28 +71,10 @@ func main() {
 	)
 	authService := service.NewAuthService(userRepo, jwtSecret, SMTPMailer{}, baseURL, accessTokenTTL, refreshTokenTTL)
 
-	isSessionRevoked := func(ctx context.Context, sessionID string) (bool, error) {
-		id, err := strconv.ParseInt(sessionID, 10, 64)
-		if err != nil {
-			return true, err
-		}
-		session, err := userRepo.FindSessionByID(ctx, id)
-		if err != nil {
-			return true, err
-		}
-		if session == nil || session.Revoked {
-			return true, nil
-		}
-		return false, nil
-	}
-
 	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx, redisClient)
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{
 		Resolvers: &graph.Resolver{UserService: userService},
 	}))
-
-	loginLimiter := middleware.NewRateLimiter(10, time.Minute)
-	registerLimiter := middleware.NewRateLimiter(5, time.Minute)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -103,15 +84,15 @@ func main() {
 
 	mux.Handle("/graphql", sharedCtx.Tenant(srv))
 
-	mux.Handle("POST /register", registerLimiter.Limit(registerHandler(authService)))
-	mux.Handle("POST /login", loginLimiter.Limit(loginHandler(authService)))
-	mux.HandleFunc("GET /verify", verifyHandler(authService))
-	mux.Handle("POST /change-password", middleware.AuthMiddleware(jwtSecret, isSessionRevoked, changePasswordHandler(authService)))
-	mux.HandleFunc("POST /logout", logoutHandler(authService))
-	mux.Handle("POST /logout-all", middleware.AuthMiddleware(jwtSecret, isSessionRevoked, logoutAllHandler(authService)))
-	mux.HandleFunc("POST /refresh-token", refreshTokenHandler(authService))
-	mux.HandleFunc("POST /forgot-password", forgotPasswordHandler(authService))
-	mux.HandleFunc("POST /reset-password", resetPasswordHandler(authService))
+	mux.Handle("POST /register", sharedCtx.Tenant(registerHandler(authService)))
+	mux.Handle("POST /login", sharedCtx.Tenant(loginHandler(authService)))
+	mux.Handle("GET /verify", sharedCtx.Tenant(verifyHandler(authService)))
+	mux.Handle("POST /change-password", sharedCtx.Tenant(changePasswordHandler(authService)))
+	mux.Handle("POST /logout", sharedCtx.Tenant(logoutHandler(authService)))
+	mux.Handle("POST /logout-all", sharedCtx.Tenant(logoutAllHandler(authService)))
+	mux.Handle("POST /refresh-token", sharedCtx.Tenant(refreshTokenHandler(authService)))
+	mux.Handle("POST /forgot-password", sharedCtx.Tenant(forgotPasswordHandler(authService)))
+	mux.Handle("POST /reset-password", sharedCtx.Tenant(resetPasswordHandler(authService)))
 
 	recovery := middleware.RecoveryMiddleware(middleware.LoggingMiddleware(mux))
 	server := &http.Server{

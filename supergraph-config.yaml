@@ -16,3 +16,7 @@ subgraphs:
     routing_url: http://booking:8084/graphql
     schema:
       file: ./services/booking/graph/schema.graphqls
+  messaging:
+    routing_url: http://messaging:8085/graphql
+    schema:
+      file: ./services/messaging/graph/schema.graphqls

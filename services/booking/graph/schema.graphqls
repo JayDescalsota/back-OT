@@ -14,7 +14,6 @@ type BranchHours @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
-  branch: Branch @requires(fields: "branch_id")
 }
 
 type PractitionerBranch @key(fields: "id") {
@@ -26,8 +25,6 @@ type PractitionerBranch @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
-  branch: Branch @requires(fields: "branch_id")
-  practitioner: User @requires(fields: "practitioner_id")
 }
 
 type PractitionerAvailability @key(fields: "id") {
