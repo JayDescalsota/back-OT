@@ -6,6 +6,18 @@ import (
 	"github.com/clinicmanager/services/tenant/db"
 )
 
+type AddressInput struct {
+	Address   string  `json:"address"`
+	Baranggay *string `json:"baranggay,omitempty"`
+	City      string  `json:"city"`
+	State     string  `json:"state"`
+	ZipCode   string  `json:"zipCode"`
+	Country   *string `json:"country,omitempty"`
+}
+
+type Mutation struct {
+}
+
 type Query struct {
 }
 

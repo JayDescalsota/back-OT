@@ -9,6 +9,7 @@ type GuardianInput struct {
 	Email     *string `json:"email,omitempty"`
 	Phone     *string `json:"phone,omitempty"`
 	Notes     *string `json:"notes,omitempty"`
+	AddressID *string `json:"addressId,omitempty"`
 }
 
 type GuardianUpdateInput struct {
@@ -18,18 +19,10 @@ type GuardianUpdateInput struct {
 	Email     *string `json:"email,omitempty"`
 	Phone     *string `json:"phone,omitempty"`
 	Notes     *string `json:"notes,omitempty"`
+	AddressID *string `json:"addressId,omitempty"`
 }
 
 type Mutation struct {
-}
-
-type PatientAddressInput struct {
-	Address   string `json:"address"`
-	Baranggay string `json:"baranggay"`
-	City      string `json:"city"`
-	State     string `json:"state"`
-	ZipCode   string `json:"zipCode"`
-	Country   string `json:"country"`
 }
 
 type PatientFilter struct {
@@ -43,14 +36,14 @@ type PatientGuardianRelationship struct {
 }
 
 type PatientInput struct {
-	FirstName   string               `json:"firstName"`
-	LastName    string               `json:"lastName"`
-	DateOfBirth string               `json:"dateOfBirth"`
-	Gender      string               `json:"gender"`
-	Notes       *string              `json:"notes,omitempty"`
-	Height      *string              `json:"height,omitempty"`
-	Weight      *string              `json:"weight,omitempty"`
-	Address     *PatientAddressInput `json:"address"`
+	FirstName   string  `json:"firstName"`
+	LastName    string  `json:"lastName"`
+	DateOfBirth string  `json:"dateOfBirth"`
+	Gender      string  `json:"gender"`
+	Notes       *string `json:"notes,omitempty"`
+	Height      *string `json:"height,omitempty"`
+	Weight      *string `json:"weight,omitempty"`
+	AddressID   *string `json:"addressId,omitempty"`
 }
 
 type PatientPagination struct {
@@ -59,14 +52,14 @@ type PatientPagination struct {
 }
 
 type PatientUpdateInput struct {
-	FirstName   *string              `json:"firstName,omitempty"`
-	LastName    *string              `json:"lastName,omitempty"`
-	DateOfBirth *string              `json:"dateOfBirth,omitempty"`
-	Gender      *string              `json:"gender,omitempty"`
-	Notes       *string              `json:"notes,omitempty"`
-	Height      *string              `json:"height,omitempty"`
-	Weight      *string              `json:"weight,omitempty"`
-	Address     *PatientAddressInput `json:"address,omitempty"`
+	FirstName   *string `json:"firstName,omitempty"`
+	LastName    *string `json:"lastName,omitempty"`
+	DateOfBirth *string `json:"dateOfBirth,omitempty"`
+	Gender      *string `json:"gender,omitempty"`
+	Notes       *string `json:"notes,omitempty"`
+	Height      *string `json:"height,omitempty"`
+	Weight      *string `json:"weight,omitempty"`
+	AddressID   *string `json:"addressId,omitempty"`
 }
 
 type PatientsFilter struct {

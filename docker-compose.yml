@@ -86,7 +86,7 @@ services:
       - .env
     environment:
       IN_DOCKER: "true"
-      ROUTER_URL: http://router:4000/graphql
+      ROUTER_URL: http://router:4000
       USER_SVC_URL: http://user:8081
     volumes:
       - ./.env:/app/.env

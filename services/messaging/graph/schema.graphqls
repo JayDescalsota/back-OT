@@ -1,7 +1,6 @@
 type MessageThread @key(fields: "id") {
   id: ID!
   branch_id: ID!
-  subject: String!
   type: String!
   is_active: Boolean!
   messages: [Message!]!
@@ -30,8 +29,6 @@ type MessageParticipant @key(fields: "id") {
 }
 
 input ThreadInput {
-  branch_id: ID!
-  subject: String!
   type: String!
   participants: [ParticipantRefInput!]!
 }
@@ -49,7 +46,6 @@ input ThreadUpdateInput {
 
 input MessageInput {
   thread_id: ID!
-  sender_id: ID!
   body: String!
 }
 
@@ -61,7 +57,7 @@ input ParticipantInput {
 
 type Query {
   thread(id: ID!): MessageThread
-  threadsByParticipant(participant_id: ID!): [MessageThread!]!
+  threadsByParticipant(participant_id: ID): [MessageThread!]!
   messages(thread_id: ID!): [Message!]!
   participants(thread_id: ID!): [MessageParticipant!]!
 }

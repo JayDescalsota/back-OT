@@ -6,11 +6,21 @@ type Tenant @key(fields: "id") {
   status: String!
 }
 
+type Address @key(fields: "id") {
+  id: ID!
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
 type Branch @key(fields: "id") {
   id: ID!
   tenantId: String!
   name: String!
-  address: String
+  address: Address
   timezone: String!
   phone: String
   isActive: Boolean!
@@ -56,8 +66,23 @@ type Query {
   meTenant: User!
   tenant(id: ID!): Tenant
   branch(id: ID!): Branch
+  address(id: ID!): Address
   tenantRole(id: ID!): TenantRole
   tenantPermission(id: ID!): TenantPermission
   myAssignments: [TenantUserAssignment!]!
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]!
+}
+
+type Mutation {
+  createAddress(input: AddressInput!): Address!
+  updateAddress(id: ID!, input: AddressInput!): Address!
+}
+
+input AddressInput {
+  address: String!
+  baranggay: String
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String
 }

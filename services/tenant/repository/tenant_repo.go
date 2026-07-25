@@ -24,6 +24,9 @@ type TenantRepository interface {
 	FindPermissionsByRole(ctx context.Context, roleID string) ([]*db.BunTenantPermission, error)
 	FindAssignmentsByUser(ctx context.Context, userID string) ([]*model.TenantUserAssignment, error)
 	FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*model.TenantUserAssignment, error)
+	FindAddressByID(ctx context.Context, id string) (*db.BunAddress, error)
+	CreateAddress(ctx context.Context, addr *db.BunAddress) error
+	UpdateAddress(ctx context.Context, id string, addr *db.BunAddress) error
 }
 
 type TenantRepo struct {
@@ -46,7 +49,6 @@ func NewTenantRepo(dbs *shareddb.DBSet) *TenantRepo {
 		raw:      dbs.AllDB.Raw(),
 	}
 }
-
 
 func (r *TenantRepo) FindTenantByID(ctx context.Context, id string) (*db.BunTenant, error) {
 	// r.db safely checks if BunTenant has tenant/branch columns (skips if absent).
@@ -225,4 +227,26 @@ func (r *TenantRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID,
 		result[i] = toAssignmentModel(row)
 	}
 	return result, nil
+}
+
+func (r *TenantRepo) FindAddressByID(ctx context.Context, id string) (*db.BunAddress, error) {
+	addr := new(db.BunAddress)
+	err := r.db.NewSelect(ctx, addr).Where("id = ?", id).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return addr, nil
+}
+
+func (r *TenantRepo) CreateAddress(ctx context.Context, addr *db.BunAddress) error {
+	_, err := r.db.NewInsert(addr).Exec(ctx)
+	return err
+}
+
+func (r *TenantRepo) UpdateAddress(ctx context.Context, id string, addr *db.BunAddress) error {
+	_, err := r.db.NewUpdate(ctx, addr).Where("id = ?", id).Exec(ctx)
+	return err
 }

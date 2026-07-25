@@ -31,13 +31,13 @@ func (BunTenant) IsEntity() {}
 type BunBranch struct {
 	bun.BaseModel `bun:"table:branches"`
 
-	ID       string  `bun:"id,pk"                           json:"id"`
-	TenantID string  `bun:"tenant_id,notnull"               json:"tenantId"`
-	Name     string  `bun:"name,notnull"                    json:"name"`
-	Address  *string `bun:"address"                         json:"address,omitempty"`
-	Timezone string  `bun:"timezone,notnull,default:'UTC'"  json:"timezone"`
-	Phone    *string `bun:"phone"                           json:"phone,omitempty"`
-	IsActive bool    `bun:"is_active,notnull,default:true"  json:"isActive"`
+	ID        string  `bun:"id,pk"                           json:"id"`
+	TenantID  string  `bun:"tenant_id,notnull"               json:"tenantId"`
+	Name      string  `bun:"name,notnull"                    json:"name"`
+	AddressID *string `bun:"address_id"                     json:"addressId,omitempty"`
+	Timezone  string  `bun:"timezone,notnull,default:'UTC'"  json:"timezone"`
+	Phone     *string `bun:"phone"                           json:"phone,omitempty"`
+	IsActive  bool    `bun:"is_active,notnull,default:true"  json:"isActive"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
@@ -48,6 +48,27 @@ type BunBranch struct {
 }
 
 func (BunBranch) IsEntity() {}
+
+type BunAddress struct {
+	bun.BaseModel `bun:"table:addresses"`
+
+	ID        string `bun:"id,pk"            json:"id"`
+	Address   string `bun:"address,notnull"  json:"address"`
+	Baranggay string `bun:"baranggay,notnull" json:"baranggay"`
+	City      string `bun:"city,notnull"     json:"city"`
+	State     string `bun:"state,notnull"    json:"state"`
+	ZipCode   string `bun:"zip_code,notnull" json:"zipCode"`
+	Country   string `bun:"country,notnull"  json:"country"`
+
+	CreatedAt     time.Time `bun:"created_at" json:"-"`
+	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
+	CreatedBy     *string   `bun:"created_by" json:"-"`
+	CreatedAction string    `bun:"created_action" json:"-"`
+	UpdatedBy     *string   `bun:"updated_by" json:"-"`
+	UpdatedAction string    `bun:"updated_action" json:"-"`
+}
+
+func (BunAddress) IsEntity() {}
 
 // BunTenantRole maps to the tenant_roles table.
 // Permissions is a relation — gqlgen will generate a field resolver for it.

@@ -15,6 +15,72 @@ import (
 	sharedctx "github.com/clinicmanager/shared/context"
 )
 
+// Address is the resolver for the address field.
+func (r *branchResolver) Address(ctx context.Context, obj *db.BunBranch) (*db.BunAddress, error) {
+	if obj.AddressID == nil {
+		return nil, nil
+	}
+	return r.TenantService.GetAddressByID(ctx, *obj.AddressID)
+}
+
+// CreateAddress is the resolver for the createAddress field.
+func (r *mutationResolver) CreateAddress(ctx context.Context, input model.AddressInput) (*db.BunAddress, error) {
+	ct := sharedctx.FromContext(ctx)
+	baranggay := ""
+	if input.Baranggay != nil {
+		baranggay = *input.Baranggay
+	}
+	country := "Philippines"
+	if input.Country != nil {
+		country = *input.Country
+	}
+	addr := &db.BunAddress{
+		Address:   input.Address,
+		Baranggay: baranggay,
+		City:      input.City,
+		State:     input.State,
+		ZipCode:   input.ZipCode,
+		Country:   country,
+	}
+	if ct.UserID != "" {
+		addr.CreatedBy = &ct.UserID
+		addr.UpdatedBy = &ct.UserID
+	}
+	if err := r.TenantService.CreateAddress(ctx, addr); err != nil {
+		return nil, err
+	}
+	return addr, nil
+}
+
+// UpdateAddress is the resolver for the updateAddress field.
+func (r *mutationResolver) UpdateAddress(ctx context.Context, id string, input model.AddressInput) (*db.BunAddress, error) {
+	addr, err := r.TenantService.GetAddressByID(ctx, id)
+	if err != nil || addr == nil {
+		if addr == nil {
+			return nil, fmt.Errorf("address not found")
+		}
+		return nil, err
+	}
+	baranggay := ""
+	if input.Baranggay != nil {
+		baranggay = *input.Baranggay
+	}
+	country := "Philippines"
+	if input.Country != nil {
+		country = *input.Country
+	}
+	addr.Address = input.Address
+	addr.Baranggay = baranggay
+	addr.City = input.City
+	addr.State = input.State
+	addr.ZipCode = input.ZipCode
+	addr.Country = country
+	if err := r.TenantService.UpdateAddress(ctx, id, addr); err != nil {
+		return nil, err
+	}
+	return addr, nil
+}
+
 // MeTenant is the resolver for the meTenant field.
 func (r *queryResolver) MeTenant(ctx context.Context) (*model.User, error) {
 	userID := sharedctx.UserIDFromCtx(ctx)
@@ -36,6 +102,11 @@ func (r *queryResolver) Tenant(ctx context.Context, id string) (*db.BunTenant, e
 // Branch is the resolver for the branch field.
 func (r *queryResolver) Branch(ctx context.Context, id string) (*db.BunBranch, error) {
 	return r.TenantService.GetBranchByID(ctx, id)
+}
+
+// Address is the resolver for the address field.
+func (r *queryResolver) Address(ctx context.Context, id string) (*db.BunAddress, error) {
+	panic(fmt.Errorf("not implemented: Address - address"))
 }
 
 // TenantRole is the resolver for the tenantRole field.
@@ -70,6 +141,12 @@ func (r *tenantRoleResolver) Permissions(ctx context.Context, obj *db.BunTenantR
 	return r.TenantService.GetPermissionsByRole(ctx, obj.ID)
 }
 
+// Branch returns generated.BranchResolver implementation.
+func (r *Resolver) Branch() generated.BranchResolver { return &branchResolver{r} }
+
+// Mutation returns generated.MutationResolver implementation.
+func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
@@ -77,6 +154,8 @@ func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 func (r *Resolver) TenantRole() generated.TenantRoleResolver { return &tenantRoleResolver{r} }
 
 type (
+	branchResolver     struct{ *Resolver }
+	mutationResolver   struct{ *Resolver }
 	queryResolver      struct{ *Resolver }
 	tenantRoleResolver struct{ *Resolver }
 )

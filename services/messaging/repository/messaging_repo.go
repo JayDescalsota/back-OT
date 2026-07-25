@@ -6,12 +6,14 @@ import (
 
 	"github.com/clinicmanager/services/messaging/db"
 	shareddb "github.com/clinicmanager/shared/db"
+	bun "github.com/uptrace/bun"
 )
 
 type MessagingRepository struct {
 	db       *shareddb.ScopedDB
 	tenantdb *shareddb.ScopedDB
 	alldb    *shareddb.ScopedDB
+	raw      *bun.DB
 }
 
 func NewMessagingRepository(dbs *shareddb.DBSet) *MessagingRepository {
@@ -19,6 +21,7 @@ func NewMessagingRepository(dbs *shareddb.DBSet) *MessagingRepository {
 		db:       dbs.DB,
 		tenantdb: dbs.TenantDB,
 		alldb:    dbs.AllDB,
+		raw:      dbs.AllDB.Raw(),
 	}
 }
 
@@ -37,11 +40,23 @@ func (r *MessagingRepository) FindThreadByID(ctx context.Context, id string) (*d
 }
 
 func (r *MessagingRepository) FindThreadsByParticipant(ctx context.Context, participantID string) ([]*db.BunMessageThread, error) {
-	var threads []*db.BunMessageThread
-	err := r.db.NewSelect(ctx, &threads).
-		Join("JOIN message_participant mp ON mp.thread_id = message_thread.id").
-		Where("mp.participant_id = ? AND mp.is_active = true", participantID).
+	var participants []*db.BunMessageParticipant
+	err := r.alldb.NewSelect(ctx, &participants).
+		Column("thread_id").
+		Where("participant_id = ? AND is_active = true", participantID).
 		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if len(participants) == 0 {
+		return nil, nil
+	}
+	threadIDs := make([]string, len(participants))
+	for i, p := range participants {
+		threadIDs[i] = p.ThreadID
+	}
+	var threads []*db.BunMessageThread
+	err = r.db.NewSelect(ctx, &threads).Where("id IN (?)", bun.In(threadIDs)).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +148,19 @@ func (r *MessagingRepository) FindParticipantByThreadAndUser(ctx context.Context
 		return nil, err
 	}
 	return &m, nil
+}
+
+func (r *MessagingRepository) FindParticipantIDsByThread(ctx context.Context, threadID string) ([]string, error) {
+	var ids []string
+	err := r.db.NewSelect(ctx, &ids).
+		Model((*db.BunMessageParticipant)(nil)).
+		Column("participant_id").
+		Where("thread_id = ? AND is_active = true", threadID).
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ids, nil
 }
 
 func (r *MessagingRepository) CreateParticipant(ctx context.Context, m *db.BunMessageParticipant) error {

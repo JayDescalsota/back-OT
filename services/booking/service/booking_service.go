@@ -103,7 +103,7 @@ func (s *BookingService) CreateBranchHours(ctx context.Context, input model.Bran
 	m := &db.BunBranchHours{
 		ID:             uuid.NewString(),
 		TenantID:       tctx.TenantID,
-		BranchID:       input.BranchID,
+		BranchID:       tctx.BranchID,
 		RecurrenceRule: rruleFromDay(input.DayOfWeek),
 		OpenTime:       parseTimeVal(ptrStr(input.OpenTime)),
 		CloseTime:      parseTimeVal(ptrStr(input.CloseTime)),
@@ -184,7 +184,10 @@ func (s *BookingService) GetPractitionerBranchByID(ctx context.Context, id strin
 	return m, nil
 }
 
-func (s *BookingService) GetPractitionerBranchesByBranch(ctx context.Context, branchID string) ([]*db.BunPractitionerBranch, error) {
+func (s *BookingService) GetPractitionerBranchesByBranch(ctx context.Context, branchID, role string) ([]*db.BunPractitionerBranch, error) {
+	if role != "" {
+		return s.BookingRepository.FindPractitionerBranchesByBranchAndRole(ctx, branchID, role)
+	}
 	return s.BookingRepository.FindPractitionerBranchesByBranch(ctx, branchID)
 }
 
@@ -195,11 +198,13 @@ func (s *BookingService) ListPractitionerBranches(ctx context.Context) ([]*db.Bu
 func (s *BookingService) CreatePractitionerBranch(ctx context.Context, input model.PractitionerBranchInput) (*db.BunPractitionerBranch, error) {
 	tctx := sharedCtx.FromContext(ctx)
 	now := time.Now()
+
 	m := &db.BunPractitionerBranch{
 		ID:             uuid.NewString(),
 		TenantID:       tctx.TenantID,
 		PractitionerID: input.PractitionerID,
-		BranchID:       input.BranchID,
+		BranchID:       tctx.BranchID,
+		Role:           input.Role,
 		IsActive:       true,
 		JoinedAt:       now,
 		CreatedAt:      now,
@@ -346,7 +351,7 @@ func (s *BookingService) CreateScheduleTemplate(ctx context.Context, input model
 	m := &db.BunScheduleTemplate{
 		ID:             uuid.NewString(),
 		TenantID:       tctx.TenantID,
-		BranchID:       input.BranchID,
+		BranchID:       tctx.BranchID,
 		PractitionerID: practitionerID,
 		RecurrenceRule: rruleFromDay(input.DayOfWeek),
 		SlotDuration:   input.SlotDurationMinutes,
@@ -561,6 +566,12 @@ func (s *BookingService) GetAppointments(ctx context.Context, filter model.Appoi
 
 func (s *BookingService) CreateAppointment(ctx context.Context, input model.AppointmentInput) (*db.BunAppointment, error) {
 	tctx := sharedCtx.FromContext(ctx)
+	if tctx.TenantID == "" {
+		return nil, fmt.Errorf("missing tenant context")
+	}
+	if tctx.BranchID == "" {
+		return nil, fmt.Errorf("missing branch context")
+	}
 	now := time.Now()
 
 	var patientID *string
@@ -571,11 +582,6 @@ func (s *BookingService) CreateAppointment(ctx context.Context, input model.Appo
 	if input.PractitionerID != "" {
 		practitionerID = &input.PractitionerID
 	}
-	var slotID string
-	if input.SlotID != nil {
-		slotID = *input.SlotID
-	}
-
 	startAt := parseTime(input.ScheduledStart)
 	endAt := parseTime(input.ScheduledEnd)
 
@@ -587,8 +593,8 @@ func (s *BookingService) CreateAppointment(ctx context.Context, input model.Appo
 	m := &db.BunAppointment{
 		ID:                uuid.NewString(),
 		TenantID:          tctx.TenantID,
-		AppointmentSlotID: slotID,
-		BranchID:          input.BranchID,
+		AppointmentSlotID: input.SlotID,
+		BranchID:          tctx.BranchID,
 		PatientID:         patientID,
 		PractitionerID:    practitionerID,
 		StartAt:           startAt,
@@ -697,8 +703,8 @@ func (s *BookingService) CreateScheduleException(ctx context.Context, input mode
 		CreatedAction:  "CREATE",
 		UpdatedAction:  "CREATE",
 	}
-	if input.BranchID != "" {
-		branchID := input.BranchID
+	if tctx.BranchID != "" {
+		branchID := tctx.BranchID
 		m.ScheduleTemplateID = &branchID
 	}
 	if err := s.BookingRepository.CreateScheduleException(ctx, m); err != nil {

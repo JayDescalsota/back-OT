@@ -3,7 +3,6 @@
 package model
 
 type AppointmentInput struct {
-	BranchID       string  `json:"branch_id"`
 	PatientID      string  `json:"patient_id"`
 	PractitionerID string  `json:"practitioner_id"`
 	ScheduledStart string  `json:"scheduled_start"`
@@ -34,7 +33,6 @@ type AppointmentsFilter struct {
 }
 
 type BranchHoursInput struct {
-	BranchID  string  `json:"branch_id"`
 	DayOfWeek int     `json:"day_of_week"`
 	OpenTime  *string `json:"open_time,omitempty"`
 	CloseTime *string `json:"close_time,omitempty"`
@@ -50,29 +48,32 @@ type BranchHoursUpdateInput struct {
 type Mutation struct {
 }
 
+type Patient struct {
+	ID string `json:"id"`
+}
+
+func (Patient) IsEntity() {}
+
 type PractitionerAvailabilityInput struct {
-	BranchID       string `json:"branch_id"`
 	PractitionerID string `json:"practitioner_id"`
 	StartTime      string `json:"start_time"`
 	EndTime        string `json:"end_time"`
 }
 
 type PractitionerBranchInput struct {
-	BranchID       string `json:"branch_id"`
-	PractitionerID string `json:"practitioner_id"`
+	PractitionerID string  `json:"practitioner_id"`
+	Role           *string `json:"role,omitempty"`
 }
 
 type Query struct {
 }
 
 type ScheduleExceptionInput struct {
-	BranchID       string `json:"branch_id"`
 	PractitionerID string `json:"practitioner_id"`
 	ExceptionDate  string `json:"exception_date"`
 }
 
 type ScheduleTemplateInput struct {
-	BranchID            string  `json:"branch_id"`
 	PractitionerID      string  `json:"practitioner_id"`
 	TemplateName        string  `json:"template_name"`
 	DayOfWeek           int     `json:"day_of_week"`
@@ -93,3 +94,9 @@ type ScheduleTemplateUpdateInput struct {
 	BreakEnd            *string `json:"break_end,omitempty"`
 	IsActive            *bool   `json:"is_active,omitempty"`
 }
+
+type User struct {
+	ID string `json:"id"`
+}
+
+func (User) IsEntity() {}

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/clinicmanager/services/messaging/db"
@@ -75,19 +76,30 @@ func (s *MessagingService) GetThreadByID(ctx context.Context, id string) (*db.Bu
 	return m, nil
 }
 
-func (s *MessagingService) GetThreadsByParticipant(ctx context.Context, participantID string) ([]*db.BunMessageThread, error) {
-	return s.Repo.FindThreadsByParticipant(ctx, participantID)
+func (s *MessagingService) GetThreadsByParticipant(ctx context.Context, participantID *string) ([]*db.BunMessageThread, error) {
+	tctx := sharedCtx.FromContext(ctx)
+	targetID := tctx.UserID
+	if participantID != nil && *participantID != "" {
+		targetID = *participantID
+	}
+	return s.Repo.FindThreadsByParticipant(ctx, targetID)
 }
 
 func (s *MessagingService) CreateThread(ctx context.Context, input model.ThreadInput) (*db.BunMessageThread, error) {
 	tctx := sharedCtx.FromContext(ctx)
+	if tctx.UserID == "" {
+		return nil, fmt.Errorf("user not authenticated")
+	}
+	if tctx.TenantID == "" {
+		return nil, fmt.Errorf("tenant not identified")
+	}
+
 	now := time.Now()
 
 	m := &db.BunMessageThread{
 		ID:            uuid.NewString(),
 		TenantID:      tctx.TenantID,
-		BranchID:      input.BranchID,
-		Subject:       input.Subject,
+		BranchID:      tctx.BranchID,
 		Type:          input.Type,
 		IsActive:      true,
 		CreatedAt:     now,
@@ -95,32 +107,28 @@ func (s *MessagingService) CreateThread(ctx context.Context, input model.ThreadI
 		CreatedAction: "CREATE",
 		UpdatedAction: "CREATE",
 	}
-	if tctx.UserID != "" {
-		m.CreatedBy = &tctx.UserID
-	}
+	m.CreatedBy = &tctx.UserID
 	if err := s.Repo.CreateThread(ctx, m); err != nil {
 		return nil, err
 	}
 
 	// Add creator as participant
-	if tctx.UserID != "" {
-		participant := &db.BunMessageParticipant{
-			ID:            uuid.NewString(),
-			TenantID:      tctx.TenantID,
-			ThreadID:      m.ID,
-			ParticipantID: tctx.UserID,
-			Role:          "ADMIN",
-			LastReadAt:    now,
-			IsActive:      true,
-			CreatedAt:     now,
-			UpdatedAt:     now,
-			CreatedAction: "CREATE",
-			UpdatedAction: "CREATE",
-		}
-		participant.CreatedBy = &tctx.UserID
-		if err := s.Repo.CreateParticipant(ctx, participant); err != nil {
-			return nil, err
-		}
+	participant := &db.BunMessageParticipant{
+		ID:            uuid.NewString(),
+		TenantID:      tctx.TenantID,
+		ThreadID:      m.ID,
+		ParticipantID: tctx.UserID,
+		Role:          "ADMIN",
+		LastReadAt:    now,
+		IsActive:      true,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		CreatedAction: "CREATE",
+		UpdatedAction: "CREATE",
+		CreatedBy:     &tctx.UserID,
+	}
+	if err := s.Repo.CreateParticipant(ctx, participant); err != nil {
+		return nil, err
 	}
 
 	// Add additional participants
@@ -157,9 +165,6 @@ func (s *MessagingService) UpdateThread(ctx context.Context, id string, input mo
 	}
 	if existing == nil {
 		return nil, nil
-	}
-	if input.Subject != nil {
-		existing.Subject = *input.Subject
 	}
 	if input.Type != nil {
 		existing.Type = *input.Type
@@ -235,6 +240,13 @@ func (s *MessagingService) GetMessagesByThread(ctx context.Context, threadID str
 
 func (s *MessagingService) SendMessage(ctx context.Context, input model.MessageInput) (*db.BunMessage, error) {
 	tctx := sharedCtx.FromContext(ctx)
+	if tctx.UserID == "" {
+		return nil, fmt.Errorf("user not authenticated")
+	}
+	if tctx.TenantID == "" {
+		return nil, fmt.Errorf("tenant not identified")
+	}
+
 	now := time.Now()
 
 	encryptedBody, nonce, err := s.Encryptor.Encrypt([]byte(input.Body))
@@ -246,7 +258,7 @@ func (s *MessagingService) SendMessage(ctx context.Context, input model.MessageI
 		ID:            uuid.NewString(),
 		TenantID:      tctx.TenantID,
 		ThreadID:      input.ThreadID,
-		SenderID:      input.SenderID,
+		SenderID:      tctx.UserID,
 		Body:          encryptedBody,
 		Nonce:         nonce,
 		IsActive:      true,
@@ -254,15 +266,39 @@ func (s *MessagingService) SendMessage(ctx context.Context, input model.MessageI
 		UpdatedAt:     now,
 		CreatedAction: "CREATE",
 		UpdatedAction: "CREATE",
-	}
-	if tctx.UserID != "" {
-		m.CreatedBy = &tctx.UserID
+		CreatedBy:     &tctx.UserID,
 	}
 	if err := s.Repo.CreateMessage(ctx, m); err != nil {
 		return nil, err
 	}
 	s.cacheDel(ctx, cache.Key("messaging", "message", m.ID), cache.Key("messaging", "thread", input.ThreadID, "messages"))
+
+	s.publishMessage(ctx, m, input.Body)
 	return m, nil
+}
+
+func (s *MessagingService) publishMessage(ctx context.Context, msg *db.BunMessage, plainBody string) {
+	if s.Cache == nil {
+		return
+	}
+	participantIDs, err := s.Repo.FindParticipantIDsByThread(ctx, msg.ThreadID)
+	if err != nil {
+		return
+	}
+	participantsJSON, _ := json.Marshal(participantIDs)
+	s.Cache.XAdd(ctx, &redis.XAddArgs{
+		Stream: "messaging:messages",
+		MaxLen: 10000,
+		Approx: true,
+		Values: map[string]any{
+			"id":           msg.ID,
+			"thread_id":    msg.ThreadID,
+			"sender_id":    msg.SenderID,
+			"body":         plainBody,
+			"created_at":   msg.CreatedAt.Format(time.RFC3339),
+			"participants": string(participantsJSON),
+		},
+	})
 }
 
 func (s *MessagingService) DecryptMessage(ctx context.Context, msg *db.BunMessage) (string, error) {

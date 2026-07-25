@@ -10,10 +10,13 @@ type AppRole @key(fields: "id") {
   updatedAction: String
 }
 
+extend type Address @key(fields: "id") {
+  id: ID! @external
+}
+
 type User @key(fields: "id") {
   id: ID!
   email: String!
-  name: String!
   isActive: Boolean!
   lastLogin: String
   appRoles: [AppRole!]!
@@ -25,9 +28,81 @@ type User @key(fields: "id") {
   updatedBy: String
   createdAction: String
   updatedAction: String
+  profile: UserProfile
+}
+
+type UserProfile {
+  userId: ID!
+  firstName: String!
+  lastName: String
+  middleName: String
+  suffix: String
+  title: String
+  phone: String
+  mobile: String
+  dateOfBirth: String
+  gender: String
+  address: Address
+  timezone: String
+  preferredLanguage: String
+  emergencyContactName: String
+  emergencyContactPhone: String
+  emergencyContactRelation: String
+  notes: String
+}
+
+type PractitionerProfile {
+  userId: ID!
+  licenseNumber: String
+  licenseState: String
+  npiNumber: String
+  specialty: String
+  subSpecialty: String
+  qualifications: [String!]
+  credentials: [String!]
+  education: String
+  yearsOfExperience: Int
+  bio: String
+  isAcceptingPatients: Boolean!
+}
+
+input CreateUserInput {
+  email: String!
+  password: String!
+  profile: UserProfileInput
+}
+
+input UpdateUserInput {
+  isActive: Boolean!
+}
+
+input UserProfileInput {
+  firstName: String!
+  lastName: String
+  middleName: String
+  suffix: String
+  title: String
+  phone: String
+  mobile: String
+  dateOfBirth: String
+  gender: String
+  addressId: ID
+  timezone: String
+  preferredLanguage: String
+  emergencyContactName: String
+  emergencyContactPhone: String
+  emergencyContactRelation: String
+  notes: String
 }
 
 type Query {
   meUser: User!
   user(id: ID!): User
+  users: [User!]!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: ID!, input: UpdateUserInput!): User!
+  upsertProfile(input: UserProfileInput!): UserProfile!
 }

@@ -35,3 +35,55 @@ CREATE TABLE sessions (
 
 CREATE INDEX idx_sessions_refresh_token ON sessions (refresh_token);
 CREATE INDEX idx_sessions_user_id ON sessions (user_id);
+
+CREATE TABLE user_profiles (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    first_name TEXT NOT NULL,
+    last_name TEXT,
+    middle_name TEXT,
+    suffix TEXT,
+    title TEXT,
+    phone TEXT,
+    mobile TEXT,
+    date_of_birth DATE,
+    gender TEXT,
+    street_address TEXT,
+    barangay TEXT,
+    city TEXT,
+    province TEXT,
+    zip TEXT,
+    country TEXT NOT NULL DEFAULT 'PH',
+    timezone TEXT NOT NULL DEFAULT 'Asia/Manila',
+    preferred_language TEXT NOT NULL DEFAULT 'en',
+    emergency_contact_name TEXT,
+    emergency_contact_phone TEXT,
+    emergency_contact_relation TEXT,
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    updated_by UUID REFERENCES users(id),
+    created_action TEXT,
+    updated_action TEXT
+);
+
+CREATE TABLE practitioner_profiles (
+    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    license_number TEXT,
+    license_state TEXT,
+    npi_number TEXT UNIQUE,
+    specialty TEXT,
+    sub_specialty TEXT,
+    qualifications TEXT[],
+    credentials TEXT[],
+    education TEXT,
+    years_of_experience INT,
+    bio TEXT,
+    is_accepting_patients BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_by UUID REFERENCES users(id),
+    updated_by UUID REFERENCES users(id),
+    created_action TEXT,
+    updated_action TEXT
+);

@@ -19,3 +19,7 @@ federation:
   filename: graph/generated/federation.go
   package: generated
   version: 2
+
+models:
+  Address:
+    model: github.com/clinicmanager/services/user/graph/model.Address

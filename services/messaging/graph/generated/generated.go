@@ -74,7 +74,6 @@ type ComplexityRoot struct {
 		IsActive     func(childComplexity int) int
 		Messages     func(childComplexity int) int
 		Participants func(childComplexity int) int
-		Subject      func(childComplexity int) int
 		Type         func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
 	}
@@ -93,7 +92,7 @@ type ComplexityRoot struct {
 		Messages             func(childComplexity int, threadID string) int
 		Participants         func(childComplexity int, threadID string) int
 		Thread               func(childComplexity int, id string) int
-		ThreadsByParticipant func(childComplexity int, participantID string) int
+		ThreadsByParticipant func(childComplexity int, participantID *string) int
 		__resolve__service   func(childComplexity int) int
 		__resolve_entities   func(childComplexity int, representations []map[string]any) int
 	}
@@ -136,7 +135,7 @@ type MutationResolver interface {
 }
 type QueryResolver interface {
 	Thread(ctx context.Context, id string) (*db.BunMessageThread, error)
-	ThreadsByParticipant(ctx context.Context, participantID string) ([]*db.BunMessageThread, error)
+	ThreadsByParticipant(ctx context.Context, participantID *string) ([]*db.BunMessageThread, error)
 	Messages(ctx context.Context, threadID string) ([]*db.BunMessage, error)
 	Participants(ctx context.Context, threadID string) ([]*db.BunMessageParticipant, error)
 }
@@ -309,12 +308,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MessageThread.Participants(childComplexity), true
-	case "MessageThread.subject":
-		if e.ComplexityRoot.MessageThread.Subject == nil {
-			break
-		}
-
-		return e.ComplexityRoot.MessageThread.Subject(childComplexity), true
 	case "MessageThread.type":
 		if e.ComplexityRoot.MessageThread.Type == nil {
 			break
@@ -449,7 +442,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.ThreadsByParticipant(childComplexity, args["participant_id"].(string)), true
+		return e.ComplexityRoot.Query.ThreadsByParticipant(childComplexity, args["participant_id"].(*string)), true
 	case "Query._service":
 		if e.ComplexityRoot.Query.__resolve__service == nil {
 			break
@@ -566,7 +559,6 @@ var sources = []*ast.Source{
 	{Name: "../schema.graphqls", Input: `type MessageThread @key(fields: "id") {
   id: ID!
   branch_id: ID!
-  subject: String!
   type: String!
   is_active: Boolean!
   messages: [Message!]!
@@ -595,8 +587,6 @@ type MessageParticipant @key(fields: "id") {
 }
 
 input ThreadInput {
-  branch_id: ID!
-  subject: String!
   type: String!
   participants: [ParticipantRefInput!]!
 }
@@ -607,14 +597,12 @@ input ParticipantRefInput {
 }
 
 input ThreadUpdateInput {
-  subject: String
   type: String
   is_active: Boolean
 }
 
 input MessageInput {
   thread_id: ID!
-  sender_id: ID!
   body: String!
 }
 
@@ -626,7 +614,7 @@ input ParticipantInput {
 
 type Query {
   thread(id: ID!): MessageThread
-  threadsByParticipant(participant_id: ID!): [MessageThread!]!
+  threadsByParticipant(participant_id: ID): [MessageThread!]!
   messages(thread_id: ID!): [Message!]!
   participants(thread_id: ID!): [MessageParticipant!]!
 }
@@ -764,8 +752,6 @@ func (ec *executionContext) childFields_MessageThread(ctx context.Context, field
 		return ec.fieldContext_MessageThread_id(ctx, field)
 	case "branch_id":
 		return ec.fieldContext_MessageThread_branch_id(ctx, field)
-	case "subject":
-		return ec.fieldContext_MessageThread_subject(ctx, field)
 	case "type":
 		return ec.fieldContext_MessageThread_type(ctx, field)
 	case "is_active":
@@ -1128,8 +1114,8 @@ func (ec *executionContext) field_Query_threadsByParticipant_args(ctx context.Co
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "participant_id",
-		func(ctx context.Context, v any) (string, error) {
-			return ec.unmarshalNID2string(ctx, v)
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -1675,29 +1661,6 @@ func (ec *executionContext) fieldContext_MessageThread_branch_id(_ context.Conte
 	return graphql.NewScalarFieldContext("MessageThread", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
-func (ec *executionContext) _MessageThread_subject(ctx context.Context, field graphql.CollectedField, obj *db.BunMessageThread) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_MessageThread_subject(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.Subject, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
-		},
-		true,
-		true,
-	)
-}
-func (ec *executionContext) fieldContext_MessageThread_subject(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("MessageThread", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
 func (ec *executionContext) _MessageThread_type(ctx context.Context, field graphql.CollectedField, obj *db.BunMessageThread) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2216,7 +2179,7 @@ func (ec *executionContext) _Query_threadsByParticipant(ctx context.Context, fie
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().ThreadsByParticipant(ctx, fc.Args["participant_id"].(string))
+			return ec.Resolvers.Query().ThreadsByParticipant(ctx, fc.Args["participant_id"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunMessageThread) graphql.Marshaler {
@@ -3583,7 +3546,7 @@ func (ec *executionContext) unmarshalInputMessageInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"thread_id", "sender_id", "body"}
+	fieldsInOrder := [...]string{"thread_id", "body"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -3597,13 +3560,6 @@ func (ec *executionContext) unmarshalInputMessageInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.ThreadID = data
-		case "sender_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("sender_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.SenderID = data
 		case "body":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("body"))
 			data, err := ec.unmarshalNString2string(ctx, v)
@@ -3708,27 +3664,13 @@ func (ec *executionContext) unmarshalInputThreadInput(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "subject", "type", "participants"}
+	fieldsInOrder := [...]string{"type", "participants"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
-		case "subject":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("subject"))
-			data, err := ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Subject = data
 		case "type":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
 			data, err := ec.unmarshalNString2string(ctx, v)
@@ -3759,20 +3701,13 @@ func (ec *executionContext) unmarshalInputThreadUpdateInput(ctx context.Context,
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"subject", "type", "is_active"}
+	fieldsInOrder := [...]string{"type", "is_active"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "subject":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("subject"))
-			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.Subject = data
 		case "type":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
 			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
@@ -4190,11 +4125,6 @@ func (ec *executionContext) _MessageThread(ctx context.Context, sel ast.Selectio
 			}
 		case "branch_id":
 			out.Values[i] = ec._MessageThread_branch_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
-		case "subject":
-			out.Values[i] = ec._MessageThread_subject(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -5661,6 +5591,24 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	_ = sel
 	_ = ctx
 	res := graphql.MarshalBoolean(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalID(*v)
 	return res
 }
 

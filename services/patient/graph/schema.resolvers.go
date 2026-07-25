@@ -14,8 +14,11 @@ import (
 )
 
 // Address is the resolver for the address field.
-func (r *guardianResolver) Address(ctx context.Context, obj *db.BunGuardians) (*db.BunPatientAddress, error) {
-	return r.Resolver.PatientService.GetPatientAddress(ctx, obj.ID)
+func (r *guardianResolver) Address(ctx context.Context, obj *db.BunGuardians) (*model.Address, error) {
+	if obj.AddressID == nil {
+		return nil, nil
+	}
+	return &model.Address{ID: *obj.AddressID}, nil
 }
 
 // Patient is the resolver for the patient field.
@@ -87,8 +90,11 @@ func (r *patientResolver) DateOfBirth(ctx context.Context, obj *db.BunPatients) 
 }
 
 // Address is the resolver for the address field.
-func (r *patientResolver) Address(ctx context.Context, obj *db.BunPatients) (*db.BunPatientAddress, error) {
-	return r.Resolver.PatientService.GetPatientAddress(ctx, obj.ID)
+func (r *patientResolver) Address(ctx context.Context, obj *db.BunPatients) (*model.Address, error) {
+	if obj.AddressID == nil {
+		return nil, nil
+	}
+	return &model.Address{ID: *obj.AddressID}, nil
 }
 
 // Tag is the resolver for the tag field.
@@ -99,11 +105,6 @@ func (r *patientResolver) Tag(ctx context.Context, obj *db.BunPatients) ([]*db.B
 // Guardian is the resolver for the guardian field.
 func (r *patientResolver) Guardian(ctx context.Context, obj *db.BunPatients) ([]*db.BunGuardians, error) {
 	return r.Resolver.PatientService.GetPatientGuardians(ctx, obj.ID)
-}
-
-// ID is the resolver for the id field.
-func (r *patientAddressResolver) ID(ctx context.Context, obj *db.BunPatientAddress) (string, error) {
-	return obj.PatientID, nil
 }
 
 // ID is the resolver for the id field.
@@ -150,11 +151,6 @@ func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResol
 // Patient returns generated.PatientResolver implementation.
 func (r *Resolver) Patient() generated.PatientResolver { return &patientResolver{r} }
 
-// PatientAddress returns generated.PatientAddressResolver implementation.
-func (r *Resolver) PatientAddress() generated.PatientAddressResolver {
-	return &patientAddressResolver{r}
-}
-
 // PatientTags returns generated.PatientTagsResolver implementation.
 func (r *Resolver) PatientTags() generated.PatientTagsResolver { return &patientTagsResolver{r} }
 
@@ -162,10 +158,24 @@ func (r *Resolver) PatientTags() generated.PatientTagsResolver { return &patient
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
 type (
-	guardianResolver       struct{ *Resolver }
-	mutationResolver       struct{ *Resolver }
-	patientResolver        struct{ *Resolver }
-	patientAddressResolver struct{ *Resolver }
-	patientTagsResolver    struct{ *Resolver }
-	queryResolver          struct{ *Resolver }
+	guardianResolver    struct{ *Resolver }
+	mutationResolver    struct{ *Resolver }
+	patientResolver     struct{ *Resolver }
+	patientTagsResolver struct{ *Resolver }
+	queryResolver       struct{ *Resolver }
 )
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+/*
+	func (r *patientAddressResolver) ID(ctx context.Context, obj *db.BunPatientAddress) (string, error) {
+	return obj.PatientID, nil
+}
+func (r *Resolver) PatientAddress() generated.PatientAddressResolver {
+	return &patientAddressResolver{r}
+}
+*/

@@ -4,7 +4,6 @@ package model
 
 type MessageInput struct {
 	ThreadID string `json:"thread_id"`
-	SenderID string `json:"sender_id"`
 	Body     string `json:"body"`
 }
 
@@ -26,14 +25,11 @@ type Query struct {
 }
 
 type ThreadInput struct {
-	BranchID     string                 `json:"branch_id"`
-	Subject      string                 `json:"subject"`
 	Type         string                 `json:"type"`
 	Participants []*ParticipantRefInput `json:"participants"`
 }
 
 type ThreadUpdateInput struct {
-	Subject  *string `json:"subject,omitempty"`
 	Type     *string `json:"type,omitempty"`
 	IsActive *bool   `json:"is_active,omitempty"`
 }

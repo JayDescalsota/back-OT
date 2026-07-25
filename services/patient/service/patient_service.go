@@ -92,6 +92,7 @@ func (s *PatientService) CreatePatient(ctx context.Context, input model.PatientI
 		Height:      input.Height,
 		Weight:      input.Weight,
 		IsActive:    true,
+		AddressID:   input.AddressID,
 	}
 
 	if err := s.PatientRepository.CreatePatient(ctx, patient); err != nil {
@@ -187,20 +188,6 @@ func (s *PatientService) ReactivatePatient(ctx context.Context, id string) (*db.
 
 func (s *PatientService) ListPatients(ctx context.Context, filter *model.PatientsFilter) ([]*db.BunPatients, error) {
 	return s.PatientRepository.ListPatients(ctx, filter)
-}
-
-func (s *PatientService) GetPatientAddress(ctx context.Context, patientID string) (*db.BunPatientAddress, error) {
-	ck := cache.Key("patient", "address", patientID)
-	var cached db.BunPatientAddress
-	if ok, _ := s.cacheGet(ctx, ck, &cached); ok {
-		return &cached, nil
-	}
-	m, err := s.PatientRepository.GetPatientAddress(ctx, patientID)
-	if err != nil || m == nil {
-		return m, err
-	}
-	s.cacheSet(ctx, ck, m)
-	return m, nil
 }
 
 func (s *PatientService) GetPatientTags(ctx context.Context, patientID string) ([]*db.BunPatientTags, error) {

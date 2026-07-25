@@ -122,3 +122,15 @@ func (s *TenantService) GetAssignmentsByUser(ctx context.Context, userID string)
 func (s *TenantService) GetAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*model.TenantUserAssignment, error) {
 	return s.tenantRepo.FindAssignmentsByUserAndTenant(ctx, userID, tenantID)
 }
+
+func (s *TenantService) GetAddressByID(ctx context.Context, id string) (*db.BunAddress, error) {
+	return s.tenantRepo.FindAddressByID(ctx, id)
+}
+
+func (s *TenantService) CreateAddress(ctx context.Context, addr *db.BunAddress) error {
+	return s.tenantRepo.CreateAddress(ctx, addr)
+}
+
+func (s *TenantService) UpdateAddress(ctx context.Context, id string, addr *db.BunAddress) error {
+	return s.tenantRepo.UpdateAddress(ctx, id, addr)
+}

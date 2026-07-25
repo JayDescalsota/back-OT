@@ -46,7 +46,7 @@ func main() {
 	jwtSecret := env["JWT_SECRET"]
 
 	routes := []*route{
-		{prefix: "/graphql", proxy: proxyFor(env["ROUTER_URL"]), noAuth: false},
+		{prefix: "/graphql", proxy: proxyFor(env["ROUTER_URL"]), noAuth: true},
 
 		// Auth-free REST endpoints (login, register, etc.)
 		{prefix: "/health", noAuth: true},
@@ -73,8 +73,7 @@ func main() {
 			})
 			continue
 		}
-		mux.HandleFunc("POST "+route.prefix, routeHandler(route, jwtSecret))
-		mux.HandleFunc("OPTIONS "+route.prefix, handleCORS)
+		mux.HandleFunc(route.prefix, routeHandler(route, jwtSecret))
 	}
 
 	var handler http.Handler = mux
@@ -112,22 +111,20 @@ func routeHandler(rt *route, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		setCORS(w, req)
 
-		if !rt.noAuth {
-			claims, err := validateJWT(req, jwtSecret)
-			if err != nil {
-				logger.Warn(req.Context(), "auth failed", "error", err)
-				http.Error(w, `{"errors":[{"message":"unauthorized"}]}`, http.StatusUnauthorized)
-				return
-			}
-			if claims != nil {
-				req.Header.Set("x-user-id", claims.UserID)
-			}
+		if req.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
 		}
 
-		req.URL.Path = strings.TrimPrefix(req.URL.Path, rt.prefix)
-		if req.URL.Path == "" {
-			req.URL.Path = "/"
+		claims, err := validateJWT(req, jwtSecret)
+		if err == nil && claims != nil {
+			req.Header.Set("x-user-id", claims.UserID)
+		} else if !rt.noAuth {
+			logger.Warn(req.Context(), "auth failed", "error", err)
+			http.Error(w, `{"errors":[{"message":"unauthorized"}]}`, http.StatusUnauthorized)
+			return
 		}
+
 		rt.proxy.ServeHTTP(w, req)
 	}
 }
@@ -168,6 +165,7 @@ func proxyFor(target string) *httputil.ReverseProxy {
 
 var allowedOrigins = []string{
 	"http://localhost:3000",
+	"http://localhost:4200",
 	"http://localhost:5173",
 	"http://localhost:8080",
 	"https://studio.apollographql.com",

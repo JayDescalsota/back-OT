@@ -52,7 +52,9 @@ type ComplexityRoot struct {
 		CreatedBy      func(childComplexity int) int
 		ID             func(childComplexity int) int
 		Note           func(childComplexity int) int
+		Patient        func(childComplexity int) int
 		PatientID      func(childComplexity int) int
+		Practitioner   func(childComplexity int) int
 		PractitionerID func(childComplexity int) int
 		ScheduledEnd   func(childComplexity int) int
 		ScheduledStart func(childComplexity int) int
@@ -68,6 +70,7 @@ type ComplexityRoot struct {
 		CreatedAt      func(childComplexity int) int
 		CreatedBy      func(childComplexity int) int
 		ID             func(childComplexity int) int
+		Practitioner   func(childComplexity int) int
 		PractitionerID func(childComplexity int) int
 		SlotDate       func(childComplexity int) int
 		SlotEnd        func(childComplexity int) int
@@ -120,6 +123,10 @@ type ComplexityRoot struct {
 		UpdateSlotStatus               func(childComplexity int, id string, status string) int
 	}
 
+	Patient struct {
+		ID func(childComplexity int) int
+	}
+
 	PractitionerAvailability struct {
 		BranchID       func(childComplexity int) int
 		CreatedAt      func(childComplexity int) int
@@ -127,6 +134,7 @@ type ComplexityRoot struct {
 		EndTime        func(childComplexity int) int
 		ID             func(childComplexity int) int
 		IsActive       func(childComplexity int) int
+		Practitioner   func(childComplexity int) int
 		PractitionerID func(childComplexity int) int
 		StartTime      func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
@@ -139,7 +147,9 @@ type ComplexityRoot struct {
 		CreatedBy      func(childComplexity int) int
 		ID             func(childComplexity int) int
 		IsActive       func(childComplexity int) int
+		Practitioner   func(childComplexity int) int
 		PractitionerID func(childComplexity int) int
+		Role           func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
 		UpdatedBy      func(childComplexity int) int
 	}
@@ -154,7 +164,7 @@ type ComplexityRoot struct {
 		PractitionerAvailabilities func(childComplexity int, branchID *string, practitionerID *string) int
 		PractitionerAvailability   func(childComplexity int, id string) int
 		PractitionerBranch         func(childComplexity int, id string) int
-		PractitionerBranches       func(childComplexity int, branchID *string) int
+		PractitionerBranches       func(childComplexity int, branchID *string, role *string) int
 		ScheduleException          func(childComplexity int, id string) int
 		ScheduleExceptions         func(childComplexity int, branchID *string, practitionerID *string) int
 		ScheduleTemplate           func(childComplexity int, id string) int
@@ -170,6 +180,7 @@ type ComplexityRoot struct {
 		ExceptionDate  func(childComplexity int) int
 		ID             func(childComplexity int) int
 		IsActive       func(childComplexity int) int
+		Practitioner   func(childComplexity int) int
 		PractitionerID func(childComplexity int) int
 		UpdatedAt      func(childComplexity int) int
 		UpdatedBy      func(childComplexity int) int
@@ -185,12 +196,17 @@ type ComplexityRoot struct {
 		EndTime             func(childComplexity int) int
 		ID                  func(childComplexity int) int
 		IsActive            func(childComplexity int) int
+		Practitioner        func(childComplexity int) int
 		PractitionerID      func(childComplexity int) int
 		SlotDurationMinutes func(childComplexity int) int
 		StartTime           func(childComplexity int) int
 		TemplateName        func(childComplexity int) int
 		UpdatedAt           func(childComplexity int) int
 		UpdatedBy           func(childComplexity int) int
+	}
+
+	User struct {
+		ID func(childComplexity int) int
 	}
 
 	_Service struct {
@@ -210,6 +226,9 @@ type AppointmentResolver interface {
 	SlotID(ctx context.Context, obj *db.BunAppointment) (*string, error)
 	CreatedAt(ctx context.Context, obj *db.BunAppointment) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunAppointment) (*string, error)
+
+	Practitioner(ctx context.Context, obj *db.BunAppointment) (*model.User, error)
+	Patient(ctx context.Context, obj *db.BunAppointment) (*model.Patient, error)
 }
 type AppointmentSlotResolver interface {
 	SlotDate(ctx context.Context, obj *db.BunAppointmentSlot) (string, error)
@@ -219,6 +238,8 @@ type AppointmentSlotResolver interface {
 	AppointmentID(ctx context.Context, obj *db.BunAppointmentSlot) (*string, error)
 	CreatedAt(ctx context.Context, obj *db.BunAppointmentSlot) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunAppointmentSlot) (*string, error)
+
+	Practitioner(ctx context.Context, obj *db.BunAppointmentSlot) (*model.User, error)
 }
 type BranchHoursResolver interface {
 	DayOfWeek(ctx context.Context, obj *db.BunBranchHours) (int, error)
@@ -264,16 +285,20 @@ type PractitionerAvailabilityResolver interface {
 
 	CreatedAt(ctx context.Context, obj *db.BunPractitionerAvailability) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunPractitionerAvailability) (*string, error)
+
+	Practitioner(ctx context.Context, obj *db.BunPractitionerAvailability) (*model.User, error)
 }
 type PractitionerBranchResolver interface {
 	CreatedAt(ctx context.Context, obj *db.BunPractitionerBranch) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunPractitionerBranch) (*string, error)
+
+	Practitioner(ctx context.Context, obj *db.BunPractitionerBranch) (*model.User, error)
 }
 type QueryResolver interface {
 	BranchHour(ctx context.Context, id string) (*db.BunBranchHours, error)
 	BranchHours(ctx context.Context, branchID *string) ([]*db.BunBranchHours, error)
 	PractitionerBranch(ctx context.Context, id string) (*db.BunPractitionerBranch, error)
-	PractitionerBranches(ctx context.Context, branchID *string) ([]*db.BunPractitionerBranch, error)
+	PractitionerBranches(ctx context.Context, branchID *string, role *string) ([]*db.BunPractitionerBranch, error)
 	PractitionerAvailability(ctx context.Context, id string) (*db.BunPractitionerAvailability, error)
 	PractitionerAvailabilities(ctx context.Context, branchID *string, practitionerID *string) ([]*db.BunPractitionerAvailability, error)
 	ScheduleTemplate(ctx context.Context, id string) (*db.BunScheduleTemplate, error)
@@ -292,6 +317,8 @@ type ScheduleExceptionResolver interface {
 
 	CreatedAt(ctx context.Context, obj *db.BunScheduleException) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunScheduleException) (*string, error)
+
+	Practitioner(ctx context.Context, obj *db.BunScheduleException) (*model.User, error)
 }
 type ScheduleTemplateResolver interface {
 	TemplateName(ctx context.Context, obj *db.BunScheduleTemplate) (string, error)
@@ -304,6 +331,8 @@ type ScheduleTemplateResolver interface {
 
 	CreatedAt(ctx context.Context, obj *db.BunScheduleTemplate) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunScheduleTemplate) (*string, error)
+
+	Practitioner(ctx context.Context, obj *db.BunScheduleTemplate) (*model.User, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -354,12 +383,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Appointment.Note(childComplexity), true
+	case "Appointment.patient":
+		if e.ComplexityRoot.Appointment.Patient == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.Patient(childComplexity), true
 	case "Appointment.patient_id":
 		if e.ComplexityRoot.Appointment.PatientID == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Appointment.PatientID(childComplexity), true
+	case "Appointment.practitioner":
+		if e.ComplexityRoot.Appointment.Practitioner == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.Practitioner(childComplexity), true
 	case "Appointment.practitioner_id":
 		if e.ComplexityRoot.Appointment.PractitionerID == nil {
 			break
@@ -433,6 +474,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AppointmentSlot.ID(childComplexity), true
+	case "AppointmentSlot.practitioner":
+		if e.ComplexityRoot.AppointmentSlot.Practitioner == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentSlot.Practitioner(childComplexity), true
 	case "AppointmentSlot.practitioner_id":
 		if e.ComplexityRoot.AppointmentSlot.PractitionerID == nil {
 			break
@@ -803,6 +850,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Mutation.UpdateSlotStatus(childComplexity, args["id"].(string), args["status"].(string)), true
 
+	case "Patient.id":
+		if e.ComplexityRoot.Patient.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Patient.ID(childComplexity), true
+
 	case "PractitionerAvailability.branch_id":
 		if e.ComplexityRoot.PractitionerAvailability.BranchID == nil {
 			break
@@ -839,6 +893,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PractitionerAvailability.IsActive(childComplexity), true
+	case "PractitionerAvailability.practitioner":
+		if e.ComplexityRoot.PractitionerAvailability.Practitioner == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PractitionerAvailability.Practitioner(childComplexity), true
 	case "PractitionerAvailability.practitioner_id":
 		if e.ComplexityRoot.PractitionerAvailability.PractitionerID == nil {
 			break
@@ -894,12 +954,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.PractitionerBranch.IsActive(childComplexity), true
+	case "PractitionerBranch.practitioner":
+		if e.ComplexityRoot.PractitionerBranch.Practitioner == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PractitionerBranch.Practitioner(childComplexity), true
 	case "PractitionerBranch.practitioner_id":
 		if e.ComplexityRoot.PractitionerBranch.PractitionerID == nil {
 			break
 		}
 
 		return e.ComplexityRoot.PractitionerBranch.PractitionerID(childComplexity), true
+	case "PractitionerBranch.role":
+		if e.ComplexityRoot.PractitionerBranch.Role == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PractitionerBranch.Role(childComplexity), true
 	case "PractitionerBranch.updated_at":
 		if e.ComplexityRoot.PractitionerBranch.UpdatedAt == nil {
 			break
@@ -1023,7 +1095,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.PractitionerBranches(childComplexity, args["branch_id"].(*string)), true
+		return e.ComplexityRoot.Query.PractitionerBranches(childComplexity, args["branch_id"].(*string), args["role"].(*string)), true
 	case "Query.scheduleException":
 		if e.ComplexityRoot.Query.ScheduleException == nil {
 			break
@@ -1122,6 +1194,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ScheduleException.IsActive(childComplexity), true
+	case "ScheduleException.practitioner":
+		if e.ComplexityRoot.ScheduleException.Practitioner == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ScheduleException.Practitioner(childComplexity), true
 	case "ScheduleException.practitioner_id":
 		if e.ComplexityRoot.ScheduleException.PractitionerID == nil {
 			break
@@ -1195,6 +1273,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ScheduleTemplate.IsActive(childComplexity), true
+	case "ScheduleTemplate.practitioner":
+		if e.ComplexityRoot.ScheduleTemplate.Practitioner == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ScheduleTemplate.Practitioner(childComplexity), true
 	case "ScheduleTemplate.practitioner_id":
 		if e.ComplexityRoot.ScheduleTemplate.PractitionerID == nil {
 			break
@@ -1231,6 +1315,13 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ScheduleTemplate.UpdatedBy(childComplexity), true
+
+	case "User.id":
+		if e.ComplexityRoot.User.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.User.ID(childComplexity), true
 
 	case "_Service.sdl":
 		if e.ComplexityRoot._Service.SDL == nil {
@@ -1333,253 +1424,279 @@ func newExecutionContext(
 }
 
 var sources = []*ast.Source{
-	{Name: "../schema.graphqls", Input: `scalar DateTime @specifiedBy(url: "https://scalars.graphql.org/andrewimario/graphql-go-datetime.html")
+	{Name: "../schema.graphqls", Input: `scalar DateTime
+  @specifiedBy(
+    url: "https://scalars.graphql.org/andrewimario/graphql-go-datetime.html"
+  )
+
+extend type User @key(fields: "id") {
+  id: ID! @external
+}
+
+extend type Patient @key(fields: "id") {
+  id: ID! @external
+}
 
 type BranchHours @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	day_of_week: Int!
-	open_time: String
-	close_time: String
-	is_active: Boolean!
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  day_of_week: Int!
+  open_time: String
+  close_time: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
 }
 
 type PractitionerBranch @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	practitioner_id: ID!
-	is_active: Boolean!
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  role: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  practitioner: User
 }
 
 type PractitionerAvailability @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	practitioner_id: ID!
-	start_time: DateTime!
-	end_time: DateTime!
-	is_active: Boolean!
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  start_time: DateTime!
+  end_time: DateTime!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  practitioner: User
 }
 
 type ScheduleTemplate @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	practitioner_id: ID!
-	template_name: String!
-	day_of_week: Int!
-	start_time: String!
-	end_time: String!
-	slot_duration_minutes: Int!
-	break_start: String
-	break_end: String
-	is_active: Boolean!
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  template_name: String!
+  day_of_week: Int!
+  start_time: String!
+  end_time: String!
+  slot_duration_minutes: Int!
+  break_start: String
+  break_end: String
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  practitioner: User
 }
 
 type AppointmentSlot @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	practitioner_id: ID!
-	slot_date: DateTime!
-	slot_start: DateTime!
-	slot_end: DateTime!
-	status: String!
-	appointment_id: ID
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  slot_date: DateTime!
+  slot_start: DateTime!
+  slot_end: DateTime!
+  status: String!
+  appointment_id: ID
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  practitioner: User
 }
 
 type Appointment @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	patient_id: ID!
-	practitioner_id: ID!
-	scheduled_start: DateTime!
-	scheduled_end: DateTime!
-	status: String!
-	note: String
-	slot_id: ID
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  patient_id: ID!
+  practitioner_id: ID!
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  status: String!
+  note: String
+  slot_id: ID
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  practitioner: User
+  patient: Patient
 }
 
 type ScheduleException @key(fields: "id") {
-	id: ID!
-	branch_id: ID!
-	practitioner_id: ID!
-	exception_date: DateTime!
-	is_active: Boolean!
-	created_at: DateTime!
-	updated_at: DateTime
-	created_by: ID
-	updated_by: ID
+  id: ID!
+  branch_id: ID!
+  practitioner_id: ID!
+  exception_date: DateTime!
+  is_active: Boolean!
+  created_at: DateTime!
+  updated_at: DateTime
+  created_by: ID
+  updated_by: ID
+  practitioner: User
 }
 
 input BranchHoursInput {
-	branch_id: ID!
-	day_of_week: Int!
-	open_time: String
-	close_time: String
+  day_of_week: Int!
+  open_time: String
+  close_time: String
 }
 
 input BranchHoursUpdateInput {
-	day_of_week: Int
-	open_time: String
-	close_time: String
-	is_active: Boolean
+  day_of_week: Int
+  open_time: String
+  close_time: String
+  is_active: Boolean
 }
 
 input PractitionerBranchInput {
-	branch_id: ID!
-	practitioner_id: ID!
+  practitioner_id: ID!
+  role: String
 }
 
 input PractitionerAvailabilityInput {
-	branch_id: ID!
-	practitioner_id: ID!
-	start_time: DateTime!
-	end_time: DateTime!
+  practitioner_id: ID!
+  start_time: DateTime!
+  end_time: DateTime!
 }
 
 input ScheduleTemplateInput {
-	branch_id: ID!
-	practitioner_id: ID!
-	template_name: String!
-	day_of_week: Int!
-	start_time: String!
-	end_time: String!
-	slot_duration_minutes: Int!
-	break_start: String
-	break_end: String
+  practitioner_id: ID!
+  template_name: String!
+  day_of_week: Int!
+  start_time: String!
+  end_time: String!
+  slot_duration_minutes: Int!
+  break_start: String
+  break_end: String
 }
 
 input ScheduleTemplateUpdateInput {
-	template_name: String
-	day_of_week: Int
-	start_time: String
-	end_time: String
-	slot_duration_minutes: Int
-	break_start: String
-	break_end: String
-	is_active: Boolean
+  template_name: String
+  day_of_week: Int
+  start_time: String
+  end_time: String
+  slot_duration_minutes: Int
+  break_start: String
+  break_end: String
+  is_active: Boolean
 }
 
 input AppointmentInput {
-	branch_id: ID!
-	patient_id: ID!
-	practitioner_id: ID!
-	scheduled_start: DateTime!
-	scheduled_end: DateTime!
-	note: String
-	slot_id: ID
+  patient_id: ID!
+  practitioner_id: ID!
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  note: String
+  slot_id: ID
 }
 
 input AppointmentUpdateInput {
-	status: String
-	note: String
+  status: String
+  note: String
 }
 
 input ScheduleExceptionInput {
-	branch_id: ID!
-	practitioner_id: ID!
-	exception_date: DateTime!
+  practitioner_id: ID!
+  exception_date: DateTime!
 }
 
 input AppointmentSlotsFilter {
-	branch_id: ID
-	practitioner_id: ID
-	slot_date: DateTime
-	status: String
+  branch_id: ID
+  practitioner_id: ID
+  slot_date: DateTime
+  status: String
 }
 
 input AppointmentsFilter {
-	branch_id: ID
-	patient_id: ID
-	practitioner_id: ID
-	status: String
-	scheduled_start: DateTime
-	scheduled_end: DateTime
+  branch_id: ID
+  patient_id: ID
+  practitioner_id: ID
+  status: String
+  scheduled_start: DateTime
+  scheduled_end: DateTime
 }
 
 type Query {
-	# Branch hours
-	branchHour(id: ID!): BranchHours
-	branchHours(branch_id: ID): [BranchHours!]!
+  # Branch hours
+  branchHour(id: ID!): BranchHours
+  branchHours(branch_id: ID): [BranchHours!]!
 
-	# Practitioner branch
-	practitionerBranch(id: ID!): PractitionerBranch
-	practitionerBranches(branch_id: ID): [PractitionerBranch!]!
+  # Practitioner branch
+  practitionerBranch(id: ID!): PractitionerBranch
+  practitionerBranches(branch_id: ID, role: String): [PractitionerBranch!]!
 
-	# Practitioner availability
-	practitionerAvailability(id: ID!): PractitionerAvailability
-	practitionerAvailabilities(branch_id: ID, practitioner_id: ID): [PractitionerAvailability!]!
+  # Practitioner availability
+  practitionerAvailability(id: ID!): PractitionerAvailability
+  practitionerAvailabilities(
+    branch_id: ID
+    practitioner_id: ID
+  ): [PractitionerAvailability!]!
 
-	# Schedule templates
-	scheduleTemplate(id: ID!): ScheduleTemplate
-	scheduleTemplates(branch_id: ID, practitioner_id: ID): [ScheduleTemplate!]!
+  # Schedule templates
+  scheduleTemplate(id: ID!): ScheduleTemplate
+  scheduleTemplates(branch_id: ID, practitioner_id: ID): [ScheduleTemplate!]!
 
-	# Appointment slots
-	appointmentSlot(id: ID!): AppointmentSlot
-	appointmentSlots(filter: AppointmentSlotsFilter!): [AppointmentSlot!]!
+  # Appointment slots
+  appointmentSlot(id: ID!): AppointmentSlot
+  appointmentSlots(filter: AppointmentSlotsFilter!): [AppointmentSlot!]!
 
-	# Appointments
-	appointment(id: ID!): Appointment
-	appointments(filter: AppointmentsFilter!): [Appointment!]!
+  # Appointments
+  appointment(id: ID!): Appointment
+  appointments(filter: AppointmentsFilter!): [Appointment!]!
 
-	# Schedule exceptions
-	scheduleException(id: ID!): ScheduleException
-	scheduleExceptions(branch_id: ID, practitioner_id: ID): [ScheduleException!]!
+  # Schedule exceptions
+  scheduleException(id: ID!): ScheduleException
+  scheduleExceptions(branch_id: ID, practitioner_id: ID): [ScheduleException!]!
 }
 
 type Mutation {
-	# Branch hours
-	createBranchHours(input: BranchHoursInput!): BranchHours!
-	updateBranchHours(id: ID!, input: BranchHoursUpdateInput!): BranchHours!
-	deleteBranchHours(id: ID!): Boolean!
+  # Branch hours
+  createBranchHours(input: BranchHoursInput!): BranchHours!
+  updateBranchHours(id: ID!, input: BranchHoursUpdateInput!): BranchHours!
+  deleteBranchHours(id: ID!): Boolean!
 
-	# Practitioner branch
-	createPractitionerBranch(input: PractitionerBranchInput!): PractitionerBranch!
-	deletePractitionerBranch(id: ID!): Boolean!
+  # Practitioner branch
+  createPractitionerBranch(input: PractitionerBranchInput!): PractitionerBranch!
+  deletePractitionerBranch(id: ID!): Boolean!
 
-	# Practitioner availability
-	createPractitionerAvailability(input: PractitionerAvailabilityInput!): PractitionerAvailability!
-	deletePractitionerAvailability(id: ID!): Boolean!
+  # Practitioner availability
+  createPractitionerAvailability(
+    input: PractitionerAvailabilityInput!
+  ): PractitionerAvailability!
+  deletePractitionerAvailability(id: ID!): Boolean!
 
-	# Schedule templates
-	createScheduleTemplate(input: ScheduleTemplateInput!): ScheduleTemplate!
-	updateScheduleTemplate(id: ID!, input: ScheduleTemplateUpdateInput!): ScheduleTemplate!
-	deleteScheduleTemplate(id: ID!): Boolean!
+  # Schedule templates
+  createScheduleTemplate(input: ScheduleTemplateInput!): ScheduleTemplate!
+  updateScheduleTemplate(
+    id: ID!
+    input: ScheduleTemplateUpdateInput!
+  ): ScheduleTemplate!
+  deleteScheduleTemplate(id: ID!): Boolean!
 
-	# Appointment slots
-	generateSlots(branch_id: ID!, practitioner_id: ID!, date: DateTime!): [AppointmentSlot!]!
-	updateSlotStatus(id: ID!, status: String!): AppointmentSlot!
+  # Appointment slots
+  generateSlots(
+    branch_id: ID!
+    practitioner_id: ID!
+    date: DateTime!
+  ): [AppointmentSlot!]!
+  updateSlotStatus(id: ID!, status: String!): AppointmentSlot!
 
-	# Appointments
-	createAppointment(input: AppointmentInput!): Appointment!
-	updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
-	cancelAppointment(id: ID!): Appointment!
+  # Appointments
+  createAppointment(input: AppointmentInput!): Appointment!
+  updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
+  cancelAppointment(id: ID!): Appointment!
 
-	# Schedule exceptions
-	createScheduleException(input: ScheduleExceptionInput!): ScheduleException!
-	deleteScheduleException(id: ID!): Boolean!
+  # Schedule exceptions
+  createScheduleException(input: ScheduleExceptionInput!): ScheduleException!
+  deleteScheduleException(id: ID!): Boolean!
 }
 `, BuiltIn: false},
 	{Name: "../../federation/directives.graphql", Input: `
@@ -1636,7 +1753,7 @@ type Mutation {
 `, BuiltIn: true},
 	{Name: "../../federation/entity.graphql", Input: `
 # a union of all types that use the @key directive
-union _Entity = Appointment | AppointmentSlot | BranchHours | PractitionerAvailability | PractitionerBranch | ScheduleException | ScheduleTemplate
+union _Entity = Appointment | AppointmentSlot | BranchHours | Patient | PractitionerAvailability | PractitionerBranch | ScheduleException | ScheduleTemplate | User
 
 # fake type to build resolver interfaces for users to implement
 type Entity {
@@ -1693,6 +1810,10 @@ func (ec *executionContext) childFields_Appointment(ctx context.Context, field g
 		return ec.fieldContext_Appointment_created_by(ctx, field)
 	case "updated_by":
 		return ec.fieldContext_Appointment_updated_by(ctx, field)
+	case "practitioner":
+		return ec.fieldContext_Appointment_practitioner(ctx, field)
+	case "patient":
+		return ec.fieldContext_Appointment_patient(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Appointment", field.Name)
 }
@@ -1723,6 +1844,8 @@ func (ec *executionContext) childFields_AppointmentSlot(ctx context.Context, fie
 		return ec.fieldContext_AppointmentSlot_created_by(ctx, field)
 	case "updated_by":
 		return ec.fieldContext_AppointmentSlot_updated_by(ctx, field)
+	case "practitioner":
+		return ec.fieldContext_AppointmentSlot_practitioner(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type AppointmentSlot", field.Name)
 }
@@ -1753,6 +1876,14 @@ func (ec *executionContext) childFields_BranchHours(ctx context.Context, field g
 	return nil, fmt.Errorf("no field named %q was found under type BranchHours", field.Name)
 }
 
+func (ec *executionContext) childFields_Patient(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Patient_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Patient", field.Name)
+}
+
 func (ec *executionContext) childFields_PractitionerAvailability(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1775,6 +1906,8 @@ func (ec *executionContext) childFields_PractitionerAvailability(ctx context.Con
 		return ec.fieldContext_PractitionerAvailability_created_by(ctx, field)
 	case "updated_by":
 		return ec.fieldContext_PractitionerAvailability_updated_by(ctx, field)
+	case "practitioner":
+		return ec.fieldContext_PractitionerAvailability_practitioner(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PractitionerAvailability", field.Name)
 }
@@ -1787,6 +1920,8 @@ func (ec *executionContext) childFields_PractitionerBranch(ctx context.Context, 
 		return ec.fieldContext_PractitionerBranch_branch_id(ctx, field)
 	case "practitioner_id":
 		return ec.fieldContext_PractitionerBranch_practitioner_id(ctx, field)
+	case "role":
+		return ec.fieldContext_PractitionerBranch_role(ctx, field)
 	case "is_active":
 		return ec.fieldContext_PractitionerBranch_is_active(ctx, field)
 	case "created_at":
@@ -1797,6 +1932,8 @@ func (ec *executionContext) childFields_PractitionerBranch(ctx context.Context, 
 		return ec.fieldContext_PractitionerBranch_created_by(ctx, field)
 	case "updated_by":
 		return ec.fieldContext_PractitionerBranch_updated_by(ctx, field)
+	case "practitioner":
+		return ec.fieldContext_PractitionerBranch_practitioner(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type PractitionerBranch", field.Name)
 }
@@ -1821,6 +1958,8 @@ func (ec *executionContext) childFields_ScheduleException(ctx context.Context, f
 		return ec.fieldContext_ScheduleException_created_by(ctx, field)
 	case "updated_by":
 		return ec.fieldContext_ScheduleException_updated_by(ctx, field)
+	case "practitioner":
+		return ec.fieldContext_ScheduleException_practitioner(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ScheduleException", field.Name)
 }
@@ -1857,8 +1996,18 @@ func (ec *executionContext) childFields_ScheduleTemplate(ctx context.Context, fi
 		return ec.fieldContext_ScheduleTemplate_created_by(ctx, field)
 	case "updated_by":
 		return ec.fieldContext_ScheduleTemplate_updated_by(ctx, field)
+	case "practitioner":
+		return ec.fieldContext_ScheduleTemplate_practitioner(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ScheduleTemplate", field.Name)
+}
+
+func (ec *executionContext) childFields_User(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_User_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type User", field.Name)
 }
 
 func (ec *executionContext) childFields__Service(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2542,6 +2691,14 @@ func (ec *executionContext) field_Query_practitionerBranches_args(ctx context.Co
 		return nil, err
 	}
 	args["branch_id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "role",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["role"] = arg1
 	return args, nil
 }
 
@@ -2976,6 +3133,70 @@ func (ec *executionContext) fieldContext_Appointment_updated_by(_ context.Contex
 	return graphql.NewScalarFieldContext("Appointment", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _Appointment_practitioner(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_practitioner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Appointment().Practitioner(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_practitioner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Appointment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Appointment_patient(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_patient(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Appointment().Patient(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Patient) graphql.Marshaler {
+			return ec.marshalOPatient2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐPatient(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_patient(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Appointment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Patient(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _AppointmentSlot_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentSlot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3250,6 +3471,38 @@ func (ec *executionContext) _AppointmentSlot_updated_by(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_AppointmentSlot_updated_by(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AppointmentSlot", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentSlot_practitioner(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentSlot) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentSlot_practitioner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.AppointmentSlot().Practitioner(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentSlot_practitioner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AppointmentSlot",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _BranchHours_id(ctx context.Context, field graphql.CollectedField, obj *db.BunBranchHours) (ret graphql.Marshaler) {
@@ -4538,6 +4791,29 @@ func (ec *executionContext) fieldContext_Mutation_deleteScheduleException(ctx co
 	return fc, nil
 }
 
+func (ec *executionContext) _Patient_id(ctx context.Context, field graphql.CollectedField, obj *model.Patient) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Patient_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Patient_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Patient", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
 func (ec *executionContext) _PractitionerAvailability_id(ctx context.Context, field graphql.CollectedField, obj *db.BunPractitionerAvailability) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4768,6 +5044,38 @@ func (ec *executionContext) fieldContext_PractitionerAvailability_updated_by(_ c
 	return graphql.NewScalarFieldContext("PractitionerAvailability", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _PractitionerAvailability_practitioner(ctx context.Context, field graphql.CollectedField, obj *db.BunPractitionerAvailability) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PractitionerAvailability_practitioner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PractitionerAvailability().Practitioner(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PractitionerAvailability_practitioner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PractitionerAvailability",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _PractitionerBranch_id(ctx context.Context, field graphql.CollectedField, obj *db.BunPractitionerBranch) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4835,6 +5143,29 @@ func (ec *executionContext) _PractitionerBranch_practitioner_id(ctx context.Cont
 }
 func (ec *executionContext) fieldContext_PractitionerBranch_practitioner_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("PractitionerBranch", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PractitionerBranch_role(ctx context.Context, field graphql.CollectedField, obj *db.BunPractitionerBranch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PractitionerBranch_role(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Role, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PractitionerBranch_role(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PractitionerBranch", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _PractitionerBranch_is_active(ctx context.Context, field graphql.CollectedField, obj *db.BunPractitionerBranch) (ret graphql.Marshaler) {
@@ -4950,6 +5281,38 @@ func (ec *executionContext) _PractitionerBranch_updated_by(ctx context.Context, 
 }
 func (ec *executionContext) fieldContext_PractitionerBranch_updated_by(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("PractitionerBranch", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PractitionerBranch_practitioner(ctx context.Context, field graphql.CollectedField, obj *db.BunPractitionerBranch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PractitionerBranch_practitioner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.PractitionerBranch().Practitioner(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_PractitionerBranch_practitioner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "PractitionerBranch",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Query_branchHour(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5094,7 +5457,7 @@ func (ec *executionContext) _Query_practitionerBranches(ctx context.Context, fie
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().PractitionerBranches(ctx, fc.Args["branch_id"].(*string))
+			return ec.Resolvers.Query().PractitionerBranches(ctx, fc.Args["branch_id"].(*string), fc.Args["role"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunPractitionerBranch) graphql.Marshaler {
@@ -5927,6 +6290,38 @@ func (ec *executionContext) fieldContext_ScheduleException_updated_by(_ context.
 	return graphql.NewScalarFieldContext("ScheduleException", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _ScheduleException_practitioner(ctx context.Context, field graphql.CollectedField, obj *db.BunScheduleException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ScheduleException_practitioner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.ScheduleException().Practitioner(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ScheduleException_practitioner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ScheduleException",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ScheduleTemplate_id(ctx context.Context, field graphql.CollectedField, obj *db.BunScheduleTemplate) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -6270,6 +6665,61 @@ func (ec *executionContext) _ScheduleTemplate_updated_by(ctx context.Context, fi
 }
 func (ec *executionContext) fieldContext_ScheduleTemplate_updated_by(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ScheduleTemplate", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _ScheduleTemplate_practitioner(ctx context.Context, field graphql.CollectedField, obj *db.BunScheduleTemplate) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ScheduleTemplate_practitioner(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.ScheduleTemplate().Practitioner(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.User) graphql.Marshaler {
+			return ec.marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ScheduleTemplate_practitioner(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ScheduleTemplate",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_User_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_User_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("User", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) __Service_sdl(ctx context.Context, field graphql.CollectedField, obj *fedruntime.Service) (ret graphql.Marshaler) {
@@ -7365,20 +7815,13 @@ func (ec *executionContext) unmarshalInputAppointmentInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "patient_id", "practitioner_id", "scheduled_start", "scheduled_end", "note", "slot_id"}
+	fieldsInOrder := [...]string{"patient_id", "practitioner_id", "scheduled_start", "scheduled_end", "note", "slot_id"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
 		case "patient_id":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("patient_id"))
 			data, err := ec.unmarshalNID2string(ctx, v)
@@ -7590,20 +8033,13 @@ func (ec *executionContext) unmarshalInputBranchHoursInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "day_of_week", "open_time", "close_time"}
+	fieldsInOrder := [...]string{"day_of_week", "open_time", "close_time"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
 		case "day_of_week":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("day_of_week"))
 			data, err := ec.unmarshalNInt2int(ctx, v)
@@ -7692,20 +8128,13 @@ func (ec *executionContext) unmarshalInputPractitionerAvailabilityInput(ctx cont
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "practitioner_id", "start_time", "end_time"}
+	fieldsInOrder := [...]string{"practitioner_id", "start_time", "end_time"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
 		case "practitioner_id":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("practitioner_id"))
 			data, err := ec.unmarshalNID2string(ctx, v)
@@ -7743,20 +8172,13 @@ func (ec *executionContext) unmarshalInputPractitionerBranchInput(ctx context.Co
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "practitioner_id"}
+	fieldsInOrder := [...]string{"practitioner_id", "role"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
 		case "practitioner_id":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("practitioner_id"))
 			data, err := ec.unmarshalNID2string(ctx, v)
@@ -7764,6 +8186,13 @@ func (ec *executionContext) unmarshalInputPractitionerBranchInput(ctx context.Co
 				return it, err
 			}
 			it.PractitionerID = data
+		case "role":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("role"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Role = data
 		}
 	}
 	return it, nil
@@ -7780,20 +8209,13 @@ func (ec *executionContext) unmarshalInputScheduleExceptionInput(ctx context.Con
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "practitioner_id", "exception_date"}
+	fieldsInOrder := [...]string{"practitioner_id", "exception_date"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
 		case "practitioner_id":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("practitioner_id"))
 			data, err := ec.unmarshalNID2string(ctx, v)
@@ -7824,20 +8246,13 @@ func (ec *executionContext) unmarshalInputScheduleTemplateInput(ctx context.Cont
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"branch_id", "practitioner_id", "template_name", "day_of_week", "start_time", "end_time", "slot_duration_minutes", "break_start", "break_end"}
+	fieldsInOrder := [...]string{"practitioner_id", "template_name", "day_of_week", "start_time", "end_time", "slot_duration_minutes", "break_start", "break_end"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
-		case "branch_id":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branch_id"))
-			data, err := ec.unmarshalNID2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.BranchID = data
 		case "practitioner_id":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("practitioner_id"))
 			data, err := ec.unmarshalNID2string(ctx, v)
@@ -7986,6 +8401,13 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 	switch obj := (obj).(type) {
 	case nil:
 		return graphql.Null
+	case model.User:
+		return ec._User(ctx, sel, &obj)
+	case *model.User:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._User(ctx, sel, obj)
 	case db.BunScheduleTemplate:
 		return ec._ScheduleTemplate(ctx, sel, &obj)
 	case *db.BunScheduleTemplate:
@@ -8014,6 +8436,13 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 			return graphql.Null
 		}
 		return ec._PractitionerAvailability(ctx, sel, obj)
+	case model.Patient:
+		return ec._Patient(ctx, sel, &obj)
+	case *model.Patient:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Patient(ctx, sel, obj)
 	case db.BunBranchHours:
 		return ec._BranchHours(ctx, sel, &obj)
 	case *db.BunBranchHours:
@@ -8323,6 +8752,82 @@ func (ec *executionContext) _Appointment(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "practitioner":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Appointment_practitioner(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "patient":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Appointment_patient(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -8614,6 +9119,44 @@ func (ec *executionContext) _AppointmentSlot(ctx context.Context, sel ast.Select
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "practitioner":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._AppointmentSlot_practitioner(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9238,6 +9781,44 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 	return out
 }
 
+var patientImplementors = []string{"Patient", "_Entity"}
+
+func (ec *executionContext) _Patient(ctx context.Context, sel ast.SelectionSet, obj *model.Patient) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, patientImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Patient")
+		case "id":
+			out.Values[i] = ec._Patient_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var practitionerAvailabilityImplementors = []string{"PractitionerAvailability", "_Entity"}
 
 func (ec *executionContext) _PractitionerAvailability(ctx context.Context, sel ast.SelectionSet, obj *db.BunPractitionerAvailability) graphql.Marshaler {
@@ -9465,6 +10046,44 @@ func (ec *executionContext) _PractitionerAvailability(ctx context.Context, sel a
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "practitioner":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PractitionerAvailability_practitioner(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -9511,6 +10130,11 @@ func (ec *executionContext) _PractitionerBranch(ctx context.Context, sel ast.Sel
 		case "practitioner_id":
 			out.Values[i] = ec._PractitionerBranch_practitioner_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "role":
+			out.Values[i] = ec._PractitionerBranch_role(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "is_active":
@@ -9604,6 +10228,44 @@ func (ec *executionContext) _PractitionerBranch(ctx context.Context, sel ast.Sel
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "practitioner":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._PractitionerBranch_practitioner(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10221,6 +10883,44 @@ func (ec *executionContext) _ScheduleException(ctx context.Context, sel ast.Sele
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "practitioner":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ScheduleException_practitioner(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10625,6 +11325,82 @@ func (ec *executionContext) _ScheduleTemplate(ctx context.Context, sel ast.Selec
 			out.Values[i] = ec._ScheduleTemplate_updated_by(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "practitioner":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ScheduleTemplate_practitioner(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var userImplementors = []string{"User", "_Entity"}
+
+func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *model.User) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, userImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("User")
+		case "id":
+			out.Values[i] = ec._User_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -11918,6 +12694,13 @@ func (ec *executionContext) marshalOInt2ᚖint(ctx context.Context, sel ast.Sele
 	return res
 }
 
+func (ec *executionContext) marshalOPatient2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐPatient(ctx context.Context, sel ast.SelectionSet, v *model.Patient) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._Patient(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOPractitionerAvailability2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunPractitionerAvailability(ctx context.Context, sel ast.SelectionSet, v *db.BunPractitionerAvailability) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -12009,6 +12792,13 @@ func (ec *executionContext) marshalOString2ᚖstring(ctx context.Context, sel as
 	_ = ctx
 	res := graphql.MarshalString(*v)
 	return res
+}
+
+func (ec *executionContext) marshalOUser2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v *model.User) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._User(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalO_Entity2githubᚗcomᚋ99designsᚋgqlgenᚋpluginᚋfederationᚋfedruntimeᚐEntity(ctx context.Context, sel ast.SelectionSet, v fedruntime.Entity) graphql.Marshaler {

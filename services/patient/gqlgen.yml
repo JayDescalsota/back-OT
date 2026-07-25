@@ -23,8 +23,8 @@ models:
     model: github.com/clinicmanager/services/patient/db.BunPatients
   Guardian:
     model: github.com/clinicmanager/services/patient/db.BunGuardians
-  PatientAddress:
-    model: github.com/clinicmanager/services/patient/db.BunPatientAddress
+  Address:
+    model: github.com/clinicmanager/services/patient/graph/model.Address
   PatientTags:
     model: github.com/clinicmanager/services/patient/db.BunPatientTags
   PatientGuardians:

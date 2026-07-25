@@ -20,6 +20,7 @@ type assignmentRow struct {
 	UpdatedBy       *string    `bun:"updated_by"`
 	UpdatedAction   string     `bun:"updated_action"`
 	IsActive        bool       `bun:"is_active"`
+	IsUserPrimary   bool       `bun:"is_user_primary"`
 	RoleName        string     `bun:"role_name"`
 	RoleDescription *string    `bun:"role_description"`
 	BranchName      string     `bun:"branch_name"`

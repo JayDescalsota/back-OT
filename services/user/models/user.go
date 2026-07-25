@@ -11,7 +11,6 @@ type User struct {
 
 	ID                     string     `bun:"id,pk"`
 	Email                  string     `bun:"email,notnull,unique"`
-	Name                   string     `bun:"name,notnull,default:'User'"`
 	PasswordHash           string     `bun:"password_hash,notnull"`
 	IsActive               bool       `bun:"is_active,default:true"`
 	IsValidated            bool       `bun:"is_validated,default:false"`

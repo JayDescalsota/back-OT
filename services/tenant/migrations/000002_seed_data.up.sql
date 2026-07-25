@@ -113,3 +113,85 @@ FROM branches b
 JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'therapist'
 WHERE b.tenant_id = 'a1b2c3d4-0002-4000-8000-000000000002'
 ON CONFLICT DO NOTHING;
+
+-- Clinic A staff assignments
+-- Maria Lopez as therapist in Clinic A branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000005', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'therapist'
+WHERE b.tenant_id = 'a1b2c3d4-0001-4000-8000-000000000001'
+ON CONFLICT DO NOTHING;
+
+-- Josefina Cruz as assistant_ot in Clinic A branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000006', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'assistant_ot'
+WHERE b.tenant_id = 'a1b2c3d4-0001-4000-8000-000000000001'
+ON CONFLICT DO NOTHING;
+
+-- Angela Reyes as front_desk in Clinic A branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000007', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'front_desk'
+WHERE b.tenant_id = 'a1b2c3d4-0001-4000-8000-000000000001'
+ON CONFLICT DO NOTHING;
+
+-- David Tan as hr_manager in Clinic A branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000008', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'hr_manager'
+WHERE b.tenant_id = 'a1b2c3d4-0001-4000-8000-000000000001'
+ON CONFLICT DO NOTHING;
+
+-- Catherine Lim as executive in Clinic A branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000009', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'executive'
+WHERE b.tenant_id = 'a1b2c3d4-0001-4000-8000-000000000001'
+ON CONFLICT DO NOTHING;
+
+-- Clinic B staff assignments
+-- Miguel Santos as therapist in Clinic B branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000010', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'therapist'
+WHERE b.tenant_id = 'a1b2c3d4-0002-4000-8000-000000000002'
+ON CONFLICT DO NOTHING;
+
+-- Patricia Gomez as assistant_ot in Clinic B branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000011', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'assistant_ot'
+WHERE b.tenant_id = 'a1b2c3d4-0002-4000-8000-000000000002'
+ON CONFLICT DO NOTHING;
+
+-- Luis Hernandez as front_desk in Clinic B branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000012', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'front_desk'
+WHERE b.tenant_id = 'a1b2c3d4-0002-4000-8000-000000000002'
+ON CONFLICT DO NOTHING;
+
+-- Sofia Martinez as hr_manager in Clinic B branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000013', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'hr_manager'
+WHERE b.tenant_id = 'a1b2c3d4-0002-4000-8000-000000000002'
+ON CONFLICT DO NOTHING;
+
+-- Carlos Mendoza as executive in Clinic B branches
+INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)
+SELECT '00000000-0000-0000-0000-000000000014', b.id, b.tenant_id, r.id, '00000000-0000-0000-0000-000000000002'
+FROM branches b
+JOIN tenant_roles r ON r.branch_id = b.id AND r.name = 'executive'
+WHERE b.tenant_id = 'a1b2c3d4-0002-4000-8000-000000000002'
+ON CONFLICT DO NOTHING;

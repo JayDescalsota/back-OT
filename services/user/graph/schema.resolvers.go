@@ -12,17 +12,54 @@ import (
 	"github.com/clinicmanager/services/user/graph/model"
 )
 
+// CreateUser is the resolver for the createUser field.
+func (r *mutationResolver) CreateUser(ctx context.Context, input model.CreateUserInput) (*model.User, error) {
+	user, err := r.UserService.CreateStaffUser(ctx, input.Email, input.Password)
+	if err != nil {
+		return nil, err
+	}
+	if input.Profile != nil {
+		if _, err := r.UserService.UpsertProfile(ctx, user.ID, *input.Profile); err != nil {
+			return nil, err
+		}
+		user.Profile, _ = r.UserService.GetProfile(ctx, user.ID)
+	}
+	return user, nil
+}
+
+// UpdateUser is the resolver for the updateUser field.
+func (r *mutationResolver) UpdateUser(ctx context.Context, id string, input model.UpdateUserInput) (*model.User, error) {
+	return r.UserService.UpdateUser(ctx, id, input.IsActive)
+}
+
+// UpsertProfile is the resolver for the upsertProfile field.
+func (r *mutationResolver) UpsertProfile(ctx context.Context, input model.UserProfileInput) (*model.UserProfile, error) {
+	userID := r.UserService.GetCurrentUserID(ctx)
+	return r.UserService.UpsertProfile(ctx, userID, input)
+}
+
 // MeUser is the resolver for the meUser field.
 func (r *queryResolver) MeUser(ctx context.Context) (*model.User, error) {
 	return r.UserService.GetMe(ctx)
 }
 
-// User returns a user by ID (super admin can access any user).
+// User is the resolver for the user field.
 func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error) {
 	return r.UserService.GetUserByID(ctx, id)
 }
 
+// Users is the resolver for the users field.
+func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
+	return r.UserService.ListUsers(ctx)
+}
+
+// Mutation returns generated.MutationResolver implementation.
+func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
+
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
-type queryResolver struct{ *Resolver }
+type (
+	mutationResolver struct{ *Resolver }
+	queryResolver    struct{ *Resolver }
+)

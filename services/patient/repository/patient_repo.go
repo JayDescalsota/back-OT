@@ -135,18 +135,6 @@ func (r *PatientRepository) GetPatient(ctx context.Context, id string) (*db.BunP
 	return r.FindPatientByID(ctx, id)
 }
 
-func (r *PatientRepository) GetPatientAddress(ctx context.Context, patientID string) (*db.BunPatientAddress, error) {
-	var address db.BunPatientAddress
-	err := r.db.NewSelect(ctx, &address).Where("patient_id = ?", patientID).Scan(ctx)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return &address, nil
-}
-
 func (r *PatientRepository) GetPatientTags(ctx context.Context, patientID string) ([]*db.BunPatientTags, error) {
 	var tags []*db.BunPatientTags
 	err := r.db.NewSelect(ctx, &tags).Where("patient_id = ?", patientID).Scan(ctx)

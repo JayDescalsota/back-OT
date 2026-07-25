@@ -16,24 +16,91 @@ type AppRole struct {
 
 func (AppRole) IsEntity() {}
 
+type CreateUserInput struct {
+	Email    string            `json:"email"`
+	Password string            `json:"password"`
+	Profile  *UserProfileInput `json:"profile,omitempty"`
+}
+
+type Mutation struct {
+}
+
+type PractitionerProfile struct {
+	UserID              string   `json:"userId"`
+	LicenseNumber       *string  `json:"licenseNumber,omitempty"`
+	LicenseState        *string  `json:"licenseState,omitempty"`
+	NpiNumber           *string  `json:"npiNumber,omitempty"`
+	Specialty           *string  `json:"specialty,omitempty"`
+	SubSpecialty        *string  `json:"subSpecialty,omitempty"`
+	Qualifications      []string `json:"qualifications,omitempty"`
+	Credentials         []string `json:"credentials,omitempty"`
+	Education           *string  `json:"education,omitempty"`
+	YearsOfExperience   *int     `json:"yearsOfExperience,omitempty"`
+	Bio                 *string  `json:"bio,omitempty"`
+	IsAcceptingPatients bool     `json:"isAcceptingPatients"`
+}
+
 type Query struct {
 }
 
+type UpdateUserInput struct {
+	IsActive bool `json:"isActive"`
+}
+
 type User struct {
-	ID            string     `json:"id"`
-	Email         string     `json:"email"`
-	Name          string     `json:"name"`
-	IsActive      bool       `json:"isActive"`
-	LastLogin     *string    `json:"lastLogin,omitempty"`
-	AppRoles      []*AppRole `json:"appRoles"`
-	IsValidated   bool       `json:"isValidated"`
-	ValidatedAt   *string    `json:"validatedAt,omitempty"`
-	CreatedAt     string     `json:"createdAt"`
-	UpdatedAt     string     `json:"updatedAt"`
-	CreatedBy     *string    `json:"createdBy,omitempty"`
-	UpdatedBy     *string    `json:"updatedBy,omitempty"`
-	CreatedAction *string    `json:"createdAction,omitempty"`
-	UpdatedAction *string    `json:"updatedAction,omitempty"`
+	ID            string       `json:"id"`
+	Email         string       `json:"email"`
+	IsActive      bool         `json:"isActive"`
+	LastLogin     *string      `json:"lastLogin,omitempty"`
+	AppRoles      []*AppRole   `json:"appRoles"`
+	IsValidated   bool         `json:"isValidated"`
+	ValidatedAt   *string      `json:"validatedAt,omitempty"`
+	CreatedAt     string       `json:"createdAt"`
+	UpdatedAt     string       `json:"updatedAt"`
+	CreatedBy     *string      `json:"createdBy,omitempty"`
+	UpdatedBy     *string      `json:"updatedBy,omitempty"`
+	CreatedAction *string      `json:"createdAction,omitempty"`
+	UpdatedAction *string      `json:"updatedAction,omitempty"`
+	Profile       *UserProfile `json:"profile,omitempty"`
 }
 
 func (User) IsEntity() {}
+
+type UserProfile struct {
+	UserID                   string   `json:"userId"`
+	FirstName                string   `json:"firstName"`
+	LastName                 *string  `json:"lastName,omitempty"`
+	MiddleName               *string  `json:"middleName,omitempty"`
+	Suffix                   *string  `json:"suffix,omitempty"`
+	Title                    *string  `json:"title,omitempty"`
+	Phone                    *string  `json:"phone,omitempty"`
+	Mobile                   *string  `json:"mobile,omitempty"`
+	DateOfBirth              *string  `json:"dateOfBirth,omitempty"`
+	Gender                   *string  `json:"gender,omitempty"`
+	Address                  *Address `json:"address,omitempty"`
+	Timezone                 *string  `json:"timezone,omitempty"`
+	PreferredLanguage        *string  `json:"preferredLanguage,omitempty"`
+	EmergencyContactName     *string  `json:"emergencyContactName,omitempty"`
+	EmergencyContactPhone    *string  `json:"emergencyContactPhone,omitempty"`
+	EmergencyContactRelation *string  `json:"emergencyContactRelation,omitempty"`
+	Notes                    *string  `json:"notes,omitempty"`
+}
+
+type UserProfileInput struct {
+	FirstName                string  `json:"firstName"`
+	LastName                 *string `json:"lastName,omitempty"`
+	MiddleName               *string `json:"middleName,omitempty"`
+	Suffix                   *string `json:"suffix,omitempty"`
+	Title                    *string `json:"title,omitempty"`
+	Phone                    *string `json:"phone,omitempty"`
+	Mobile                   *string `json:"mobile,omitempty"`
+	DateOfBirth              *string `json:"dateOfBirth,omitempty"`
+	Gender                   *string `json:"gender,omitempty"`
+	AddressID                *string `json:"addressId,omitempty"`
+	Timezone                 *string `json:"timezone,omitempty"`
+	PreferredLanguage        *string `json:"preferredLanguage,omitempty"`
+	EmergencyContactName     *string `json:"emergencyContactName,omitempty"`
+	EmergencyContactPhone    *string `json:"emergencyContactPhone,omitempty"`
+	EmergencyContactRelation *string `json:"emergencyContactRelation,omitempty"`
+	Notes                    *string `json:"notes,omitempty"`
+}

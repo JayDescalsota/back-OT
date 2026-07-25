@@ -3,6 +3,14 @@ scalar DateTime
     url: "https://scalars.graphql.org/andrewimario/graphql-go-datetime.html"
   )
 
+extend type User @key(fields: "id") {
+  id: ID! @external
+}
+
+extend type Patient @key(fields: "id") {
+  id: ID! @external
+}
+
 type BranchHours @key(fields: "id") {
   id: ID!
   branch_id: ID!
@@ -20,11 +28,13 @@ type PractitionerBranch @key(fields: "id") {
   id: ID!
   branch_id: ID!
   practitioner_id: ID!
+  role: String
   is_active: Boolean!
   created_at: DateTime!
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type PractitionerAvailability @key(fields: "id") {
@@ -38,6 +48,7 @@ type PractitionerAvailability @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type ScheduleTemplate @key(fields: "id") {
@@ -56,6 +67,7 @@ type ScheduleTemplate @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type AppointmentSlot @key(fields: "id") {
@@ -71,6 +83,7 @@ type AppointmentSlot @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type Appointment @key(fields: "id") {
@@ -87,6 +100,8 @@ type Appointment @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
+  patient: Patient
 }
 
 type ScheduleException @key(fields: "id") {
@@ -99,10 +114,10 @@ type ScheduleException @key(fields: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 input BranchHoursInput {
-  branch_id: ID!
   day_of_week: Int!
   open_time: String
   close_time: String
@@ -116,19 +131,17 @@ input BranchHoursUpdateInput {
 }
 
 input PractitionerBranchInput {
-  branch_id: ID!
   practitioner_id: ID!
+  role: String
 }
 
 input PractitionerAvailabilityInput {
-  branch_id: ID!
   practitioner_id: ID!
   start_time: DateTime!
   end_time: DateTime!
 }
 
 input ScheduleTemplateInput {
-  branch_id: ID!
   practitioner_id: ID!
   template_name: String!
   day_of_week: Int!
@@ -151,7 +164,6 @@ input ScheduleTemplateUpdateInput {
 }
 
 input AppointmentInput {
-  branch_id: ID!
   patient_id: ID!
   practitioner_id: ID!
   scheduled_start: DateTime!
@@ -166,7 +178,6 @@ input AppointmentUpdateInput {
 }
 
 input ScheduleExceptionInput {
-  branch_id: ID!
   practitioner_id: ID!
   exception_date: DateTime!
 }
@@ -194,7 +205,7 @@ type Query {
 
   # Practitioner branch
   practitionerBranch(id: ID!): PractitionerBranch
-  practitionerBranches(branch_id: ID): [PractitionerBranch!]!
+  practitionerBranches(branch_id: ID, role: String): [PractitionerBranch!]!
 
   # Practitioner availability
   practitionerAvailability(id: ID!): PractitionerAvailability

@@ -12,7 +12,6 @@ type BunMessageThread struct {
 	ID            string    `bun:"id,pk" json:"id"`
 	TenantID      string    `bun:"tenant_id" json:"tenant_id"`
 	BranchID      string    `bun:"branch_id" json:"branch_id"`
-	Subject       string    `bun:"subject" json:"subject"`
 	Type          string    `bun:"type" json:"type"`
 	IsActive      bool      `bun:"is_active,default:true" json:"is_active"`
 	CreatedAt     time.Time `bun:"created_at" json:"-"`

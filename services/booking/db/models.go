@@ -132,17 +132,17 @@ func (BunAppointmentSlot) IsEntity() {}
 
 // BunAppointment represents patient bookings against appointment slots.
 type BunAppointment struct {
-	bun.BaseModel      `bun:"table:appointment"`
-	ID                 string    `bun:"id,pk" json:"id"`
-	TenantID           string    `bun:"tenant_id" json:"tenant_id"`
-	AppointmentSlotID string    `bun:"appointment_slot_id" json:"appointment_slot_id"`
-	BranchID           string    `bun:"branch_id" json:"branch_id"`
-	PatientID          *string   `bun:"patient_id" json:"patient_id"`
-	PractitionerID     *string   `bun:"practitioner_id" json:"practitioner_id"`
-	StartAt            time.Time `bun:"start_at" json:"start_at"`
-	EndAt              time.Time `bun:"end_at" json:"end_at"`
-	Status             string    `bun:"status" json:"status"` // PENDING / CONFIRMED / CHECKED_IN / IN_PROGRESS / COMPLETED / NO_SHOW / CANCELLED
-	Notes              string    `bun:"notes" json:"notes"`
+	bun.BaseModel     `bun:"table:appointment"`
+	ID                string    `bun:"id,pk" json:"id"`
+	TenantID          string    `bun:"tenant_id" json:"tenant_id"`
+	AppointmentSlotID *string   `bun:"appointment_slot_id" json:"appointment_slot_id"`
+	BranchID          string    `bun:"branch_id" json:"branch_id"`
+	PatientID         *string   `bun:"patient_id" json:"patient_id"`
+	PractitionerID    *string   `bun:"practitioner_id" json:"practitioner_id"`
+	StartAt           time.Time `bun:"start_at" json:"start_at"`
+	EndAt             time.Time `bun:"end_at" json:"end_at"`
+	Status            string    `bun:"status" json:"status"` // PENDING / CONFIRMED / CHECKED_IN / IN_PROGRESS / COMPLETED / NO_SHOW / CANCELLED
+	Notes             string    `bun:"notes" json:"notes"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
@@ -162,7 +162,7 @@ type BunScheduleException struct {
 	ScheduleTemplateID *string   `bun:"schedule_template_id" json:"schedule_template_id"`
 	AppointmentSlotID  *string   `bun:"appointment_slot_id" json:"appointment_slot_id"`
 	PractitionerID     *string   `bun:"practitioner_id" json:"practitioner_id"`
-	Type               string    `bun:"type" json:"type"`     // VACATION / LUNCH_BREAK / HOLIDAY / EMERGENCY_CLOSURE / OVERRIDE
+	Type               string    `bun:"type" json:"type"` // VACATION / LUNCH_BREAK / HOLIDAY / EMERGENCY_CLOSURE / OVERRIDE
 	Reason             string    `bun:"reason" json:"reason"`
 	StartAt            time.Time `bun:"start_at" json:"start_at"`
 	EndAt              time.Time `bun:"end_at" json:"end_at"`

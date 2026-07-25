@@ -59,11 +59,13 @@ type PractitionerBranch @join__type(graph: BOOKING, key: "id") {
   id: ID!
   branch_id: ID!
   practitioner_id: ID!
+  role: String
   is_active: Boolean!
   created_at: DateTime!
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type PractitionerAvailability @join__type(graph: BOOKING, key: "id") {
@@ -77,6 +79,7 @@ type PractitionerAvailability @join__type(graph: BOOKING, key: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type ScheduleTemplate @join__type(graph: BOOKING, key: "id") {
@@ -95,6 +98,7 @@ type ScheduleTemplate @join__type(graph: BOOKING, key: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type AppointmentSlot @join__type(graph: BOOKING, key: "id") {
@@ -110,6 +114,7 @@ type AppointmentSlot @join__type(graph: BOOKING, key: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 type Appointment @join__type(graph: BOOKING, key: "id") {
@@ -126,6 +131,8 @@ type Appointment @join__type(graph: BOOKING, key: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
+  patient: Patient
 }
 
 type ScheduleException @join__type(graph: BOOKING, key: "id") {
@@ -138,10 +145,10 @@ type ScheduleException @join__type(graph: BOOKING, key: "id") {
   updated_at: DateTime
   created_by: ID
   updated_by: ID
+  practitioner: User
 }
 
 input BranchHoursInput @join__type(graph: BOOKING) {
-  branch_id: ID!
   day_of_week: Int!
   open_time: String
   close_time: String
@@ -155,19 +162,17 @@ input BranchHoursUpdateInput @join__type(graph: BOOKING) {
 }
 
 input PractitionerBranchInput @join__type(graph: BOOKING) {
-  branch_id: ID!
   practitioner_id: ID!
+  role: String
 }
 
 input PractitionerAvailabilityInput @join__type(graph: BOOKING) {
-  branch_id: ID!
   practitioner_id: ID!
   start_time: DateTime!
   end_time: DateTime!
 }
 
 input ScheduleTemplateInput @join__type(graph: BOOKING) {
-  branch_id: ID!
   practitioner_id: ID!
   template_name: String!
   day_of_week: Int!
@@ -190,7 +195,6 @@ input ScheduleTemplateUpdateInput @join__type(graph: BOOKING) {
 }
 
 input AppointmentInput @join__type(graph: BOOKING) {
-  branch_id: ID!
   patient_id: ID!
   practitioner_id: ID!
   scheduled_start: DateTime!
@@ -205,7 +209,6 @@ input AppointmentUpdateInput @join__type(graph: BOOKING) {
 }
 
 input ScheduleExceptionInput @join__type(graph: BOOKING) {
-  branch_id: ID!
   practitioner_id: ID!
   exception_date: DateTime!
 }
@@ -230,7 +233,7 @@ type Query @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type
   branchHour(id: ID!): BranchHours @join__field(graph: BOOKING)
   branchHours(branch_id: ID): [BranchHours!]! @join__field(graph: BOOKING)
   practitionerBranch(id: ID!): PractitionerBranch @join__field(graph: BOOKING)
-  practitionerBranches(branch_id: ID): [PractitionerBranch!]! @join__field(graph: BOOKING)
+  practitionerBranches(branch_id: ID, role: String): [PractitionerBranch!]! @join__field(graph: BOOKING)
   practitionerAvailability(id: ID!): PractitionerAvailability @join__field(graph: BOOKING)
   practitionerAvailabilities(branch_id: ID, practitioner_id: ID): [PractitionerAvailability!]! @join__field(graph: BOOKING)
   scheduleTemplate(id: ID!): ScheduleTemplate @join__field(graph: BOOKING)
@@ -242,7 +245,7 @@ type Query @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type
   scheduleException(id: ID!): ScheduleException @join__field(graph: BOOKING)
   scheduleExceptions(branch_id: ID, practitioner_id: ID): [ScheduleException!]! @join__field(graph: BOOKING)
   thread(id: ID!): MessageThread @join__field(graph: MESSAGING)
-  threadsByParticipant(participant_id: ID!): [MessageThread!]! @join__field(graph: MESSAGING)
+  threadsByParticipant(participant_id: ID): [MessageThread!]! @join__field(graph: MESSAGING)
   messages(thread_id: ID!): [Message!]! @join__field(graph: MESSAGING)
   participants(thread_id: ID!): [MessageParticipant!]! @join__field(graph: MESSAGING)
   patient(id: ID!): Patient @join__field(graph: PATIENT)
@@ -251,15 +254,17 @@ type Query @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type
   meTenant: User! @join__field(graph: TENANT)
   tenant(id: ID!): Tenant @join__field(graph: TENANT)
   branch(id: ID!): Branch @join__field(graph: TENANT)
+  address(id: ID!): Address @join__field(graph: TENANT)
   tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
   tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
   myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
   meUser: User! @join__field(graph: USER)
   user(id: ID!): User @join__field(graph: USER)
+  users: [User!]! @join__field(graph: USER)
 }
 
-type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type(graph: PATIENT) {
+type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type(graph: PATIENT) @join__type(graph: TENANT) @join__type(graph: USER) {
   createBranchHours(input: BranchHoursInput!): BranchHours! @join__field(graph: BOOKING)
   updateBranchHours(id: ID!, input: BranchHoursUpdateInput!): BranchHours! @join__field(graph: BOOKING)
   deleteBranchHours(id: ID!): Boolean! @join__field(graph: BOOKING)
@@ -295,6 +300,46 @@ type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__t
   addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship! @join__field(graph: PATIENT)
   updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship! @join__field(graph: PATIENT)
   removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean! @join__field(graph: PATIENT)
+  createAddress(input: AddressInput!): Address! @join__field(graph: TENANT)
+  updateAddress(id: ID!, input: AddressInput!): Address! @join__field(graph: TENANT)
+  createUser(input: CreateUserInput!): User! @join__field(graph: USER)
+  updateUser(id: ID!, input: UpdateUserInput!): User! @join__field(graph: USER)
+  upsertProfile(input: UserProfileInput!): UserProfile! @join__field(graph: USER)
+}
+
+type User @join__type(graph: BOOKING, key: "id") @join__type(graph: TENANT, key: "id") @join__type(graph: USER, key: "id") {
+  id: ID!
+  assignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
+  email: String! @join__field(graph: USER)
+  isActive: Boolean! @join__field(graph: USER)
+  lastLogin: String @join__field(graph: USER)
+  appRoles: [AppRole!]! @join__field(graph: USER)
+  isValidated: Boolean! @join__field(graph: USER)
+  validatedAt: String @join__field(graph: USER)
+  createdAt: String! @join__field(graph: USER)
+  updatedAt: String! @join__field(graph: USER)
+  createdBy: String @join__field(graph: USER)
+  updatedBy: String @join__field(graph: USER)
+  createdAction: String @join__field(graph: USER)
+  updatedAction: String @join__field(graph: USER)
+  profile: UserProfile @join__field(graph: USER)
+}
+
+type Patient @join__type(graph: BOOKING, key: "id") @join__type(graph: PATIENT, key: "id") {
+  id: ID!
+  tenantId: String! @join__field(graph: PATIENT)
+  branchId: String! @join__field(graph: PATIENT)
+  firstName: String! @join__field(graph: PATIENT)
+  lastName: String! @join__field(graph: PATIENT)
+  dateOfBirth: String! @join__field(graph: PATIENT)
+  gender: String! @join__field(graph: PATIENT)
+  notes: String @join__field(graph: PATIENT)
+  height: String @join__field(graph: PATIENT)
+  weight: String @join__field(graph: PATIENT)
+  isActive: Boolean! @join__field(graph: PATIENT)
+  address: Address @join__field(graph: PATIENT)
+  tag: [PatientTags!]! @join__field(graph: PATIENT)
+  guardian: [Guardian!]! @join__field(graph: PATIENT)
 }
 
 type MessageThread @join__type(graph: MESSAGING, key: "id") {
@@ -329,7 +374,6 @@ type MessageParticipant @join__type(graph: MESSAGING, key: "id") {
 }
 
 input ThreadInput @join__type(graph: MESSAGING) {
-  branch_id: ID!
   subject: String!
   type: String!
   participants: [ParticipantRefInput!]!
@@ -348,7 +392,6 @@ input ThreadUpdateInput @join__type(graph: MESSAGING) {
 
 input MessageInput @join__type(graph: MESSAGING) {
   thread_id: ID!
-  sender_id: ID!
   body: String!
 }
 
@@ -356,23 +399,6 @@ input ParticipantInput @join__type(graph: MESSAGING) {
   thread_id: ID!
   participant_id: ID!
   role: String!
-}
-
-type Patient @join__type(graph: PATIENT, key: "id") {
-  id: ID!
-  tenantId: String!
-  branchId: String!
-  firstName: String!
-  lastName: String!
-  dateOfBirth: String!
-  gender: String!
-  notes: String
-  height: String
-  weight: String
-  isActive: Boolean!
-  address: PatientAddress
-  tag: [PatientTags!]!
-  guardian: [Guardian!]!
 }
 
 type PatientTags @join__type(graph: PATIENT) {
@@ -389,18 +415,8 @@ type Guardian @join__type(graph: PATIENT, key: "id") {
   phone: String!
   notes: String
   isActive: Boolean!
-  address: PatientAddress!
+  address: Address
   patient: [Patient!]!
-}
-
-type PatientAddress @join__type(graph: PATIENT) {
-  id: ID!
-  address: String!
-  baranggay: String!
-  city: String!
-  state: String!
-  zipCode: String!
-  country: String!
 }
 
 input PatientFilter @join__type(graph: PATIENT) {
@@ -417,15 +433,6 @@ input PatientsFilter @join__type(graph: PATIENT) {
   pagination: [PatientPagination!]
 }
 
-input PatientAddressInput @join__type(graph: PATIENT) {
-  address: String!
-  baranggay: String!
-  city: String!
-  state: String!
-  zipCode: String!
-  country: String!
-}
-
 input PatientInput @join__type(graph: PATIENT) {
   firstName: String!
   lastName: String!
@@ -434,7 +441,7 @@ input PatientInput @join__type(graph: PATIENT) {
   notes: String
   height: String
   weight: String
-  address: PatientAddressInput!
+  addressId: ID
 }
 
 input PatientUpdateInput @join__type(graph: PATIENT) {
@@ -445,7 +452,7 @@ input PatientUpdateInput @join__type(graph: PATIENT) {
   notes: String
   height: String
   weight: String
-  address: PatientAddressInput
+  addressId: ID
 }
 
 input GuardianInput @join__type(graph: PATIENT) {
@@ -455,6 +462,7 @@ input GuardianInput @join__type(graph: PATIENT) {
   email: String
   phone: String
   notes: String
+  addressId: ID
 }
 
 input GuardianUpdateInput @join__type(graph: PATIENT) {
@@ -464,12 +472,23 @@ input GuardianUpdateInput @join__type(graph: PATIENT) {
   email: String
   phone: String
   notes: String
+  addressId: ID
 }
 
 type PatientGuardianRelationship @join__type(graph: PATIENT) {
   patientId: ID!
   guardianId: ID!
   relationship: String!
+}
+
+type Address @join__type(graph: PATIENT, key: "id") @join__type(graph: TENANT, key: "id") @join__type(graph: USER, key: "id") {
+  id: ID!
+  address: String! @join__field(graph: TENANT)
+  baranggay: String! @join__field(graph: TENANT)
+  city: String! @join__field(graph: TENANT)
+  state: String! @join__field(graph: TENANT)
+  zipCode: String! @join__field(graph: TENANT)
+  country: String! @join__field(graph: TENANT)
 }
 
 type Tenant @join__type(graph: TENANT, key: "id") {
@@ -484,7 +503,7 @@ type Branch @join__type(graph: TENANT, key: "id") {
   id: ID!
   tenantId: String!
   name: String!
-  address: String
+  address: Address
   timezone: String!
   phone: String
   isActive: Boolean!
@@ -521,22 +540,13 @@ type TenantUserAssignment @join__type(graph: TENANT) {
   isActive: Boolean!
 }
 
-type User @join__type(graph: TENANT, key: "id") @join__type(graph: USER, key: "id") {
-  id: ID!
-  assignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
-  email: String! @join__field(graph: USER)
-  name: String! @join__field(graph: USER)
-  isActive: Boolean! @join__field(graph: USER)
-  lastLogin: String @join__field(graph: USER)
-  appRoles: [AppRole!]! @join__field(graph: USER)
-  isValidated: Boolean! @join__field(graph: USER)
-  validatedAt: String @join__field(graph: USER)
-  createdAt: String! @join__field(graph: USER)
-  updatedAt: String! @join__field(graph: USER)
-  createdBy: String @join__field(graph: USER)
-  updatedBy: String @join__field(graph: USER)
-  createdAction: String @join__field(graph: USER)
-  updatedAction: String @join__field(graph: USER)
+input AddressInput @join__type(graph: TENANT) {
+  address: String!
+  baranggay: String
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String
 }
 
 type AppRole @join__type(graph: USER, key: "id") {
@@ -549,5 +559,69 @@ type AppRole @join__type(graph: USER, key: "id") {
   updatedAt: String
   updatedBy: String
   updatedAction: String
+}
+
+type UserProfile @join__type(graph: USER) {
+  userId: ID!
+  firstName: String!
+  lastName: String
+  middleName: String
+  suffix: String
+  title: String
+  phone: String
+  mobile: String
+  dateOfBirth: String
+  gender: String
+  address: Address
+  timezone: String
+  preferredLanguage: String
+  emergencyContactName: String
+  emergencyContactPhone: String
+  emergencyContactRelation: String
+  notes: String
+}
+
+type PractitionerProfile @join__type(graph: USER) {
+  userId: ID!
+  licenseNumber: String
+  licenseState: String
+  npiNumber: String
+  specialty: String
+  subSpecialty: String
+  qualifications: [String!]
+  credentials: [String!]
+  education: String
+  yearsOfExperience: Int
+  bio: String
+  isAcceptingPatients: Boolean!
+}
+
+input CreateUserInput @join__type(graph: USER) {
+  email: String!
+  password: String!
+  profile: UserProfileInput
+}
+
+input UpdateUserInput @join__type(graph: USER) {
+  isActive: Boolean!
+}
+
+input UserProfileInput @join__type(graph: USER) {
+  firstName: String!
+  lastName: String
+  middleName: String
+  suffix: String
+  title: String
+  phone: String
+  mobile: String
+  dateOfBirth: String
+  gender: String
+  addressId: ID
+  timezone: String
+  preferredLanguage: String
+  emergencyContactName: String
+  emergencyContactPhone: String
+  emergencyContactRelation: String
+  notes: String
 }
 

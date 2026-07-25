@@ -20,6 +20,7 @@ type BunPatients struct {
 	Height      *string   `bun:"height" json:"height,omitempty"`
 	Weight      *string   `bun:"weight" json:"weight,omitempty"`
 	IsActive    bool      `bun:"is_active,default:true" json:"is_active"`
+	AddressID   *string   `bun:"address_id" json:"addressId,omitempty"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
@@ -42,6 +43,7 @@ type BunGuardians struct {
 	Phone     string  `bun:"phone" json:"phone,omitempty"`
 	Notes     *string `bun:"notes" json:"notes,omitempty"`
 	IsActive  bool    `bun:"is_active,default:true" json:"is_active"`
+	AddressID *string `bun:"address_id" json:"addressId,omitempty"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
@@ -74,25 +76,6 @@ type BunPatientTags struct {
 
 	PatientID string `bun:"patient_id,pk" json:"patientId"`
 	TagID     string `bun:"tag_id,pk" json:"tagId"`
-
-	CreatedAt     time.Time `bun:"created_at" json:"-"`
-	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
-	CreatedBy     *string   `bun:"created_by" json:"-"`
-	CreatedAction string    `bun:"created_action" json:"-"`
-	UpdatedBy     *string   `bun:"updated_by" json:"-"`
-	UpdatedAction string    `bun:"updated_action" json:"-"`
-}
-
-type BunPatientAddress struct {
-	bun.BaseModel `bun:"table:patient_addresses"`
-
-	PatientID string `bun:"patient_id,pk" json:"patientId"`
-	Address   string `bun:"address,notnull" json:"address"`
-	Baranggay string `bun:"baranggay,notnull" json:"baranggay"`
-	City      string `bun:"city,notnull" json:"city"`
-	State     string `bun:"state,notnull" json:"state"`
-	ZipCode   string `bun:"zip_code,notnull" json:"zip_code"`
-	Country   string `bun:"country,notnull" json:"country"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`

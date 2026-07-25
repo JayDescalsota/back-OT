@@ -2,7 +2,6 @@ CREATE TABLE message_thread (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     branch_id UUID NOT NULL,
-    subject TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'GENERAL',
     is_active BOOLEAN NOT NULL DEFAULT true,
 

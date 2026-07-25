@@ -23,6 +23,8 @@ models:
     model: github.com/clinicmanager/services/tenant/db.BunTenant
   Branch:
     model: github.com/clinicmanager/services/tenant/db.BunBranch
+  Address:
+    model: github.com/clinicmanager/services/tenant/db.BunAddress
   TenantRole:
     model: github.com/clinicmanager/services/tenant/db.BunTenantRole
   TenantPermission:

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	sharedctx "github.com/clinicmanager/shared/context"
 	shareddb "github.com/clinicmanager/shared/db"
 	"github.com/google/uuid"
 
@@ -32,6 +33,15 @@ type UserRepository interface {
 	HasAppRole(ctx context.Context, userID, roleName string) (bool, error)
 	FindUserAppRoles(ctx context.Context, userID string) ([]*models.AppRole, error)
 	GetAppRoleByID(ctx context.Context, id int) (*models.AppRole, error)
+	FindAllUsers(ctx context.Context) ([]*models.User, error)
+	FindAllAppRoles(ctx context.Context) ([]*models.AppRole, error)
+	CreateUser(ctx context.Context, email, password string) (*models.User, error)
+	AssignAppRole(ctx context.Context, userID string, appRoleID int) error
+	UpdateUser(ctx context.Context, id string, isActive bool) error
+	FindProfileByUserID(ctx context.Context, userID string) (*models.UserProfile, error)
+	UpsertProfile(ctx context.Context, profile *models.UserProfile) error
+	FindPractitionerProfileByUserID(ctx context.Context, userID string) (*models.PractitionerProfile, error)
+	UpsertPractitionerProfile(ctx context.Context, profile *models.PractitionerProfile) error
 }
 
 type UserRepo struct {
@@ -152,7 +162,6 @@ func (r *UserRepo) Register(ctx context.Context, email, password, validationToke
 	user := &models.User{
 		ID:              uid.String(),
 		Email:           email,
-		Name:            "User",
 		PasswordHash:    hash,
 		IsActive:        true,
 		ValidationToken: validationToken,
@@ -284,4 +293,111 @@ func (r *UserRepo) GetAppRoleByID(ctx context.Context, id int) (*models.AppRole,
 		return nil, err
 	}
 	return role, nil
+}
+
+func (r *UserRepo) FindAllUsers(ctx context.Context) ([]*models.User, error) {
+	var users []*models.User
+	tctx := sharedctx.FromContext(ctx)
+	query := r.alldb.NewSelect(ctx, &users).
+		Distinct().
+		Join("JOIN tenant_user_assignments AS tua ON tua.user_id = users.id").
+		Where("tua.is_active = ?", true)
+	if tctx.TenantID != "" {
+		query = query.Where("tua.tenant_id = ?", tctx.TenantID)
+	}
+	if tctx.BranchID != "" {
+		query = query.Where("tua.branch_id = ?", tctx.BranchID)
+	}
+	err := query.Order("users.created_at DESC").Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
+func (r *UserRepo) FindAllAppRoles(ctx context.Context) ([]*models.AppRole, error) {
+	var roles []*models.AppRole
+	err := r.alldb.NewSelect(ctx, &roles).Order("id ASC").Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return roles, nil
+}
+
+func (r *UserRepo) CreateUser(ctx context.Context, email, password string) (*models.User, error) {
+	hash, err := HashPassword(password)
+	if err != nil {
+		return nil, err
+	}
+	uid := uuid.New()
+	now := time.Now().UTC()
+	user := &models.User{
+		ID:           uid.String(),
+		Email:        email,
+		PasswordHash: hash,
+		IsActive:     true,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	_, err = r.db.NewInsert(user).Exec(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *UserRepo) AssignAppRole(ctx context.Context, userID string, appRoleID int) error {
+	_, err := r.db.NewInsert(&models.UserAppRole{
+		UserID:    userID,
+		AppRoleID: appRoleID,
+	}).Exec(ctx)
+	return err
+}
+
+func (r *UserRepo) UpdateUser(ctx context.Context, id string, isActive bool) error {
+	now := time.Now().UTC()
+	_, err := r.db.NewUpdate(ctx, (*models.User)(nil)).
+		Set("is_active = ?", isActive).
+		Set("updated_at = ?", now).
+		Where("id = ?", id).
+		Exec(ctx)
+	return err
+}
+
+func (r *UserRepo) FindProfileByUserID(ctx context.Context, userID string) (*models.UserProfile, error) {
+	p := new(models.UserProfile)
+	err := r.db.NewSelect(ctx, p).Where("user_id = ?", userID).Scan(ctx)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (r *UserRepo) UpsertProfile(ctx context.Context, profile *models.UserProfile) error {
+	_, err := r.db.NewInsert(profile).
+		On("CONFLICT (user_id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, middle_name = EXCLUDED.middle_name, suffix = EXCLUDED.suffix, title = EXCLUDED.title, phone = EXCLUDED.phone, mobile = EXCLUDED.mobile, date_of_birth = EXCLUDED.date_of_birth, gender = EXCLUDED.gender, street_address = EXCLUDED.street_address, barangay = EXCLUDED.barangay, city = EXCLUDED.city, province = EXCLUDED.province, zip = EXCLUDED.zip, country = EXCLUDED.country, timezone = EXCLUDED.timezone, preferred_language = EXCLUDED.preferred_language, emergency_contact_name = EXCLUDED.emergency_contact_name, emergency_contact_phone = EXCLUDED.emergency_contact_phone, emergency_contact_relation = EXCLUDED.emergency_contact_relation, notes = EXCLUDED.notes, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by, updated_action = EXCLUDED.updated_action").
+		Exec(ctx)
+	return err
+}
+
+func (r *UserRepo) FindPractitionerProfileByUserID(ctx context.Context, userID string) (*models.PractitionerProfile, error) {
+	p := new(models.PractitionerProfile)
+	err := r.db.NewSelect(ctx, p).Where("user_id = ?", userID).Scan(ctx)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (r *UserRepo) UpsertPractitionerProfile(ctx context.Context, profile *models.PractitionerProfile) error {
+	_, err := r.db.NewInsert(profile).
+		On("CONFLICT (user_id) DO UPDATE SET license_number = EXCLUDED.license_number, license_state = EXCLUDED.license_state, npi_number = EXCLUDED.npi_number, specialty = EXCLUDED.specialty, sub_specialty = EXCLUDED.sub_specialty, qualifications = EXCLUDED.qualifications, credentials = EXCLUDED.credentials, education = EXCLUDED.education, years_of_experience = EXCLUDED.years_of_experience, bio = EXCLUDED.bio, is_accepting_patients = EXCLUDED.is_accepting_patients, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by, updated_action = EXCLUDED.updated_action").
+		Exec(ctx)
+	return err
 }

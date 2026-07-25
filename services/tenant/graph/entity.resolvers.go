@@ -13,6 +13,11 @@ import (
 	"github.com/clinicmanager/services/tenant/graph/model"
 )
 
+// FindAddressByID is the resolver for the findAddressByID field.
+func (r *entityResolver) FindAddressByID(ctx context.Context, id string) (*db.BunAddress, error) {
+	return r.TenantService.GetAddressByID(ctx, id)
+}
+
 // FindBranchByID is the resolver for the findBranchByID field.
 func (r *entityResolver) FindBranchByID(ctx context.Context, id string) (*db.BunBranch, error) {
 	return r.TenantService.GetBranchByID(ctx, id)

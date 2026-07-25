@@ -84,6 +84,33 @@ func (m *mockRepo) FindUserAppRoles(ctx context.Context, userID string) ([]*mode
 func (m *mockRepo) GetAppRoleByID(ctx context.Context, id int) (*models.AppRole, error) {
 	return nil, nil
 }
+func (m *mockRepo) FindAllUsers(ctx context.Context) ([]*models.User, error) {
+	return nil, nil
+}
+func (m *mockRepo) FindAllAppRoles(ctx context.Context) ([]*models.AppRole, error) {
+	return nil, nil
+}
+func (m *mockRepo) CreateUser(ctx context.Context, email, password string) (*models.User, error) {
+	return nil, nil
+}
+func (m *mockRepo) AssignAppRole(ctx context.Context, userID string, appRoleID int) error {
+	return nil
+}
+func (m *mockRepo) UpdateUser(ctx context.Context, id string, isActive bool) error {
+	return nil
+}
+func (m *mockRepo) FindProfileByUserID(ctx context.Context, userID string) (*models.UserProfile, error) {
+	return nil, nil
+}
+func (m *mockRepo) UpsertProfile(ctx context.Context, profile *models.UserProfile) error {
+	return nil
+}
+func (m *mockRepo) FindPractitionerProfileByUserID(ctx context.Context, userID string) (*models.PractitionerProfile, error) {
+	return nil, nil
+}
+func (m *mockRepo) UpsertPractitionerProfile(ctx context.Context, profile *models.PractitionerProfile) error {
+	return nil
+}
 
 func defaultMock() *mockRepo {
 	return &mockRepo{
@@ -91,12 +118,11 @@ func defaultMock() *mockRepo {
 	}
 }
 
-func userStub(id, email, name string) *models.User {
+func userStub(id, email string) *models.User {
 	now := time.Now().UTC()
 	return &models.User{
 		ID:        id,
 		Email:     email,
-		Name:      name,
 		IsActive:  true,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -111,7 +137,7 @@ func TestGetMe_Success(t *testing.T) {
 	mock := defaultMock()
 	id := uuid.New().String()
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
-		return userStub(uid, "alice@test.com", "Alice"), nil
+		return userStub(uid, "alice@test.com"), nil
 	}
 	svc := service.NewUserService(mock, currentUser(id), nil)
 
@@ -167,13 +193,13 @@ func TestGetUserByID_SuperAdmin(t *testing.T) {
 	myID := uuid.New().String()
 	targetID := uuid.New().String()
 
-	targetUser := userStub(targetID, "target@test.com", "Target")
+	targetUser := userStub(targetID, "target@test.com")
 
 	var callCount int
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
 		callCount++
 		if uid == myID {
-			return userStub(myID, "admin@test.com", "Admin"), nil
+			return userStub(myID, "admin@test.com"), nil
 		}
 		if uid == targetID {
 			return targetUser, nil
@@ -203,7 +229,7 @@ func TestGetUserByID_NotSuperAdmin(t *testing.T) {
 
 	mock.findByIDFn = func(_ context.Context, uid string) (*models.User, error) {
 		if uid == myID {
-			return userStub(myID, "user@test.com", "User"), nil
+			return userStub(myID, "user@test.com"), nil
 		}
 		return nil, nil
 	}
