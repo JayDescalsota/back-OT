@@ -39,7 +39,6 @@ input ParticipantRefInput {
 }
 
 input ThreadUpdateInput {
-  subject: String
   type: String
   is_active: Boolean
 }

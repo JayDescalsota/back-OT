@@ -446,10 +446,7 @@ func (r *BookingRepository) UpdateAppointmentSlot(ctx context.Context, m *db.Bun
 
 func (r *BookingRepository) FindAppointmentsByFilter(ctx context.Context, branchID, patientID, practitionerID, status, scheduledStart, scheduledEnd *string) ([]*db.BunAppointment, error) {
 	var list []*db.BunAppointment
-	query := r.tenantdb.NewSelect(ctx, &list)
-	if branchID != nil && *branchID != "" {
-		query = query.Where("branch_id = ?", *branchID)
-	}
+	query := r.db.NewSelect(ctx, &list)
 	if patientID != nil && *patientID != "" {
 		query = query.Where("patient_id = ?", *patientID)
 	}
