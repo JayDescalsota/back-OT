@@ -33,7 +33,7 @@ type BunPatients struct {
 func (BunPatients) IsEntity() {}
 
 type BunGuardians struct {
-	bun.BaseModel `bun:"table:guardians"`
+	bun.BaseModel `bun:"table:patient_guardian_profiles"`
 
 	ID        string  `bun:"id,pk" json:"id"`
 	FirstName string  `bun:"first_name,notnull" json:"first_name"`
@@ -56,7 +56,7 @@ type BunGuardians struct {
 func (BunGuardians) IsEntity() {}
 
 type BunPatientGuardians struct {
-	bun.BaseModel `bun:"table:patient_guardians"`
+	bun.BaseModel `bun:"table:patient_guardian_links"`
 
 	PatientID    string `bun:"patient_id,pk" json:"patientId"`
 	GuardianID   string `bun:"guardian_id,pk" json:"guardianId"`

@@ -176,7 +176,7 @@ func (r *TenantRepo) FindAssignmentsByUser(ctx context.Context, userID string) (
 		       b.name AS branch_name, t.name AS tenant_name, t.slug AS tenant_slug
 		FROM tenant_user_assignments AS tua
 		JOIN tenant_roles AS tr ON tr.id = tua.role_id
-		JOIN branches AS b ON b.id = tua.branch_id
+		JOIN tenant_branches AS b ON b.id = tua.branch_id
 		JOIN tenants AS t ON t.id = tua.tenant_id
 		WHERE tua.user_id = ? AND tua.is_active = ?`
 	args := []interface{}{userID, true}
@@ -209,7 +209,7 @@ func (r *TenantRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID,
 		       b.name AS branch_name, t.name AS tenant_name, t.slug AS tenant_slug
 		FROM tenant_user_assignments AS tua
 		JOIN tenant_roles AS tr ON tr.id = tua.role_id
-		JOIN branches AS b ON b.id = tua.branch_id
+		JOIN tenant_branches AS b ON b.id = tua.branch_id
 		JOIN tenants AS t ON t.id = tua.tenant_id
 		WHERE tua.user_id = ? AND tua.tenant_id = ? AND tua.is_active = ?`
 	args := []interface{}{userID, tenantID, true}

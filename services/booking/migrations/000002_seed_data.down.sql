@@ -1,7 +1,7 @@
-DELETE FROM schedule_exception WHERE created_action = 'seed';
-DELETE FROM appointment WHERE created_action = 'seed';
-DELETE FROM appointment_slot WHERE created_action = 'seed';
-DELETE FROM schedule_template WHERE created_action = 'seed';
-DELETE FROM practitioner_availability WHERE created_action = 'seed';
-DELETE FROM practitioner_branch WHERE created_action = 'seed';
-DELETE FROM branch_hour WHERE created_action = 'seed';
+DELETE FROM booking_schedule_exceptions WHERE created_action = 'seed';
+DELETE FROM booking_appointments WHERE created_action = 'seed';
+DELETE FROM booking_appointment_slots WHERE created_action = 'seed';
+DELETE FROM booking_schedule_templates WHERE created_action = 'seed';
+DELETE FROM booking_practitioner_availabilities WHERE created_action = 'seed';
+DELETE FROM booking_practitioner_branches WHERE created_action = 'seed';
+DELETE FROM booking_branch_hours WHERE created_action = 'seed';

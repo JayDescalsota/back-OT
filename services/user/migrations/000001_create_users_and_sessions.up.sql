@@ -21,7 +21,7 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_email ON users (email);
 
-CREATE TABLE sessions (
+CREATE TABLE user_sessions (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     access_token TEXT,
@@ -33,8 +33,8 @@ CREATE TABLE sessions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_sessions_refresh_token ON sessions (refresh_token);
-CREATE INDEX idx_sessions_user_id ON sessions (user_id);
+CREATE INDEX idx_user_sessions_refresh_token ON user_sessions (refresh_token);
+CREATE INDEX idx_user_sessions_user_id ON user_sessions (user_id);
 
 CREATE TABLE user_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -67,7 +67,7 @@ CREATE TABLE user_profiles (
     updated_action TEXT
 );
 
-CREATE TABLE practitioner_profiles (
+CREATE TABLE user_practitioner_profiles (
     user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     license_number TEXT,
     license_state TEXT,

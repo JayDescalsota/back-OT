@@ -88,9 +88,7 @@ type GraphQLResponse struct {
 func TestBookingService_Integration_CreateBranchHours(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	branchHours, err := svc.CreateBranchHours(ctx, graphmodel.BranchHoursInput{
-		BranchID:  testBranchID,
 		DayOfWeek: 1,
 		OpenTime:  &[]string{"09:00"}[0],
 		CloseTime: &[]string{"17:00"}[0],
@@ -98,7 +96,7 @@ func TestBookingService_Integration_CreateBranchHours(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, branchHours)
 	assert.NotEmpty(t, branchHours.ID)
-	assert.Equal(t, testBranchID, branchHours.BranchID)
+	assert.Equal(t, sharedCtx.FromContext(ctx).BranchID, branchHours.BranchID)
 	assert.Equal(t, "09:00", branchHours.OpenTime.Format("15:04"))
 	assert.Equal(t, "17:00", branchHours.CloseTime.Format("15:04"))
 	assert.True(t, branchHours.IsActive)
@@ -113,10 +111,8 @@ func TestBookingService_Integration_CreateBranchHours(t *testing.T) {
 func TestBookingService_Integration_UpdateBranchHours(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	// Create branch hours first
 	branchHours, err := svc.CreateBranchHours(ctx, graphmodel.BranchHoursInput{
-		BranchID:  testBranchID,
 		DayOfWeek: 1,
 		OpenTime:  &[]string{"09:00"}[0],
 		CloseTime: &[]string{"17:00"}[0],
@@ -144,10 +140,8 @@ func TestBookingService_Integration_UpdateBranchHours(t *testing.T) {
 func TestBookingService_Integration_DeleteBranchHours(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	// Create branch hours first
 	branchHours, err := svc.CreateBranchHours(ctx, graphmodel.BranchHoursInput{
-		BranchID:  testBranchID,
 		DayOfWeek: 1,
 		OpenTime:  &[]string{"09:00"}[0],
 		CloseTime: &[]string{"17:00"}[0],
@@ -172,16 +166,14 @@ func TestBookingService_Integration_CreatePractitionerBranch(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
 	testPractitionerID := uuid.NewString()
-	testBranchID := uuid.NewString()
 	practitionerBranch, err := svc.CreatePractitionerBranch(ctx, graphmodel.PractitionerBranchInput{
 		PractitionerID: testPractitionerID,
-		BranchID:       testBranchID,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, practitionerBranch)
 	assert.NotEmpty(t, practitionerBranch.ID)
 	assert.Equal(t, testPractitionerID, practitionerBranch.PractitionerID)
-	assert.Equal(t, testBranchID, practitionerBranch.BranchID)
+	assert.Equal(t, sharedCtx.FromContext(ctx).BranchID, practitionerBranch.BranchID)
 	assert.True(t, practitionerBranch.IsActive)
 
 	// Verify practitioner branch exists in DB
@@ -195,11 +187,9 @@ func TestBookingService_Integration_DeletePractitionerBranch(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
 	testPractitionerID := uuid.NewString()
-	testBranchID := uuid.NewString()
 	// Create practitioner branch first
 	practitionerBranch, err := svc.CreatePractitionerBranch(ctx, graphmodel.PractitionerBranchInput{
 		PractitionerID: testPractitionerID,
-		BranchID:       testBranchID,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, practitionerBranch)
@@ -274,7 +264,6 @@ func TestBookingService_Integration_DeletePractitionerAvailability(t *testing.T)
 func TestBookingService_Integration_CreateAppointment(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPatientID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 	now := time.Now().UTC()
@@ -282,7 +271,6 @@ func TestBookingService_Integration_CreateAppointment(t *testing.T) {
 	scheduledEnd := now.Add(25 * time.Hour).Format(time.RFC3339)
 
 	appointment, err := svc.CreateAppointment(ctx, graphmodel.AppointmentInput{
-		BranchID:       testBranchID,
 		SlotID:         &[]string{uuid.NewString()}[0],
 		PatientID:      testPatientID,
 		PractitionerID: testPractitionerID,
@@ -292,7 +280,7 @@ func TestBookingService_Integration_CreateAppointment(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, appointment)
 	assert.NotEmpty(t, appointment.ID)
-	assert.Equal(t, testBranchID, appointment.BranchID)
+	assert.Equal(t, sharedCtx.FromContext(ctx).BranchID, appointment.BranchID)
 	require.NotNil(t, appointment.PatientID)
 	assert.Equal(t, testPatientID, *appointment.PatientID)
 	require.NotNil(t, appointment.PractitionerID)
@@ -309,13 +297,11 @@ func TestBookingService_Integration_CreateAppointment(t *testing.T) {
 func TestBookingService_Integration_UpdateAppointment(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPatientID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 	// Create appointment first
 	now := time.Now().UTC()
 	appointment, err := svc.CreateAppointment(ctx, graphmodel.AppointmentInput{
-		BranchID:       testBranchID,
 		SlotID:         &[]string{uuid.NewString()}[0],
 		PatientID:      testPatientID,
 		PractitionerID: testPractitionerID,
@@ -344,7 +330,6 @@ func TestBookingService_Integration_CancelAppointment(t *testing.T) {
 	// Create appointment first
 	now := time.Now().UTC()
 	appointment, err := svc.CreateAppointment(ctx, graphmodel.AppointmentInput{
-		BranchID:       uuid.NewString(),
 		SlotID:         &[]string{uuid.NewString()}[0],
 		PatientID:      uuid.NewString(),
 		PractitionerID: uuid.NewString(),
@@ -356,7 +341,7 @@ func TestBookingService_Integration_CancelAppointment(t *testing.T) {
 	assert.Equal(t, "PENDING", appointment.Status)
 
 	// Cancel appointment
-	cancelled, err := svc.CancelAppointment(ctx, appointment.ID)
+	cancelled, err := svc.CancelAppointment(ctx, appointment.ID, "Patient requested cancellation")
 	require.NoError(t, err)
 	require.NotNil(t, cancelled)
 	assert.Equal(t, "CANCELLED", cancelled.Status)
@@ -371,13 +356,12 @@ func TestBookingService_Integration_CancelAppointment(t *testing.T) {
 func TestBookingService_Integration_CreateScheduleTemplate(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 
 	scheduleTemplate, err := svc.CreateScheduleTemplate(ctx, graphmodel.ScheduleTemplateInput{
-		BranchID:            testBranchID,
 		PractitionerID:      testPractitionerID,
 		DayOfWeek:           1,
+		TemplateName:        "Default Template",
 		StartTime:           "09:00",
 		EndTime:             "17:00",
 		SlotDurationMinutes: 30,
@@ -385,7 +369,7 @@ func TestBookingService_Integration_CreateScheduleTemplate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, scheduleTemplate)
 	assert.NotEmpty(t, scheduleTemplate.ID)
-	assert.Equal(t, testBranchID, scheduleTemplate.BranchID)
+	assert.Equal(t, sharedCtx.FromContext(ctx).BranchID, scheduleTemplate.BranchID)
 	require.NotNil(t, scheduleTemplate.PractitionerID)
 	assert.Equal(t, testPractitionerID, *scheduleTemplate.PractitionerID)
 	assert.Equal(t, "09:00", scheduleTemplate.StartTime.Format("15:04"))
@@ -404,14 +388,13 @@ func TestBookingService_Integration_CreateScheduleTemplate(t *testing.T) {
 func TestBookingService_Integration_UpdateScheduleTemplate(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 
 	// Create schedule template first
 	scheduleTemplate, err := svc.CreateScheduleTemplate(ctx, graphmodel.ScheduleTemplateInput{
-		BranchID:            testBranchID,
 		PractitionerID:      testPractitionerID,
 		DayOfWeek:           1,
+		TemplateName:        "Default Template",
 		StartTime:           "09:00",
 		EndTime:             "17:00",
 		SlotDurationMinutes: 30,
@@ -442,14 +425,13 @@ func TestBookingService_Integration_UpdateScheduleTemplate(t *testing.T) {
 func TestBookingService_Integration_DeleteScheduleTemplate(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 
 	// Create schedule template first
 	scheduleTemplate, err := svc.CreateScheduleTemplate(ctx, graphmodel.ScheduleTemplateInput{
-		BranchID:            testBranchID,
 		PractitionerID:      testPractitionerID,
 		DayOfWeek:           1,
+		TemplateName:        "Default Template",
 		StartTime:           "09:00",
 		EndTime:             "17:00",
 		SlotDurationMinutes: 30,
@@ -473,14 +455,12 @@ func TestBookingService_Integration_DeleteScheduleTemplate(t *testing.T) {
 func TestBookingService_Integration_CreateScheduleException(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 
 	now := time.Now().UTC()
 	exceptionDate := now.Add(48 * time.Hour).Format(time.RFC3339)
 
 	scheduleException, err := svc.CreateScheduleException(ctx, graphmodel.ScheduleExceptionInput{
-		BranchID:       testBranchID,
 		PractitionerID: testPractitionerID,
 		ExceptionDate:  exceptionDate,
 	})
@@ -502,13 +482,11 @@ func TestBookingService_Integration_CreateScheduleException(t *testing.T) {
 func TestBookingService_Integration_DeleteScheduleException(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
-	testBranchID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 
 	// Create schedule exception first
 	now := time.Now().UTC()
 	scheduleException, err := svc.CreateScheduleException(ctx, graphmodel.ScheduleExceptionInput{
-		BranchID:       testBranchID,
 		PractitionerID: testPractitionerID,
 		ExceptionDate:  now.Add(48 * time.Hour).Format(time.RFC3339),
 	})
@@ -539,12 +517,10 @@ func TestBookingService_Integration_AppointmentSlotsQuery(t *testing.T) {
 	scheduledStart := now.Add(24 * time.Hour).Format(time.RFC3339)
 	scheduledEnd := now.Add(25 * time.Hour).Format(time.RFC3339)
 
-	testBranchID := uuid.NewString()
 	testPatientID := uuid.NewString()
 	testPractitionerID := uuid.NewString()
 
 	_, err := svc.CreateAppointment(ctx, graphmodel.AppointmentInput{
-		BranchID:       testBranchID,
 		SlotID:         &[]string{uuid.NewString()}[0],
 		PatientID:      testPatientID,
 		PractitionerID: testPractitionerID,
@@ -557,7 +533,7 @@ func TestBookingService_Integration_AppointmentSlotsQuery(t *testing.T) {
 	query := map[string]string{
 		"query": `
 			query {
-				appointments(filter: {branch_id: "` + testBranchID + `"}) {
+				appointments(filter: {branch_id: "` + sharedCtx.FromContext(ctx).BranchID + `"}) {
 					id
 					branch_id
 					patient_id
@@ -602,7 +578,6 @@ func TestBookingService_Integration_BranchHoursQuery(t *testing.T) {
 	ctx, svc := setupIntegrationTest(t)
 
 	_, err := svc.CreateBranchHours(ctx, graphmodel.BranchHoursInput{
-		BranchID:  testBranchID,
 		DayOfWeek: 1,
 		OpenTime:  &[]string{"09:00"}[0],
 		CloseTime: &[]string{"17:00"}[0],
@@ -659,7 +634,6 @@ func TestBookingService_Integration_PractitionerBranchesQuery(t *testing.T) {
 
 	_, err := svc.CreatePractitionerBranch(ctx, graphmodel.PractitionerBranchInput{
 		PractitionerID: testPractitionerID,
-		BranchID:       testBranchID,
 	})
 	require.NoError(t, err)
 

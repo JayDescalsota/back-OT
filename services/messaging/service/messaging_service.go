@@ -100,6 +100,7 @@ func (s *MessagingService) CreateThread(ctx context.Context, input model.ThreadI
 		ID:            uuid.NewString(),
 		TenantID:      tctx.TenantID,
 		BranchID:      tctx.BranchID,
+		Title:         input.Title,
 		Type:          input.Type,
 		IsActive:      true,
 		CreatedAt:     now,
@@ -152,6 +153,20 @@ func (s *MessagingService) CreateThread(ctx context.Context, input model.ThreadI
 		if err := s.Repo.CreateParticipant(ctx, participant); err != nil {
 			return nil, err
 		}
+	}
+
+	// Add thread keys for participants (E2EE)
+	threadKeys := make([]*db.BunThreadKey, 0, len(input.Keys))
+	for _, keyInput := range input.Keys {
+		threadKeys = append(threadKeys, &db.BunThreadKey{
+			ThreadID:     m.ID,
+			UserID:       keyInput.UserID,
+			EncryptedKey: keyInput.EncryptedKey,
+			CreatedAt:    now,
+		})
+	}
+	if err := s.Repo.SaveThreadKeys(ctx, threadKeys); err != nil {
+		return nil, err
 	}
 
 	s.cacheDel(ctx, cache.Key("messaging", "thread", m.ID))
@@ -212,28 +227,35 @@ func (s *MessagingService) GetMessageByID(ctx context.Context, id string) (*db.B
 	if err != nil || m == nil {
 		return m, err
 	}
-	plaintext, err := s.Encryptor.Decrypt(m.Body, m.Nonce)
-	if err != nil {
-		return nil, err
-	}
-	m.Body = string(plaintext)
-	m.Nonce = ""
 	s.cacheSet(ctx, ck, m)
 	return m, nil
 }
 
 func (s *MessagingService) GetMessagesByThread(ctx context.Context, threadID string) ([]*db.BunMessage, error) {
-	msgs, err := s.Repo.FindMessagesByThread(ctx, threadID)
+	tctx := sharedCtx.FromContext(ctx)
+	if tctx.UserID == "" {
+		return nil, fmt.Errorf("user not authenticated")
+	}
+
+	// Authorization check: User must be a participant of the thread
+	participantIDs, err := s.Repo.FindParticipantIDsByThread(ctx, threadID)
 	if err != nil {
 		return nil, err
 	}
-	for _, msg := range msgs {
-		plaintext, err := s.Encryptor.Decrypt(msg.Body, msg.Nonce)
-		if err != nil {
-			return nil, err
+	isParticipant := false
+	for _, pid := range participantIDs {
+		if pid == tctx.UserID {
+			isParticipant = true
+			break
 		}
-		msg.Body = string(plaintext)
-		msg.Nonce = ""
+	}
+	if !isParticipant {
+		return nil, fmt.Errorf("access denied: not a participant of this thread")
+	}
+
+	msgs, err := s.Repo.FindMessagesByThread(ctx, threadID)
+	if err != nil {
+		return nil, err
 	}
 	return msgs, nil
 }
@@ -247,20 +269,31 @@ func (s *MessagingService) SendMessage(ctx context.Context, input model.MessageI
 		return nil, fmt.Errorf("tenant not identified")
 	}
 
-	now := time.Now()
-
-	encryptedBody, nonce, err := s.Encryptor.Encrypt([]byte(input.Body))
+	// Authorization check: User must be a participant of the thread
+	participantIDs, err := s.Repo.FindParticipantIDsByThread(ctx, input.ThreadID)
 	if err != nil {
 		return nil, err
 	}
+	isParticipant := false
+	for _, pid := range participantIDs {
+		if pid == tctx.UserID {
+			isParticipant = true
+			break
+		}
+	}
+	if !isParticipant {
+		return nil, fmt.Errorf("cannot send message to a thread you are not a participant of")
+	}
+
+	now := time.Now()
 
 	m := &db.BunMessage{
 		ID:            uuid.NewString(),
 		TenantID:      tctx.TenantID,
 		ThreadID:      input.ThreadID,
 		SenderID:      tctx.UserID,
-		Body:          encryptedBody,
-		Nonce:         nonce,
+		Body:          input.Body,
+		Nonce:         input.Nonce,
 		IsActive:      true,
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -273,11 +306,11 @@ func (s *MessagingService) SendMessage(ctx context.Context, input model.MessageI
 	}
 	s.cacheDel(ctx, cache.Key("messaging", "message", m.ID), cache.Key("messaging", "thread", input.ThreadID, "messages"))
 
-	s.publishMessage(ctx, m, input.Body)
+	s.publishMessage(ctx, m)
 	return m, nil
 }
 
-func (s *MessagingService) publishMessage(ctx context.Context, msg *db.BunMessage, plainBody string) {
+func (s *MessagingService) publishMessage(ctx context.Context, msg *db.BunMessage) {
 	if s.Cache == nil {
 		return
 	}
@@ -294,19 +327,12 @@ func (s *MessagingService) publishMessage(ctx context.Context, msg *db.BunMessag
 			"id":           msg.ID,
 			"thread_id":    msg.ThreadID,
 			"sender_id":    msg.SenderID,
-			"body":         plainBody,
+			"body":         msg.Body,
+			"nonce":        msg.Nonce,
 			"created_at":   msg.CreatedAt.Format(time.RFC3339),
 			"participants": string(participantsJSON),
 		},
 	})
-}
-
-func (s *MessagingService) DecryptMessage(ctx context.Context, msg *db.BunMessage) (string, error) {
-	plaintext, err := s.Encryptor.Decrypt(msg.Body, msg.Nonce)
-	if err != nil {
-		return "", err
-	}
-	return string(plaintext), nil
 }
 
 func (s *MessagingService) DeleteMessage(ctx context.Context, id string) (bool, error) {
@@ -391,4 +417,48 @@ func (s *MessagingService) RemoveParticipant(ctx context.Context, id string) (bo
 		return false, err
 	}
 	return true, nil
+}
+
+// E2EE Key Methods
+
+func (s *MessagingService) RegisterPublicKey(ctx context.Context, publicKey string) (bool, error) {
+	tctx := sharedCtx.FromContext(ctx)
+	if tctx.UserID == "" {
+		return false, fmt.Errorf("unauthenticated")
+	}
+	m := &db.BunUserPublicKey{
+		UserID:    tctx.UserID,
+		PublicKey: publicKey,
+		CreatedAt: time.Now(),
+	}
+	if err := s.Repo.SaveUserPublicKey(ctx, m); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *MessagingService) GetUserPublicKey(ctx context.Context, userID string) (string, error) {
+	m, err := s.Repo.FindUserPublicKey(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	if m == nil {
+		return "", nil
+	}
+	return m.PublicKey, nil
+}
+
+func (s *MessagingService) GetThreadKey(ctx context.Context, threadID string) (string, error) {
+	tctx := sharedCtx.FromContext(ctx)
+	if tctx.UserID == "" {
+		return "", fmt.Errorf("unauthenticated")
+	}
+	m, err := s.Repo.FindThreadKey(ctx, threadID, tctx.UserID)
+	if err != nil {
+		return "", err
+	}
+	if m == nil {
+		return "", nil
+	}
+	return m.EncryptedKey, nil
 }

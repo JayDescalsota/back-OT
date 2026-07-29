@@ -56,7 +56,7 @@ func (r *MessagingRepository) FindThreadsByParticipant(ctx context.Context, part
 		threadIDs[i] = p.ThreadID
 	}
 	var threads []*db.BunMessageThread
-	err = r.db.NewSelect(ctx, &threads).Where("id IN (?)", bun.In(threadIDs)).Scan(ctx)
+	err = r.tenantdb.NewSelect(ctx, &threads).Where("id IN (?)", bun.In(threadIDs)).Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +152,10 @@ func (r *MessagingRepository) FindParticipantByThreadAndUser(ctx context.Context
 
 func (r *MessagingRepository) FindParticipantIDsByThread(ctx context.Context, threadID string) ([]string, error) {
 	var ids []string
-	err := r.db.NewSelect(ctx, &ids).
-		Model((*db.BunMessageParticipant)(nil)).
+	err := r.db.NewSelect(ctx, (*db.BunMessageParticipant)(nil)).
 		Column("participant_id").
 		Where("thread_id = ? AND is_active = true", threadID).
-		Scan(ctx)
+		Scan(ctx, &ids)
 	if err != nil {
 		return nil, err
 	}
@@ -171,4 +170,45 @@ func (r *MessagingRepository) CreateParticipant(ctx context.Context, m *db.BunMe
 func (r *MessagingRepository) UpdateParticipant(ctx context.Context, m *db.BunMessageParticipant) error {
 	_, err := r.tenantdb.NewUpdate(ctx, m).Where("id = ?", m.ID).Exec(ctx)
 	return err
+}
+
+// E2EE Public Keys
+
+func (r *MessagingRepository) SaveUserPublicKey(ctx context.Context, m *db.BunUserPublicKey) error {
+	_, err := r.alldb.NewInsert(m).On("CONFLICT (user_id) DO UPDATE SET public_key = EXCLUDED.public_key").Exec(ctx)
+	return err
+}
+
+func (r *MessagingRepository) FindUserPublicKey(ctx context.Context, userID string) (*db.BunUserPublicKey, error) {
+	var m db.BunUserPublicKey
+	err := r.alldb.NewSelect(ctx, &m).Where("user_id = ?", userID).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
+// E2EE Thread Keys
+
+func (r *MessagingRepository) SaveThreadKeys(ctx context.Context, keys []*db.BunThreadKey) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	_, err := r.alldb.NewInsert(&keys).Exec(ctx)
+	return err
+}
+
+func (r *MessagingRepository) FindThreadKey(ctx context.Context, threadID, userID string) (*db.BunThreadKey, error) {
+	var m db.BunThreadKey
+	err := r.alldb.NewSelect(ctx, &m).Where("thread_id = ? AND user_id = ?", threadID, userID).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
 }

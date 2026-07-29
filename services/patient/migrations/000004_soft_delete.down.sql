@@ -1,4 +1,4 @@
-DROP INDEX IF EXISTS idx_patient_guardians_active;
-DROP INDEX IF EXISTS idx_guardians_active;
-ALTER TABLE patient_guardians DROP COLUMN IF EXISTS is_active;
-ALTER TABLE guardians DROP COLUMN IF EXISTS is_active;
+DROP INDEX IF EXISTS idx_guardian_links_active;
+DROP INDEX IF EXISTS idx_guardian_profiles_active;
+ALTER TABLE patient_guardian_links DROP COLUMN IF EXISTS is_active;
+ALTER TABLE patient_guardian_profiles DROP COLUMN IF EXISTS is_active;

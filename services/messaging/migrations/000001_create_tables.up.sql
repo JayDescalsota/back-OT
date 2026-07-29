@@ -1,7 +1,8 @@
-CREATE TABLE message_thread (
+CREATE TABLE messaging_threads (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     branch_id UUID NOT NULL,
+    subject TEXT NOT NULL,
     type TEXT NOT NULL DEFAULT 'GENERAL',
     is_active BOOLEAN NOT NULL DEFAULT true,
 
@@ -13,10 +14,10 @@ CREATE TABLE message_thread (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE message (
+CREATE TABLE messaging_messages (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
-    thread_id UUID NOT NULL REFERENCES message_thread(id),
+    thread_id UUID NOT NULL REFERENCES messaging_threads(id),
     sender_id UUID NOT NULL,
     body TEXT NOT NULL,
     nonce TEXT NOT NULL,
@@ -30,10 +31,10 @@ CREATE TABLE message (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE message_participant (
+CREATE TABLE messaging_participants (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
-    thread_id UUID NOT NULL REFERENCES message_thread(id),
+    thread_id UUID NOT NULL REFERENCES messaging_threads(id),
     participant_id UUID NOT NULL,
     role TEXT NOT NULL DEFAULT 'MEMBER',
     last_read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -47,9 +48,9 @@ CREATE TABLE message_participant (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE INDEX idx_message_thread_tenant ON message_thread(tenant_id, branch_id);
-CREATE INDEX idx_message_thread_branch ON message_thread(branch_id);
-CREATE INDEX idx_message_thread_participant ON message_participant(participant_id);
-CREATE INDEX idx_message_thread_id ON message(thread_id);
-CREATE INDEX idx_message_tenant ON message(tenant_id);
-CREATE INDEX idx_message_participant_tenant ON message_participant(tenant_id);
+CREATE INDEX idx_messaging_threads_tenant ON messaging_threads(tenant_id, branch_id);
+CREATE INDEX idx_messaging_threads_branch ON messaging_threads(branch_id);
+CREATE INDEX idx_messaging_participants_participant ON messaging_participants(participant_id);
+CREATE INDEX idx_messaging_messages_thread ON messaging_messages(thread_id);
+CREATE INDEX idx_messaging_messages_tenant ON messaging_messages(tenant_id);
+CREATE INDEX idx_messaging_participants_tenant ON messaging_participants(tenant_id);

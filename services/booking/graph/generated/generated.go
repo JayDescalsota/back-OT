@@ -47,21 +47,26 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Appointment struct {
-		BranchID       func(childComplexity int) int
-		CreatedAt      func(childComplexity int) int
-		CreatedBy      func(childComplexity int) int
-		ID             func(childComplexity int) int
-		Note           func(childComplexity int) int
-		Patient        func(childComplexity int) int
-		PatientID      func(childComplexity int) int
-		Practitioner   func(childComplexity int) int
-		PractitionerID func(childComplexity int) int
-		ScheduledEnd   func(childComplexity int) int
-		ScheduledStart func(childComplexity int) int
-		SlotID         func(childComplexity int) int
-		Status         func(childComplexity int) int
-		UpdatedAt      func(childComplexity int) int
-		UpdatedBy      func(childComplexity int) int
+		BranchID           func(childComplexity int) int
+		CancellationReason func(childComplexity int) int
+		CancelledAt        func(childComplexity int) int
+		CreatedAt          func(childComplexity int) int
+		CreatedBy          func(childComplexity int) int
+		ID                 func(childComplexity int) int
+		Note               func(childComplexity int) int
+		Patient            func(childComplexity int) int
+		PatientID          func(childComplexity int) int
+		Practitioner       func(childComplexity int) int
+		PractitionerID     func(childComplexity int) int
+		RescheduleReason   func(childComplexity int) int
+		RescheduledFromID  func(childComplexity int) int
+		RescheduledToID    func(childComplexity int) int
+		ScheduledEnd       func(childComplexity int) int
+		ScheduledStart     func(childComplexity int) int
+		SlotID             func(childComplexity int) int
+		Status             func(childComplexity int) int
+		UpdatedAt          func(childComplexity int) int
+		UpdatedBy          func(childComplexity int) int
 	}
 
 	AppointmentSlot struct {
@@ -104,7 +109,9 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CancelAppointment              func(childComplexity int, id string) int
+		CancelAppointment              func(childComplexity int, id string, input model.CancelAppointmentInput) int
+		CompleteAppointment            func(childComplexity int, id string) int
+		ConfirmAppointment             func(childComplexity int, id string) int
 		CreateAppointment              func(childComplexity int, input model.AppointmentInput) int
 		CreateBranchHours              func(childComplexity int, input model.BranchHoursInput) int
 		CreatePractitionerAvailability func(childComplexity int, input model.PractitionerAvailabilityInput) int
@@ -117,6 +124,8 @@ type ComplexityRoot struct {
 		DeleteScheduleException        func(childComplexity int, id string) int
 		DeleteScheduleTemplate         func(childComplexity int, id string) int
 		GenerateSlots                  func(childComplexity int, branchID string, practitionerID string, date string) int
+		RescheduleAppointment          func(childComplexity int, id string, input model.RescheduleAppointmentInput) int
+		StartAppointment               func(childComplexity int, id string) int
 		UpdateAppointment              func(childComplexity int, id string, input model.AppointmentUpdateInput) int
 		UpdateBranchHours              func(childComplexity int, id string, input model.BranchHoursUpdateInput) int
 		UpdateScheduleTemplate         func(childComplexity int, id string, input model.ScheduleTemplateUpdateInput) int
@@ -224,6 +233,9 @@ type AppointmentResolver interface {
 
 	Note(ctx context.Context, obj *db.BunAppointment) (*string, error)
 	SlotID(ctx context.Context, obj *db.BunAppointment) (*string, error)
+
+	CancelledAt(ctx context.Context, obj *db.BunAppointment) (*string, error)
+
 	CreatedAt(ctx context.Context, obj *db.BunAppointment) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunAppointment) (*string, error)
 
@@ -273,7 +285,11 @@ type MutationResolver interface {
 	UpdateSlotStatus(ctx context.Context, id string, status string) (*db.BunAppointmentSlot, error)
 	CreateAppointment(ctx context.Context, input model.AppointmentInput) (*db.BunAppointment, error)
 	UpdateAppointment(ctx context.Context, id string, input model.AppointmentUpdateInput) (*db.BunAppointment, error)
-	CancelAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
+	ConfirmAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
+	StartAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
+	CompleteAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
+	CancelAppointment(ctx context.Context, id string, input model.CancelAppointmentInput) (*db.BunAppointment, error)
+	RescheduleAppointment(ctx context.Context, id string, input model.RescheduleAppointmentInput) (*db.BunAppointment, error)
 	CreateScheduleException(ctx context.Context, input model.ScheduleExceptionInput) (*db.BunScheduleException, error)
 	DeleteScheduleException(ctx context.Context, id string) (bool, error)
 }
@@ -359,6 +375,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Appointment.BranchID(childComplexity), true
+	case "Appointment.cancellation_reason":
+		if e.ComplexityRoot.Appointment.CancellationReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.CancellationReason(childComplexity), true
+	case "Appointment.cancelled_at":
+		if e.ComplexityRoot.Appointment.CancelledAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.CancelledAt(childComplexity), true
 	case "Appointment.created_at":
 		if e.ComplexityRoot.Appointment.CreatedAt == nil {
 			break
@@ -407,6 +435,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Appointment.PractitionerID(childComplexity), true
+	case "Appointment.reschedule_reason":
+		if e.ComplexityRoot.Appointment.RescheduleReason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.RescheduleReason(childComplexity), true
+	case "Appointment.rescheduled_from_id":
+		if e.ComplexityRoot.Appointment.RescheduledFromID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.RescheduledFromID(childComplexity), true
+	case "Appointment.rescheduled_to_id":
+		if e.ComplexityRoot.Appointment.RescheduledToID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.RescheduledToID(childComplexity), true
 	case "Appointment.scheduled_end":
 		if e.ComplexityRoot.Appointment.ScheduledEnd == nil {
 			break
@@ -672,7 +718,29 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.CancelAppointment(childComplexity, args["id"].(string)), true
+		return e.ComplexityRoot.Mutation.CancelAppointment(childComplexity, args["id"].(string), args["input"].(model.CancelAppointmentInput)), true
+	case "Mutation.completeAppointment":
+		if e.ComplexityRoot.Mutation.CompleteAppointment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_completeAppointment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CompleteAppointment(childComplexity, args["id"].(string)), true
+	case "Mutation.confirmAppointment":
+		if e.ComplexityRoot.Mutation.ConfirmAppointment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_confirmAppointment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ConfirmAppointment(childComplexity, args["id"].(string)), true
 	case "Mutation.createAppointment":
 		if e.ComplexityRoot.Mutation.CreateAppointment == nil {
 			break
@@ -805,6 +873,28 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.GenerateSlots(childComplexity, args["branch_id"].(string), args["practitioner_id"].(string), args["date"].(string)), true
+	case "Mutation.rescheduleAppointment":
+		if e.ComplexityRoot.Mutation.RescheduleAppointment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_rescheduleAppointment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RescheduleAppointment(childComplexity, args["id"].(string), args["input"].(model.RescheduleAppointmentInput)), true
+	case "Mutation.startAppointment":
+		if e.ComplexityRoot.Mutation.StartAppointment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_startAppointment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.StartAppointment(childComplexity, args["id"].(string)), true
 	case "Mutation.updateAppointment":
 		if e.ComplexityRoot.Mutation.UpdateAppointment == nil {
 			break
@@ -1344,8 +1434,10 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputAppointmentsFilter,
 		ec.unmarshalInputBranchHoursInput,
 		ec.unmarshalInputBranchHoursUpdateInput,
+		ec.unmarshalInputCancelAppointmentInput,
 		ec.unmarshalInputPractitionerAvailabilityInput,
 		ec.unmarshalInputPractitionerBranchInput,
+		ec.unmarshalInputRescheduleAppointmentInput,
 		ec.unmarshalInputScheduleExceptionInput,
 		ec.unmarshalInputScheduleTemplateInput,
 		ec.unmarshalInputScheduleTemplateUpdateInput,
@@ -1522,6 +1614,11 @@ type Appointment @key(fields: "id") {
   status: String!
   note: String
   slot_id: ID
+  cancellation_reason: String
+  cancelled_at: DateTime
+  rescheduled_from_id: ID
+  rescheduled_to_id: ID
+  reschedule_reason: String
   created_at: DateTime!
   updated_at: DateTime
   created_by: ID
@@ -1601,6 +1698,16 @@ input AppointmentInput {
 input AppointmentUpdateInput {
   status: String
   note: String
+}
+
+input CancelAppointmentInput {
+  reason: String!
+}
+
+input RescheduleAppointmentInput {
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  reason: String!
 }
 
 input ScheduleExceptionInput {
@@ -1692,7 +1799,11 @@ type Mutation {
   # Appointments
   createAppointment(input: AppointmentInput!): Appointment!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
-  cancelAppointment(id: ID!): Appointment!
+  confirmAppointment(id: ID!): Appointment!
+  startAppointment(id: ID!): Appointment!
+  completeAppointment(id: ID!): Appointment!
+  cancelAppointment(id: ID!, input: CancelAppointmentInput!): Appointment!
+  rescheduleAppointment(id: ID!, input: RescheduleAppointmentInput!): Appointment!
 
   # Schedule exceptions
   createScheduleException(input: ScheduleExceptionInput!): ScheduleException!
@@ -1802,6 +1913,16 @@ func (ec *executionContext) childFields_Appointment(ctx context.Context, field g
 		return ec.fieldContext_Appointment_note(ctx, field)
 	case "slot_id":
 		return ec.fieldContext_Appointment_slot_id(ctx, field)
+	case "cancellation_reason":
+		return ec.fieldContext_Appointment_cancellation_reason(ctx, field)
+	case "cancelled_at":
+		return ec.fieldContext_Appointment_cancelled_at(ctx, field)
+	case "rescheduled_from_id":
+		return ec.fieldContext_Appointment_rescheduled_from_id(ctx, field)
+	case "rescheduled_to_id":
+		return ec.fieldContext_Appointment_rescheduled_to_id(ctx, field)
+	case "reschedule_reason":
+		return ec.fieldContext_Appointment_reschedule_reason(ctx, field)
 	case "created_at":
 		return ec.fieldContext_Appointment_created_at(ctx, field)
 	case "updated_at":
@@ -2243,6 +2364,42 @@ func (ec *executionContext) field_Mutation_cancelAppointment_args(ctx context.Co
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CancelAppointmentInput, error) {
+			return ec.unmarshalNCancelAppointmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐCancelAppointmentInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_completeAppointment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_confirmAppointment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -2427,6 +2584,42 @@ func (ec *executionContext) field_Mutation_generateSlots_args(ctx context.Contex
 		return nil, err
 	}
 	args["date"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_rescheduleAppointment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.RescheduleAppointmentInput, error) {
+			return ec.unmarshalNRescheduleAppointmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐRescheduleAppointmentInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_startAppointment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -3039,6 +3232,121 @@ func (ec *executionContext) _Appointment_slot_id(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_Appointment_slot_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Appointment", field, true, true, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Appointment_cancellation_reason(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_cancellation_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CancellationReason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_cancellation_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Appointment", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Appointment_cancelled_at(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_cancelled_at(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Appointment().CancelledAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_cancelled_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Appointment", field, true, true, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _Appointment_rescheduled_from_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_rescheduled_from_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RescheduledFromID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_rescheduled_from_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Appointment", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Appointment_rescheduled_to_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_rescheduled_to_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RescheduledToID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOID2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_rescheduled_to_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Appointment", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Appointment_reschedule_reason(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_reschedule_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RescheduleReason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_reschedule_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Appointment", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Appointment_created_at(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
@@ -4659,6 +4967,138 @@ func (ec *executionContext) fieldContext_Mutation_updateAppointment(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_confirmAppointment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_confirmAppointment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ConfirmAppointment(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointment) graphql.Marshaler {
+			return ec.marshalNAppointment2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_confirmAppointment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Appointment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_confirmAppointment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_startAppointment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_startAppointment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().StartAppointment(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointment) graphql.Marshaler {
+			return ec.marshalNAppointment2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_startAppointment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Appointment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_startAppointment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_completeAppointment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_completeAppointment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CompleteAppointment(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointment) graphql.Marshaler {
+			return ec.marshalNAppointment2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_completeAppointment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Appointment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_completeAppointment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_cancelAppointment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4669,7 +5109,7 @@ func (ec *executionContext) _Mutation_cancelAppointment(ctx context.Context, fie
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().CancelAppointment(ctx, fc.Args["id"].(string))
+			return ec.Resolvers.Mutation().CancelAppointment(ctx, fc.Args["id"].(string), fc.Args["input"].(model.CancelAppointmentInput))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointment) graphql.Marshaler {
@@ -4697,6 +5137,50 @@ func (ec *executionContext) fieldContext_Mutation_cancelAppointment(ctx context.
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_cancelAppointment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_rescheduleAppointment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_rescheduleAppointment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RescheduleAppointment(ctx, fc.Args["id"].(string), fc.Args["input"].(model.RescheduleAppointmentInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointment) graphql.Marshaler {
+			return ec.marshalNAppointment2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_rescheduleAppointment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Appointment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_rescheduleAppointment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -8117,6 +8601,36 @@ func (ec *executionContext) unmarshalInputBranchHoursUpdateInput(ctx context.Con
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCancelAppointmentInput(ctx context.Context, obj any) (model.CancelAppointmentInput, error) {
+	var it model.CancelAppointmentInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"reason"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "reason":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("reason"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Reason = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputPractitionerAvailabilityInput(ctx context.Context, obj any) (model.PractitionerAvailabilityInput, error) {
 	var it model.PractitionerAvailabilityInput
 	if obj == nil {
@@ -8193,6 +8707,50 @@ func (ec *executionContext) unmarshalInputPractitionerBranchInput(ctx context.Co
 				return it, err
 			}
 			it.Role = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputRescheduleAppointmentInput(ctx context.Context, obj any) (model.RescheduleAppointmentInput, error) {
+	var it model.RescheduleAppointmentInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"scheduled_start", "scheduled_end", "reason"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "scheduled_start":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("scheduled_start"))
+			data, err := ec.unmarshalNDateTime2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ScheduledStart = data
+		case "scheduled_end":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("scheduled_end"))
+			data, err := ec.unmarshalNDateTime2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ScheduledEnd = data
+		case "reason":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("reason"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Reason = data
 		}
 	}
 	return it, nil
@@ -8666,6 +9224,64 @@ func (ec *executionContext) _Appointment(ctx context.Context, sel ast.SelectionS
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "cancellation_reason":
+			out.Values[i] = ec._Appointment_cancellation_reason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "cancelled_at":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Appointment_cancelled_at(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "rescheduled_from_id":
+			out.Values[i] = ec._Appointment_rescheduled_from_id(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "rescheduled_to_id":
+			out.Values[i] = ec._Appointment_rescheduled_to_id(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "reschedule_reason":
+			out.Values[i] = ec._Appointment_reschedule_reason(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "created_at":
 			field := field
 
@@ -9739,9 +10355,37 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "confirmAppointment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_confirmAppointment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "startAppointment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_startAppointment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "completeAppointment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_completeAppointment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "cancelAppointment":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_cancelAppointment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "rescheduleAppointment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_rescheduleAppointment(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -11989,6 +12633,11 @@ func (ec *executionContext) unmarshalNBranchHoursUpdateInput2githubᚗcomᚋclin
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCancelAppointmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐCancelAppointmentInput(ctx context.Context, v any) (model.CancelAppointmentInput, error) {
+	res, err := ec.unmarshalInputCancelAppointmentInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNDateTime2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12142,6 +12791,11 @@ func (ec *executionContext) marshalNPractitionerBranch2ᚖgithubᚗcomᚋclinicm
 
 func (ec *executionContext) unmarshalNPractitionerBranchInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐPractitionerBranchInput(ctx context.Context, v any) (model.PractitionerBranchInput, error) {
 	res, err := ec.unmarshalInputPractitionerBranchInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNRescheduleAppointmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐRescheduleAppointmentInput(ctx context.Context, v any) (model.RescheduleAppointmentInput, error) {
+	res, err := ec.unmarshalInputRescheduleAppointmentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 

@@ -7,7 +7,7 @@ import (
 )
 
 type PractitionerProfile struct {
-	bun.BaseModel `bun:"table:practitioner_profiles"`
+	bun.BaseModel `bun:"table:user_practitioner_profiles"`
 
 	UserID              string    `bun:"user_id,pk"`
 	LicenseNumber       *string   `bun:"license_number"`

@@ -39,6 +39,18 @@ func (r *messageThreadResolver) Participants(ctx context.Context, obj *db.BunMes
 	return r.MessagingService.GetParticipantsByThread(ctx, obj.ID)
 }
 
+// ThreadKey is the resolver for the threadKey field.
+func (r *messageThreadResolver) ThreadKey(ctx context.Context, obj *db.BunMessageThread) (*string, error) {
+	key, err := r.MessagingService.GetThreadKey(ctx, obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	if key == "" {
+		return nil, nil
+	}
+	return &key, nil
+}
+
 // CreatedAt is the resolver for the created_at field.
 func (r *messageThreadResolver) CreatedAt(ctx context.Context, obj *db.BunMessageThread) (string, error) {
 	return obj.CreatedAt.Format(time.RFC3339), nil
@@ -84,6 +96,11 @@ func (r *mutationResolver) RemoveParticipant(ctx context.Context, id string) (bo
 	return r.MessagingService.RemoveParticipant(ctx, id)
 }
 
+// RegisterPublicKey is the resolver for the registerPublicKey field.
+func (r *mutationResolver) RegisterPublicKey(ctx context.Context, publicKey string) (bool, error) {
+	return r.MessagingService.RegisterPublicKey(ctx, publicKey)
+}
+
 // Thread is the resolver for the thread field.
 func (r *queryResolver) Thread(ctx context.Context, id string) (*db.BunMessageThread, error) {
 	return r.MessagingService.GetThreadByID(ctx, id)
@@ -102,6 +119,30 @@ func (r *queryResolver) Messages(ctx context.Context, threadID string) ([]*db.Bu
 // Participants is the resolver for the participants field.
 func (r *queryResolver) Participants(ctx context.Context, threadID string) ([]*db.BunMessageParticipant, error) {
 	return r.MessagingService.GetParticipantsByThread(ctx, threadID)
+}
+
+// UserPublicKey is the resolver for the userPublicKey field.
+func (r *queryResolver) UserPublicKey(ctx context.Context, userID string) (*string, error) {
+	key, err := r.MessagingService.GetUserPublicKey(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if key == "" {
+		return nil, nil
+	}
+	return &key, nil
+}
+
+// ThreadKey is the resolver for the threadKey field.
+func (r *queryResolver) ThreadKey(ctx context.Context, threadID string) (*string, error) {
+	key, err := r.MessagingService.GetThreadKey(ctx, threadID)
+	if err != nil {
+		return nil, err
+	}
+	if key == "" {
+		return nil, nil
+	}
+	return &key, nil
 }
 
 // Message returns generated.MessageResolver implementation.

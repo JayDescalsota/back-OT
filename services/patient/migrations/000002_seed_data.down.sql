@@ -1,5 +1,5 @@
-DELETE FROM patient_guardians;
-DELETE FROM guardians WHERE id IN (
+DELETE FROM patient_guardian_links;
+DELETE FROM patient_guardian_profiles WHERE id IN (
     'g1a1c3d4-0001-4000-8000-000000000001',
     'g1a1c3d4-0002-4000-8000-000000000002',
     'g1a1c3d4-0003-4000-8000-000000000003',

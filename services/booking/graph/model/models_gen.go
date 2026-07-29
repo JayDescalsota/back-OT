@@ -45,6 +45,10 @@ type BranchHoursUpdateInput struct {
 	IsActive  *bool   `json:"is_active,omitempty"`
 }
 
+type CancelAppointmentInput struct {
+	Reason string `json:"reason"`
+}
+
 type Mutation struct {
 }
 
@@ -66,6 +70,12 @@ type PractitionerBranchInput struct {
 }
 
 type Query struct {
+}
+
+type RescheduleAppointmentInput struct {
+	ScheduledStart string `json:"scheduled_start"`
+	ScheduledEnd   string `json:"scheduled_end"`
+	Reason         string `json:"reason"`
 }
 
 type ScheduleExceptionInput struct {

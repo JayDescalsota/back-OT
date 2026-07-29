@@ -1,4 +1,4 @@
-CREATE TABLE addresses (
+CREATE TABLE tenant_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     address TEXT NOT NULL,
     baranggay TEXT NOT NULL DEFAULT '',
@@ -14,4 +14,4 @@ CREATE TABLE addresses (
     updated_action TEXT NOT NULL DEFAULT 'CREATE'
 );
 
-ALTER TABLE branches ADD COLUMN address_id UUID REFERENCES addresses(id);
+ALTER TABLE tenant_branches ADD COLUMN address_id UUID REFERENCES tenant_addresses(id);

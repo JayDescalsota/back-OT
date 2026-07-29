@@ -13,7 +13,7 @@ CREATE TABLE tenants (
     updated_action TEXT
 );
 
-CREATE TABLE branches (
+CREATE TABLE tenant_branches (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE tenant_roles (
     name TEXT NOT NULL,
     description TEXT,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    branch_id UUID REFERENCES tenant_branches(id) ON DELETE CASCADE,
     is_system_role BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID,
@@ -52,7 +52,7 @@ CREATE TABLE tenant_permissions (
     scope TEXT NOT NULL DEFAULT 'branch',
     description TEXT,
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
-    branch_id UUID REFERENCES branches(id) ON DELETE CASCADE,
+    branch_id UUID REFERENCES tenant_branches(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID,
     created_action TEXT,
@@ -71,7 +71,7 @@ CREATE TABLE tenant_role_permissions (
 CREATE TABLE tenant_user_assignments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
-    branch_id UUID NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    branch_id UUID NOT NULL REFERENCES tenant_branches(id) ON DELETE CASCADE,
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES tenant_roles(id) ON DELETE RESTRICT,
     assigned_by UUID,
@@ -86,4 +86,4 @@ CREATE TABLE tenant_user_assignments (
 
 CREATE INDEX idx_assignments_user ON tenant_user_assignments (user_id);
 CREATE INDEX idx_assignments_tenant_branch ON tenant_user_assignments (tenant_id, branch_id);
-CREATE INDEX idx_branches_tenant ON branches (tenant_id);
+CREATE INDEX idx_tenant_branches_tenant ON tenant_branches (tenant_id);

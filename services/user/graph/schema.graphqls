@@ -98,7 +98,7 @@ input UserProfileInput {
 type Query {
   meUser: User!
   user(id: ID!): User
-  users: [User!]!
+  users(ids: [ID!]): [User!]!
 }
 
 type Mutation {

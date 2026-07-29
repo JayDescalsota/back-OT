@@ -8,6 +8,7 @@ import (
 	"github.com/clinicmanager/services/patient/db"
 	"github.com/clinicmanager/services/patient/graph/model"
 	shareddb "github.com/clinicmanager/shared/db"
+	bun "github.com/uptrace/bun"
 )
 
 type PatientRepository struct {
@@ -36,6 +37,18 @@ func (r *PatientRepository) FindPatientByID(ctx context.Context, id string) (*db
 	return &patient, nil
 }
 
+func (r *PatientRepository) GetPatientsByIDs(ctx context.Context, ids []string) ([]*db.BunPatients, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	var patients []*db.BunPatients
+	err := r.db.NewSelect(ctx, &patients).Where("id IN (?)", bun.In(ids)).Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return patients, nil
+}
+
 func (r *PatientRepository) FindPatientsByBranch(ctx context.Context, branchID string) ([]*db.BunPatients, error) {
 	var patients []*db.BunPatients
 	err := r.tenantdb.NewSelect(ctx, &patients).Where("branch_id = ?", branchID).Scan(ctx)
@@ -60,7 +73,7 @@ func (r *PatientRepository) FindGuardianByID(ctx context.Context, id string) (*d
 func (r *PatientRepository) FindGuardianPatients(ctx context.Context, guardianID string) ([]*db.BunPatients, error) {
 	var patients []*db.BunPatients
 	err := r.db.NewSelect(ctx, &patients).
-		Join("JOIN patient_guardians pg ON pg.patient_id = bun_patients.id").
+		Join("JOIN patient_guardian_links pg ON pg.patient_id = bun_patients.id").
 		Where("pg.guardian_id = ?", guardianID).
 		Scan(ctx)
 	if err != nil {
@@ -131,6 +144,19 @@ func (r *PatientRepository) ListPatients(ctx context.Context, filter *model.Pati
 	return patients, nil
 }
 
+func (r *PatientRepository) SearchPatientsForMessaging(ctx context.Context, queryStr string, limit int) ([]*db.BunPatients, error) {
+	var patients []*db.BunPatients
+	searchQuery := "%" + strings.ToLower(queryStr) + "%"
+	err := r.tenantdb.NewSelect(ctx, &patients).
+		Where("first_name ILIKE ? OR last_name ILIKE ?", searchQuery, searchQuery).
+		Limit(limit).
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return patients, nil
+}
+
 func (r *PatientRepository) GetPatient(ctx context.Context, id string) (*db.BunPatients, error) {
 	return r.FindPatientByID(ctx, id)
 }
@@ -147,7 +173,7 @@ func (r *PatientRepository) GetPatientTags(ctx context.Context, patientID string
 func (r *PatientRepository) GetPatientGuardians(ctx context.Context, patientID string) ([]*db.BunGuardians, error) {
 	var guardians []*db.BunGuardians
 	err := r.db.NewSelect(ctx, &guardians).
-		Join("JOIN patient_guardians pg ON pg.guardian_id = bun_guardians.id").
+		Join("JOIN patient_guardian_links pg ON pg.guardian_id = bun_guardians.id").
 		Where("pg.patient_id = ? AND pg.is_active = true", patientID).
 		Scan(ctx)
 	if err != nil {

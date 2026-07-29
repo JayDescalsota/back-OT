@@ -129,8 +129,8 @@ func (r *BookingRepository) FindPractitionerAvailabilities(ctx context.Context, 
 	var list []*db.BunPractitionerAvailability
 	query := r.tenantdb.NewSelect(ctx, &list)
 	if branchID != "" {
-		// This requires a join with practitioner_branch to filter by branch
-		query = query.Where("practitioner_id IN (SELECT practitioner_id FROM practitioner_branch WHERE branch_id = ?)", branchID)
+		// This requires a join with booking_practitioner_branches to filter by branch
+		query = query.Where("practitioner_id IN (SELECT practitioner_id FROM booking_practitioner_branches WHERE branch_id = ?)", branchID)
 	}
 	if practitionerID != "" {
 		query = query.Where("practitioner_id = ?", practitionerID)
@@ -366,7 +366,7 @@ func (r *BookingRepository) UpdatePractitionerBranch(ctx context.Context, m *db.
 func (r *BookingRepository) FindPractitionerAvailabilitiesByBranch(ctx context.Context, branchID string) ([]*db.BunPractitionerAvailability, error) {
 	var list []*db.BunPractitionerAvailability
 	err := r.tenantdb.NewSelect(ctx, &list).
-		Where("practitioner_id IN (SELECT practitioner_id FROM practitioner_branch WHERE branch_id = ?)", branchID).
+		Where("practitioner_id IN (SELECT practitioner_id FROM booking_practitioner_branches WHERE branch_id = ?)", branchID).
 		Scan(ctx)
 	if err != nil {
 		return nil, err

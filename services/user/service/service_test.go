@@ -21,6 +21,9 @@ type mockRepo struct {
 func (m *mockRepo) FindUserByID(ctx context.Context, id string) (*models.User, error) {
 	return m.findByIDFn(ctx, id)
 }
+func (m *mockRepo) FindUsersByIDs(ctx context.Context, ids []string) ([]*models.User, error) {
+	return nil, nil
+}
 func (m *mockRepo) FindUserByEmail(ctx context.Context, email string) (*models.User, error) {
 	return nil, nil
 }

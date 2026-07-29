@@ -96,6 +96,11 @@ type Appointment @key(fields: "id") {
   status: String!
   note: String
   slot_id: ID
+  cancellation_reason: String
+  cancelled_at: DateTime
+  rescheduled_from_id: ID
+  rescheduled_to_id: ID
+  reschedule_reason: String
   created_at: DateTime!
   updated_at: DateTime
   created_by: ID
@@ -175,6 +180,16 @@ input AppointmentInput {
 input AppointmentUpdateInput {
   status: String
   note: String
+}
+
+input CancelAppointmentInput {
+  reason: String!
+}
+
+input RescheduleAppointmentInput {
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  reason: String!
 }
 
 input ScheduleExceptionInput {
@@ -266,7 +281,11 @@ type Mutation {
   # Appointments
   createAppointment(input: AppointmentInput!): Appointment!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
-  cancelAppointment(id: ID!): Appointment!
+  confirmAppointment(id: ID!): Appointment!
+  startAppointment(id: ID!): Appointment!
+  completeAppointment(id: ID!): Appointment!
+  cancelAppointment(id: ID!, input: CancelAppointmentInput!): Appointment!
+  rescheduleAppointment(id: ID!, input: RescheduleAppointmentInput!): Appointment!
 
   # Schedule exceptions
   createScheduleException(input: ScheduleExceptionInput!): ScheduleException!

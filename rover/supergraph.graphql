@@ -1,4 +1,4 @@
-schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) {
+﻿schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) {
   query: Query
   mutation: Mutation
 }
@@ -127,6 +127,11 @@ type Appointment @join__type(graph: BOOKING, key: "id") {
   status: String!
   note: String
   slot_id: ID
+  cancellation_reason: String
+  cancelled_at: DateTime
+  rescheduled_from_id: ID
+  rescheduled_to_id: ID
+  reschedule_reason: String
   created_at: DateTime!
   updated_at: DateTime
   created_by: ID
@@ -208,6 +213,16 @@ input AppointmentUpdateInput @join__type(graph: BOOKING) {
   note: String
 }
 
+input CancelAppointmentInput @join__type(graph: BOOKING) {
+  reason: String!
+}
+
+input RescheduleAppointmentInput @join__type(graph: BOOKING) {
+  scheduled_start: DateTime!
+  scheduled_end: DateTime!
+  reason: String!
+}
+
 input ScheduleExceptionInput @join__type(graph: BOOKING) {
   practitioner_id: ID!
   exception_date: DateTime!
@@ -248,8 +263,12 @@ type Query @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type
   threadsByParticipant(participant_id: ID): [MessageThread!]! @join__field(graph: MESSAGING)
   messages(thread_id: ID!): [Message!]! @join__field(graph: MESSAGING)
   participants(thread_id: ID!): [MessageParticipant!]! @join__field(graph: MESSAGING)
+  userPublicKey(user_id: ID!): String @join__field(graph: MESSAGING)
+  threadKey(thread_id: ID!): String @join__field(graph: MESSAGING)
   patient(id: ID!): Patient @join__field(graph: PATIENT)
   patients(filter: PatientsFilter): [Patient!]! @join__field(graph: PATIENT)
+  patientsByIds(ids: [ID!]!): [Patient!]! @join__field(graph: PATIENT)
+  patientsForMessaging(search: String!, limit: Int = 10): [Patient!]! @join__field(graph: PATIENT)
   guardian(id: ID!): Guardian @join__field(graph: PATIENT)
   meTenant: User! @join__field(graph: TENANT)
   tenant(id: ID!): Tenant @join__field(graph: TENANT)
@@ -261,7 +280,7 @@ type Query @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
   meUser: User! @join__field(graph: USER)
   user(id: ID!): User @join__field(graph: USER)
-  users: [User!]! @join__field(graph: USER)
+  users(ids: [ID!]): [User!]! @join__field(graph: USER)
 }
 
 type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__type(graph: PATIENT) @join__type(graph: TENANT) @join__type(graph: USER) {
@@ -279,7 +298,11 @@ type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__t
   updateSlotStatus(id: ID!, status: String!): AppointmentSlot! @join__field(graph: BOOKING)
   createAppointment(input: AppointmentInput!): Appointment! @join__field(graph: BOOKING)
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment! @join__field(graph: BOOKING)
-  cancelAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
+  confirmAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
+  startAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
+  completeAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
+  cancelAppointment(id: ID!, input: CancelAppointmentInput!): Appointment! @join__field(graph: BOOKING)
+  rescheduleAppointment(id: ID!, input: RescheduleAppointmentInput!): Appointment! @join__field(graph: BOOKING)
   createScheduleException(input: ScheduleExceptionInput!): ScheduleException! @join__field(graph: BOOKING)
   deleteScheduleException(id: ID!): Boolean! @join__field(graph: BOOKING)
   createThread(input: ThreadInput!): MessageThread! @join__field(graph: MESSAGING)
@@ -289,6 +312,7 @@ type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__t
   deleteMessage(id: ID!): Boolean! @join__field(graph: MESSAGING)
   addParticipant(input: ParticipantInput!): MessageParticipant! @join__field(graph: MESSAGING)
   removeParticipant(id: ID!): Boolean! @join__field(graph: MESSAGING)
+  registerPublicKey(public_key: String!): Boolean! @join__field(graph: MESSAGING)
   createPatient(input: PatientInput!): Patient! @join__field(graph: PATIENT)
   updatePatient(id: ID!, input: PatientUpdateInput!): Patient! @join__field(graph: PATIENT)
   deletePatient(id: ID!): Patient! @join__field(graph: PATIENT)
@@ -345,11 +369,12 @@ type Patient @join__type(graph: BOOKING, key: "id") @join__type(graph: PATIENT, 
 type MessageThread @join__type(graph: MESSAGING, key: "id") {
   id: ID!
   branch_id: ID!
-  subject: String!
+  title: String!
   type: String!
   is_active: Boolean!
   messages: [Message!]!
   participants: [MessageParticipant!]!
+  threadKey: String
   created_at: String!
   updated_at: String!
 }
@@ -359,6 +384,7 @@ type Message @join__type(graph: MESSAGING, key: "id") {
   thread_id: ID!
   sender_id: ID!
   body: String!
+  nonce: String!
   is_active: Boolean!
   created_at: String!
   updated_at: String!
@@ -373,10 +399,16 @@ type MessageParticipant @join__type(graph: MESSAGING, key: "id") {
   is_active: Boolean!
 }
 
+input ThreadKeyInput @join__type(graph: MESSAGING) {
+  user_id: ID!
+  encrypted_key: String!
+}
+
 input ThreadInput @join__type(graph: MESSAGING) {
-  subject: String!
+  title: String!
   type: String!
   participants: [ParticipantRefInput!]!
+  keys: [ThreadKeyInput!]!
 }
 
 input ParticipantRefInput @join__type(graph: MESSAGING) {
@@ -385,7 +417,6 @@ input ParticipantRefInput @join__type(graph: MESSAGING) {
 }
 
 input ThreadUpdateInput @join__type(graph: MESSAGING) {
-  subject: String
   type: String
   is_active: Boolean
 }
@@ -393,6 +424,7 @@ input ThreadUpdateInput @join__type(graph: MESSAGING) {
 input MessageInput @join__type(graph: MESSAGING) {
   thread_id: ID!
   body: String!
+  nonce: String!
 }
 
 input ParticipantInput @join__type(graph: MESSAGING) {

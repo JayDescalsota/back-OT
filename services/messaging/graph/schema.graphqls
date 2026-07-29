@@ -1,10 +1,12 @@
 type MessageThread @key(fields: "id") {
   id: ID!
   branch_id: ID!
+  title: String!
   type: String!
   is_active: Boolean!
   messages: [Message!]!
   participants: [MessageParticipant!]!
+  threadKey: String
   created_at: String!
   updated_at: String!
 }
@@ -14,6 +16,7 @@ type Message @key(fields: "id") {
   thread_id: ID!
   sender_id: ID!
   body: String!
+  nonce: String!
   is_active: Boolean!
   created_at: String!
   updated_at: String!
@@ -28,9 +31,16 @@ type MessageParticipant @key(fields: "id") {
   is_active: Boolean!
 }
 
+input ThreadKeyInput {
+  user_id: ID!
+  encrypted_key: String!
+}
+
 input ThreadInput {
+  title: String!
   type: String!
   participants: [ParticipantRefInput!]!
+  keys: [ThreadKeyInput!]!
 }
 
 input ParticipantRefInput {
@@ -46,6 +56,7 @@ input ThreadUpdateInput {
 input MessageInput {
   thread_id: ID!
   body: String!
+  nonce: String!
 }
 
 input ParticipantInput {
@@ -59,6 +70,8 @@ type Query {
   threadsByParticipant(participant_id: ID): [MessageThread!]!
   messages(thread_id: ID!): [Message!]!
   participants(thread_id: ID!): [MessageParticipant!]!
+  userPublicKey(user_id: ID!): String
+  threadKey(thread_id: ID!): String
 }
 
 type Mutation {
@@ -69,4 +82,5 @@ type Mutation {
   deleteMessage(id: ID!): Boolean!
   addParticipant(input: ParticipantInput!): MessageParticipant!
   removeParticipant(id: ID!): Boolean!
+  registerPublicKey(public_key: String!): Boolean!
 }

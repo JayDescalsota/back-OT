@@ -1,4 +1,4 @@
-CREATE TABLE app_roles (
+CREATE TABLE user_roles (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
@@ -10,9 +10,9 @@ CREATE TABLE app_roles (
     updated_action TEXT
 );
 
-CREATE TABLE user_app_roles (
+CREATE TABLE user_role_assignments (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    app_role_id INT NOT NULL REFERENCES app_roles(id) ON DELETE CASCADE,
+    app_role_id INT NOT NULL REFERENCES user_roles(id) ON DELETE CASCADE,
     assigned_by UUID REFERENCES users(id),
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
@@ -21,7 +21,7 @@ CREATE TABLE user_app_roles (
     PRIMARY KEY (user_id, app_role_id)
 );
 
-INSERT INTO app_roles (name, description) VALUES
+INSERT INTO user_roles (name, description) VALUES
     ('super_admin', 'Full cross-tenant system access'),
     ('app_admin', 'Manage tenants, users, and system configuration'),
     ('support', 'View system health, impersonate users for troubleshooting'),
@@ -53,32 +53,32 @@ SELECT id,
 FROM users
 ON CONFLICT (user_id) DO NOTHING;
 
-INSERT INTO user_app_roles (user_id, app_role_id, assigned_at)
+INSERT INTO user_role_assignments (user_id, app_role_id, assigned_at)
 SELECT u.id, ar.id, NOW()
-FROM users u CROSS JOIN app_roles ar
+FROM users u CROSS JOIN user_roles ar
 WHERE u.email = 'superadmin@clinic.com' AND ar.name = 'super_admin'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO user_app_roles (user_id, app_role_id, assigned_at)
+INSERT INTO user_role_assignments (user_id, app_role_id, assigned_at)
 SELECT u.id, ar.id, NOW()
-FROM users u CROSS JOIN app_roles ar
+FROM users u CROSS JOIN user_roles ar
 WHERE u.email = 'admin@clinic.com' AND ar.name = 'app_admin'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO user_app_roles (user_id, app_role_id, assigned_at)
+INSERT INTO user_role_assignments (user_id, app_role_id, assigned_at)
 SELECT u.id, ar.id, NOW()
-FROM users u CROSS JOIN app_roles ar
+FROM users u CROSS JOIN user_roles ar
 WHERE u.email = 'user01@clinic.com' AND ar.name = 'user'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO user_app_roles (user_id, app_role_id, assigned_at)
+INSERT INTO user_role_assignments (user_id, app_role_id, assigned_at)
 SELECT u.id, ar.id, NOW()
-FROM users u CROSS JOIN app_roles ar
+FROM users u CROSS JOIN user_roles ar
 WHERE u.email = 'user02@clinic.com' AND ar.name = 'user'
 ON CONFLICT DO NOTHING;
 
-INSERT INTO user_app_roles (user_id, app_role_id, assigned_at)
+INSERT INTO user_role_assignments (user_id, app_role_id, assigned_at)
 SELECT u.id, ar.id, NOW()
-FROM users u CROSS JOIN app_roles ar
+FROM users u CROSS JOIN user_roles ar
 WHERE u.email LIKE 'staff%@clinic.com' AND ar.name = 'user'
 ON CONFLICT DO NOTHING;

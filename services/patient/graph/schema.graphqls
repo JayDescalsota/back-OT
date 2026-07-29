@@ -102,6 +102,8 @@ type PatientGuardianRelationship {
 type Query {
   patient(id: ID!): Patient
   patients(filter: PatientsFilter): [Patient!]!
+  patientsByIds(ids: [ID!]!): [Patient!]!
+  patientsForMessaging(search: String!, limit: Int = 10): [Patient!]!
   guardian(id: ID!): Guardian
 }
 

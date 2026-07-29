@@ -1,4 +1,4 @@
-CREATE TABLE branch_hour (
+CREATE TABLE booking_branch_hours (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     branch_id UUID NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE branch_hour (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE practitioner_branch (
+CREATE TABLE booking_practitioner_branches (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     practitioner_id UUID NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE practitioner_branch (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE practitioner_availability (
+CREATE TABLE booking_practitioner_availabilities (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     practitioner_id UUID NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE practitioner_availability (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE schedule_template (
+CREATE TABLE booking_schedule_templates (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     branch_id UUID NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE schedule_template (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE appointment_slot (
+CREATE TABLE booking_appointment_slots (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     schedule_template_id UUID NOT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE appointment_slot (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE appointment (
+CREATE TABLE booking_appointments (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     appointment_slot_id UUID NOT NULL,
@@ -122,7 +122,7 @@ CREATE TABLE appointment (
     updated_action TEXT NOT NULL DEFAULT ''
 );
 
-CREATE TABLE schedule_exception (
+CREATE TABLE booking_schedule_exceptions (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
     schedule_template_id UUID,

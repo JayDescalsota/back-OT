@@ -1,5 +1,5 @@
 ALTER TABLE patients DROP COLUMN IF EXISTS address_id;
-ALTER TABLE guardians DROP COLUMN IF EXISTS address_id;
+ALTER TABLE patient_guardian_profiles DROP COLUMN IF EXISTS address_id;
 
 CREATE TABLE IF NOT EXISTS patient_addresses (
     patient_id UUID PRIMARY KEY REFERENCES patients(id),

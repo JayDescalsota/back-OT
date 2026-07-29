@@ -53,6 +53,7 @@ type ComplexityRoot struct {
 		CreatedAt func(childComplexity int) int
 		ID        func(childComplexity int) int
 		IsActive  func(childComplexity int) int
+		Nonce     func(childComplexity int) int
 		SenderID  func(childComplexity int) int
 		ThreadID  func(childComplexity int) int
 		UpdatedAt func(childComplexity int) int
@@ -74,6 +75,8 @@ type ComplexityRoot struct {
 		IsActive     func(childComplexity int) int
 		Messages     func(childComplexity int) int
 		Participants func(childComplexity int) int
+		ThreadKey    func(childComplexity int) int
+		Title        func(childComplexity int) int
 		Type         func(childComplexity int) int
 		UpdatedAt    func(childComplexity int) int
 	}
@@ -83,6 +86,7 @@ type ComplexityRoot struct {
 		CreateThread      func(childComplexity int, input model.ThreadInput) int
 		DeleteMessage     func(childComplexity int, id string) int
 		DeleteThread      func(childComplexity int, id string) int
+		RegisterPublicKey func(childComplexity int, publicKey string) int
 		RemoveParticipant func(childComplexity int, id string) int
 		SendMessage       func(childComplexity int, input model.MessageInput) int
 		UpdateThread      func(childComplexity int, id string, input model.ThreadUpdateInput) int
@@ -92,7 +96,9 @@ type ComplexityRoot struct {
 		Messages             func(childComplexity int, threadID string) int
 		Participants         func(childComplexity int, threadID string) int
 		Thread               func(childComplexity int, id string) int
+		ThreadKey            func(childComplexity int, threadID string) int
 		ThreadsByParticipant func(childComplexity int, participantID *string) int
+		UserPublicKey        func(childComplexity int, userID string) int
 		__resolve__service   func(childComplexity int) int
 		__resolve_entities   func(childComplexity int, representations []map[string]any) int
 	}
@@ -121,6 +127,7 @@ type MessageParticipantResolver interface {
 type MessageThreadResolver interface {
 	Messages(ctx context.Context, obj *db.BunMessageThread) ([]*db.BunMessage, error)
 	Participants(ctx context.Context, obj *db.BunMessageThread) ([]*db.BunMessageParticipant, error)
+	ThreadKey(ctx context.Context, obj *db.BunMessageThread) (*string, error)
 	CreatedAt(ctx context.Context, obj *db.BunMessageThread) (string, error)
 	UpdatedAt(ctx context.Context, obj *db.BunMessageThread) (string, error)
 }
@@ -132,12 +139,15 @@ type MutationResolver interface {
 	DeleteMessage(ctx context.Context, id string) (bool, error)
 	AddParticipant(ctx context.Context, input model.ParticipantInput) (*db.BunMessageParticipant, error)
 	RemoveParticipant(ctx context.Context, id string) (bool, error)
+	RegisterPublicKey(ctx context.Context, publicKey string) (bool, error)
 }
 type QueryResolver interface {
 	Thread(ctx context.Context, id string) (*db.BunMessageThread, error)
 	ThreadsByParticipant(ctx context.Context, participantID *string) ([]*db.BunMessageThread, error)
 	Messages(ctx context.Context, threadID string) ([]*db.BunMessage, error)
 	Participants(ctx context.Context, threadID string) ([]*db.BunMessageParticipant, error)
+	UserPublicKey(ctx context.Context, userID string) (*string, error)
+	ThreadKey(ctx context.Context, threadID string) (*string, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -216,6 +226,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Message.IsActive(childComplexity), true
+	case "Message.nonce":
+		if e.ComplexityRoot.Message.Nonce == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Message.Nonce(childComplexity), true
 	case "Message.sender_id":
 		if e.ComplexityRoot.Message.SenderID == nil {
 			break
@@ -308,6 +324,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.MessageThread.Participants(childComplexity), true
+	case "MessageThread.threadKey":
+		if e.ComplexityRoot.MessageThread.ThreadKey == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MessageThread.ThreadKey(childComplexity), true
+	case "MessageThread.title":
+		if e.ComplexityRoot.MessageThread.Title == nil {
+			break
+		}
+
+		return e.ComplexityRoot.MessageThread.Title(childComplexity), true
 	case "MessageThread.type":
 		if e.ComplexityRoot.MessageThread.Type == nil {
 			break
@@ -365,6 +393,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.DeleteThread(childComplexity, args["id"].(string)), true
+	case "Mutation.registerPublicKey":
+		if e.ComplexityRoot.Mutation.RegisterPublicKey == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_registerPublicKey_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RegisterPublicKey(childComplexity, args["public_key"].(string)), true
 	case "Mutation.removeParticipant":
 		if e.ComplexityRoot.Mutation.RemoveParticipant == nil {
 			break
@@ -432,6 +471,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Thread(childComplexity, args["id"].(string)), true
+	case "Query.threadKey":
+		if e.ComplexityRoot.Query.ThreadKey == nil {
+			break
+		}
+
+		args, err := ec.field_Query_threadKey_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.ThreadKey(childComplexity, args["thread_id"].(string)), true
 	case "Query.threadsByParticipant":
 		if e.ComplexityRoot.Query.ThreadsByParticipant == nil {
 			break
@@ -443,6 +493,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.ThreadsByParticipant(childComplexity, args["participant_id"].(*string)), true
+	case "Query.userPublicKey":
+		if e.ComplexityRoot.Query.UserPublicKey == nil {
+			break
+		}
+
+		args, err := ec.field_Query_userPublicKey_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.UserPublicKey(childComplexity, args["user_id"].(string)), true
 	case "Query._service":
 		if e.ComplexityRoot.Query.__resolve__service == nil {
 			break
@@ -480,6 +541,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputParticipantInput,
 		ec.unmarshalInputParticipantRefInput,
 		ec.unmarshalInputThreadInput,
+		ec.unmarshalInputThreadKeyInput,
 		ec.unmarshalInputThreadUpdateInput,
 	)
 	first := true
@@ -559,10 +621,12 @@ var sources = []*ast.Source{
 	{Name: "../schema.graphqls", Input: `type MessageThread @key(fields: "id") {
   id: ID!
   branch_id: ID!
+  title: String!
   type: String!
   is_active: Boolean!
   messages: [Message!]!
   participants: [MessageParticipant!]!
+  threadKey: String
   created_at: String!
   updated_at: String!
 }
@@ -572,6 +636,7 @@ type Message @key(fields: "id") {
   thread_id: ID!
   sender_id: ID!
   body: String!
+  nonce: String!
   is_active: Boolean!
   created_at: String!
   updated_at: String!
@@ -586,9 +651,16 @@ type MessageParticipant @key(fields: "id") {
   is_active: Boolean!
 }
 
+input ThreadKeyInput {
+  user_id: ID!
+  encrypted_key: String!
+}
+
 input ThreadInput {
+  title: String!
   type: String!
   participants: [ParticipantRefInput!]!
+  keys: [ThreadKeyInput!]!
 }
 
 input ParticipantRefInput {
@@ -604,6 +676,7 @@ input ThreadUpdateInput {
 input MessageInput {
   thread_id: ID!
   body: String!
+  nonce: String!
 }
 
 input ParticipantInput {
@@ -617,6 +690,8 @@ type Query {
   threadsByParticipant(participant_id: ID): [MessageThread!]!
   messages(thread_id: ID!): [Message!]!
   participants(thread_id: ID!): [MessageParticipant!]!
+  userPublicKey(user_id: ID!): String
+  threadKey(thread_id: ID!): String
 }
 
 type Mutation {
@@ -627,6 +702,7 @@ type Mutation {
   deleteMessage(id: ID!): Boolean!
   addParticipant(input: ParticipantInput!): MessageParticipant!
   removeParticipant(id: ID!): Boolean!
+  registerPublicKey(public_key: String!): Boolean!
 }
 `, BuiltIn: false},
 	{Name: "../../federation/directives.graphql", Input: `
@@ -718,6 +794,8 @@ func (ec *executionContext) childFields_Message(ctx context.Context, field graph
 		return ec.fieldContext_Message_sender_id(ctx, field)
 	case "body":
 		return ec.fieldContext_Message_body(ctx, field)
+	case "nonce":
+		return ec.fieldContext_Message_nonce(ctx, field)
 	case "is_active":
 		return ec.fieldContext_Message_is_active(ctx, field)
 	case "created_at":
@@ -752,6 +830,8 @@ func (ec *executionContext) childFields_MessageThread(ctx context.Context, field
 		return ec.fieldContext_MessageThread_id(ctx, field)
 	case "branch_id":
 		return ec.fieldContext_MessageThread_branch_id(ctx, field)
+	case "title":
+		return ec.fieldContext_MessageThread_title(ctx, field)
 	case "type":
 		return ec.fieldContext_MessageThread_type(ctx, field)
 	case "is_active":
@@ -760,6 +840,8 @@ func (ec *executionContext) childFields_MessageThread(ctx context.Context, field
 		return ec.fieldContext_MessageThread_messages(ctx, field)
 	case "participants":
 		return ec.fieldContext_MessageThread_participants(ctx, field)
+	case "threadKey":
+		return ec.fieldContext_MessageThread_threadKey(ctx, field)
 	case "created_at":
 		return ec.fieldContext_MessageThread_created_at(ctx, field)
 	case "updated_at":
@@ -990,6 +1072,20 @@ func (ec *executionContext) field_Mutation_deleteThread_args(ctx context.Context
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_registerPublicKey_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "public_key",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["public_key"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_removeParticipant_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1096,6 +1192,20 @@ func (ec *executionContext) field_Query_participants_args(ctx context.Context, r
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_threadKey_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "thread_id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["thread_id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_thread_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1121,6 +1231,20 @@ func (ec *executionContext) field_Query_threadsByParticipant_args(ctx context.Co
 		return nil, err
 	}
 	args["participant_id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_userPublicKey_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "user_id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["user_id"] = arg0
 	return args, nil
 }
 
@@ -1408,6 +1532,29 @@ func (ec *executionContext) fieldContext_Message_body(_ context.Context, field g
 	return graphql.NewScalarFieldContext("Message", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Message_nonce(ctx context.Context, field graphql.CollectedField, obj *db.BunMessage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Message_nonce(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Nonce, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Message_nonce(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Message", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Message_is_active(ctx context.Context, field graphql.CollectedField, obj *db.BunMessage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1661,6 +1808,29 @@ func (ec *executionContext) fieldContext_MessageThread_branch_id(_ context.Conte
 	return graphql.NewScalarFieldContext("MessageThread", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _MessageThread_title(ctx context.Context, field graphql.CollectedField, obj *db.BunMessageThread) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MessageThread_title(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Title, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_MessageThread_title(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MessageThread", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _MessageThread_type(ctx context.Context, field graphql.CollectedField, obj *db.BunMessageThread) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1769,6 +1939,29 @@ func (ec *executionContext) fieldContext_MessageThread_participants(_ context.Co
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _MessageThread_threadKey(ctx context.Context, field graphql.CollectedField, obj *db.BunMessageThread) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_MessageThread_threadKey(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.MessageThread().ThreadKey(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_MessageThread_threadKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("MessageThread", field, true, true, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _MessageThread_created_at(ctx context.Context, field graphql.CollectedField, obj *db.BunMessageThread) (ret graphql.Marshaler) {
@@ -2125,6 +2318,50 @@ func (ec *executionContext) fieldContext_Mutation_removeParticipant(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_registerPublicKey(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_registerPublicKey(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RegisterPublicKey(ctx, fc.Args["public_key"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_registerPublicKey(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_registerPublicKey_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_thread(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2295,6 +2532,94 @@ func (ec *executionContext) fieldContext_Query_participants(ctx context.Context,
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_participants_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_userPublicKey(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_userPublicKey(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().UserPublicKey(ctx, fc.Args["user_id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_userPublicKey(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_userPublicKey_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_threadKey(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_threadKey(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().ThreadKey(ctx, fc.Args["thread_id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_threadKey(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_threadKey_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -3546,7 +3871,7 @@ func (ec *executionContext) unmarshalInputMessageInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"thread_id", "body"}
+	fieldsInOrder := [...]string{"thread_id", "body", "nonce"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -3567,6 +3892,13 @@ func (ec *executionContext) unmarshalInputMessageInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.Body = data
+		case "nonce":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("nonce"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Nonce = data
 		}
 	}
 	return it, nil
@@ -3664,13 +3996,20 @@ func (ec *executionContext) unmarshalInputThreadInput(ctx context.Context, obj a
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"type", "participants"}
+	fieldsInOrder := [...]string{"title", "type", "participants", "keys"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
+		case "title":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("title"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Title = data
 		case "type":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("type"))
 			data, err := ec.unmarshalNString2string(ctx, v)
@@ -3685,6 +4024,50 @@ func (ec *executionContext) unmarshalInputThreadInput(ctx context.Context, obj a
 				return it, err
 			}
 			it.Participants = data
+		case "keys":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("keys"))
+			data, err := ec.unmarshalNThreadKeyInput2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋmessagingᚋgraphᚋmodelᚐThreadKeyInputᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Keys = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputThreadKeyInput(ctx context.Context, obj any) (model.ThreadKeyInput, error) {
+	var it model.ThreadKeyInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"user_id", "encrypted_key"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "user_id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("user_id"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.UserID = data
+		case "encrypted_key":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("encrypted_key"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.EncryptedKey = data
 		}
 	}
 	return it, nil
@@ -3908,6 +4291,11 @@ func (ec *executionContext) _Message(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "nonce":
+			out.Values[i] = ec._Message_nonce(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "is_active":
 			out.Values[i] = ec._Message_is_active(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4128,6 +4516,11 @@ func (ec *executionContext) _MessageThread(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "title":
+			out.Values[i] = ec._MessageThread_title(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "type":
 			out.Values[i] = ec._MessageThread_type(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4187,6 +4580,44 @@ func (ec *executionContext) _MessageThread(ctx context.Context, sel ast.Selectio
 				}()
 				res = ec._MessageThread_participants(ctx, field, obj)
 				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "threadKey":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._MessageThread_threadKey(ctx, field, obj)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -4380,6 +4811,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "registerPublicKey":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_registerPublicKey(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -4498,6 +4936,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}()
 				res = ec._Query_participants(ctx, field)
 				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "userPublicKey":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_userPublicKey(ctx, field)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "threadKey":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_threadKey(ctx, field)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -5204,6 +5686,25 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 func (ec *executionContext) unmarshalNThreadInput2githubᚗcomᚋclinicmanagerᚋservicesᚋmessagingᚋgraphᚋmodelᚐThreadInput(ctx context.Context, v any) (model.ThreadInput, error) {
 	res, err := ec.unmarshalInputThreadInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNThreadKeyInput2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋmessagingᚋgraphᚋmodelᚐThreadKeyInputᚄ(ctx context.Context, v any) ([]*model.ThreadKeyInput, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]*model.ThreadKeyInput, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNThreadKeyInput2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋmessagingᚋgraphᚋmodelᚐThreadKeyInput(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) unmarshalNThreadKeyInput2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋmessagingᚋgraphᚋmodelᚐThreadKeyInput(ctx context.Context, v any) (*model.ThreadKeyInput, error) {
+	res, err := ec.unmarshalInputThreadKeyInput(ctx, v)
+	return &res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNThreadUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋmessagingᚋgraphᚋmodelᚐThreadUpdateInput(ctx context.Context, v any) (model.ThreadUpdateInput, error) {

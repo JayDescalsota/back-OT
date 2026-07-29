@@ -72,6 +72,10 @@ func (s *PatientService) GetPatientByID(ctx context.Context, id string) (*db.Bun
 	return m, nil
 }
 
+func (s *PatientService) GetPatientsByIDs(ctx context.Context, ids []string) ([]*db.BunPatients, error) {
+	return s.PatientRepository.GetPatientsByIDs(ctx, ids)
+}
+
 func (s *PatientService) CreatePatient(ctx context.Context, input model.PatientInput) (*db.BunPatients, error) {
 	dob, err := time.Parse("2006-01-02", input.DateOfBirth)
 	if err != nil {
@@ -188,6 +192,10 @@ func (s *PatientService) ReactivatePatient(ctx context.Context, id string) (*db.
 
 func (s *PatientService) ListPatients(ctx context.Context, filter *model.PatientsFilter) ([]*db.BunPatients, error) {
 	return s.PatientRepository.ListPatients(ctx, filter)
+}
+
+func (s *PatientService) SearchPatientsForMessaging(ctx context.Context, query string, limit int) ([]*db.BunPatients, error) {
+	return s.PatientRepository.SearchPatientsForMessaging(ctx, query, limit)
 }
 
 func (s *PatientService) GetPatientTags(ctx context.Context, patientID string) ([]*db.BunPatientTags, error) {

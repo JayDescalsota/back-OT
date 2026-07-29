@@ -38,6 +38,11 @@ func (r *appointmentResolver) SlotID(ctx context.Context, obj *db.BunAppointment
 	return obj.AppointmentSlotID, nil
 }
 
+// CancelledAt is the resolver for the cancelled_at field.
+func (r *appointmentResolver) CancelledAt(ctx context.Context, obj *db.BunAppointment) (*string, error) {
+	panic(fmt.Errorf("not implemented: CancelledAt - cancelled_at"))
+}
+
 // CreatedAt is the resolver for the created_at field.
 func (r *appointmentResolver) CreatedAt(ctx context.Context, obj *db.BunAppointment) (string, error) {
 	return obj.CreatedAt.Format(time.RFC3339), nil
@@ -225,9 +230,29 @@ func (r *mutationResolver) UpdateAppointment(ctx context.Context, id string, inp
 	return r.BookingService.UpdateAppointment(ctx, id, input)
 }
 
+// ConfirmAppointment is the resolver for the confirmAppointment field.
+func (r *mutationResolver) ConfirmAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+	return r.BookingService.ConfirmAppointment(ctx, id)
+}
+
+// StartAppointment is the resolver for the startAppointment field.
+func (r *mutationResolver) StartAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+	return r.BookingService.StartAppointment(ctx, id)
+}
+
+// CompleteAppointment is the resolver for the completeAppointment field.
+func (r *mutationResolver) CompleteAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+	return r.BookingService.CompleteAppointment(ctx, id)
+}
+
 // CancelAppointment is the resolver for the cancelAppointment field.
-func (r *mutationResolver) CancelAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
-	return r.BookingService.CancelAppointment(ctx, id)
+func (r *mutationResolver) CancelAppointment(ctx context.Context, id string, input model.CancelAppointmentInput) (*db.BunAppointment, error) {
+	return r.BookingService.CancelAppointment(ctx, id, input.Reason)
+}
+
+// RescheduleAppointment is the resolver for the rescheduleAppointment field.
+func (r *mutationResolver) RescheduleAppointment(ctx context.Context, id string, input model.RescheduleAppointmentInput) (*db.BunAppointment, error) {
+	return r.BookingService.RescheduleAppointment(ctx, id, input)
 }
 
 // CreateScheduleException is the resolver for the createScheduleException field.

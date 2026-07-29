@@ -8,6 +8,7 @@ import (
 	sharedctx "github.com/clinicmanager/shared/context"
 	shareddb "github.com/clinicmanager/shared/db"
 	"github.com/google/uuid"
+	"github.com/uptrace/bun"
 
 	"github.com/clinicmanager/services/user/models"
 )
@@ -34,6 +35,7 @@ type UserRepository interface {
 	FindUserAppRoles(ctx context.Context, userID string) ([]*models.AppRole, error)
 	GetAppRoleByID(ctx context.Context, id int) (*models.AppRole, error)
 	FindAllUsers(ctx context.Context) ([]*models.User, error)
+	FindUsersByIDs(ctx context.Context, ids []string) ([]*models.User, error)
 	FindAllAppRoles(ctx context.Context) ([]*models.AppRole, error)
 	CreateUser(ctx context.Context, email, password string) (*models.User, error)
 	AssignAppRole(ctx context.Context, userID string, appRoleID int) error
@@ -267,7 +269,7 @@ func (r *UserRepo) HasAppRole(ctx context.Context, userID, roleName string) (boo
 	var count int
 	err := r.alldb.NewSelect(ctx, (*models.UserAppRole)(nil)).
 		ColumnExpr("COUNT(*)").
-		Join("JOIN app_roles AS ar ON ar.id = user_app_role.app_role_id").
+		Join("JOIN user_roles AS ar ON ar.id = user_app_role.app_role_id").
 		Where("user_app_role.user_id = ?", userID).
 		Where("ar.name = ?", roleName).
 		Scan(ctx, &count)
@@ -280,7 +282,7 @@ func (r *UserRepo) HasAppRole(ctx context.Context, userID, roleName string) (boo
 func (r *UserRepo) FindUserAppRoles(ctx context.Context, userID string) ([]*models.AppRole, error) {
 	var roles []*models.AppRole
 	err := r.alldb.NewSelect(ctx, &roles).
-		Join("JOIN user_app_roles AS uar ON uar.app_role_id = app_role.id").
+		Join("JOIN user_role_assignments AS uar ON uar.app_role_id = app_role.id").
 		Where("uar.user_id = ?", userID).
 		Scan(ctx)
 	return roles, err
@@ -298,17 +300,24 @@ func (r *UserRepo) GetAppRoleByID(ctx context.Context, id int) (*models.AppRole,
 func (r *UserRepo) FindAllUsers(ctx context.Context) ([]*models.User, error) {
 	var users []*models.User
 	tctx := sharedctx.FromContext(ctx)
-	query := r.alldb.NewSelect(ctx, &users).
-		Distinct().
-		Join("JOIN tenant_user_assignments AS tua ON tua.user_id = users.id").
-		Where("tua.is_active = ?", true)
+	query := `SELECT DISTINCT u.id, u.email, u.password_hash, u.is_active, u.is_validated,
+		u.validated_at, u.validation_token, u.password_reset_at, u.password_reset_token,
+		u.password_reset_expires_at, u.last_login, u.created_at, u.updated_at,
+		u.created_by, u.updated_by, u.created_action, u.updated_action
+		FROM users AS u
+		JOIN tenant_user_assignments AS tua ON tua.user_id = u.id
+		WHERE tua.is_active = true`
+	args := []interface{}{}
 	if tctx.TenantID != "" {
-		query = query.Where("tua.tenant_id = ?", tctx.TenantID)
+		query += " AND tua.tenant_id = ?"
+		args = append(args, tctx.TenantID)
 	}
 	if tctx.BranchID != "" {
-		query = query.Where("tua.branch_id = ?", tctx.BranchID)
+		query += " AND tua.branch_id = ?"
+		args = append(args, tctx.BranchID)
 	}
-	err := query.Order("users.created_at DESC").Scan(ctx)
+	query += " ORDER BY u.created_at DESC"
+	err := r.alldb.Raw().NewRaw(query, args...).Scan(ctx, &users)
 	if err != nil {
 		return nil, err
 	}
@@ -400,4 +409,26 @@ func (r *UserRepo) UpsertPractitionerProfile(ctx context.Context, profile *model
 		On("CONFLICT (user_id) DO UPDATE SET license_number = EXCLUDED.license_number, license_state = EXCLUDED.license_state, npi_number = EXCLUDED.npi_number, specialty = EXCLUDED.specialty, sub_specialty = EXCLUDED.sub_specialty, qualifications = EXCLUDED.qualifications, credentials = EXCLUDED.credentials, education = EXCLUDED.education, years_of_experience = EXCLUDED.years_of_experience, bio = EXCLUDED.bio, is_accepting_patients = EXCLUDED.is_accepting_patients, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by, updated_action = EXCLUDED.updated_action").
 		Exec(ctx)
 	return err
+}
+
+func (r *UserRepo) FindUsersByIDs(ctx context.Context, ids []string) ([]*models.User, error) {
+	var users []*models.User
+	if len(ids) == 0 {
+		return users, nil
+	}
+	tctx := sharedctx.FromContext(ctx)
+	query := `SELECT DISTINCT u.id, u.email, u.password_hash, u.is_active, u.is_validated,
+		u.validated_at, u.validation_token, u.password_reset_at, u.password_reset_token,
+		u.password_reset_expires_at, u.last_login, u.created_at, u.updated_at,
+		u.created_by, u.updated_by, u.created_action, u.updated_action
+		FROM users AS u
+		JOIN tenant_user_assignments AS tua ON tua.user_id = u.id
+		WHERE tua.is_active = true AND u.id IN (?)`
+	args := []interface{}{bun.In(ids)}
+	if tctx.TenantID != "" {
+		query += " AND tua.tenant_id = ?"
+		args = append(args, tctx.TenantID)
+	}
+	err := r.alldb.Raw().NewRaw(query, args...).Scan(ctx, &users)
+	return users, err
 }

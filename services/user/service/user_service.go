@@ -169,11 +169,18 @@ func (s *UserService) FindUserByID(ctx context.Context, id string) (*model.User,
 	return result, nil
 }
 
-func (s *UserService) ListUsers(ctx context.Context) ([]*model.User, error) {
-	users, err := s.userRepo.FindAllUsers(ctx)
+func (s *UserService) ListUsers(ctx context.Context, ids []string) ([]*model.User, error) {
+	var users []*models.User
+	var err error
+	if len(ids) > 0 {
+		users, err = s.userRepo.FindUsersByIDs(ctx, ids)
+	} else {
+		users, err = s.userRepo.FindAllUsers(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	result := make([]*model.User, 0, len(users))
 	for _, u := range users {
 		roles, err := s.userRepo.FindUserAppRoles(ctx, u.ID)

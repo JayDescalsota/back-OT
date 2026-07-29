@@ -7,7 +7,7 @@ import (
 )
 
 type Session struct {
-	bun.BaseModel `bun:"table:sessions"`
+	bun.BaseModel `bun:"table:user_sessions"`
 
 	ID           int64     `bun:"id,pk,autoincrement"`
 	UserID       string    `bun:"user_id,type:uuid"`

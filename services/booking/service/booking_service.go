@@ -636,7 +636,7 @@ func (s *BookingService) UpdateAppointment(ctx context.Context, id string, input
 	return existing, nil
 }
 
-func (s *BookingService) CancelAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+func (s *BookingService) ConfirmAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
 	existing, err := s.BookingRepository.FindAppointmentByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -644,14 +644,146 @@ func (s *BookingService) CancelAppointment(ctx context.Context, id string) (*db.
 	if existing == nil {
 		return nil, nil
 	}
-	existing.Status = "CANCELLED"
+	if existing.Status != "PENDING" {
+		return nil, fmt.Errorf("cannot confirm appointment in status %s", existing.Status)
+	}
+	existing.Status = "CONFIRMED"
 	existing.UpdatedAt = time.Now()
+	existing.UpdatedAction = "CONFIRM"
+	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
+		return nil, err
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", id))
+	return existing, nil
+}
+
+func (s *BookingService) StartAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+	existing, err := s.BookingRepository.FindAppointmentByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+	if existing.Status != "CONFIRMED" {
+		return nil, fmt.Errorf("cannot start appointment in status %s", existing.Status)
+	}
+	existing.Status = "IN_PROGRESS"
+	existing.UpdatedAt = time.Now()
+	existing.UpdatedAction = "START"
+	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
+		return nil, err
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", id))
+	return existing, nil
+}
+
+func (s *BookingService) CompleteAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+	existing, err := s.BookingRepository.FindAppointmentByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+	if existing.Status != "IN_PROGRESS" {
+		return nil, fmt.Errorf("cannot complete appointment in status %s", existing.Status)
+	}
+	existing.Status = "DONE"
+	existing.UpdatedAt = time.Now()
+	existing.UpdatedAction = "COMPLETE"
+	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
+		return nil, err
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", id))
+	return existing, nil
+}
+
+func (s *BookingService) CancelAppointment(ctx context.Context, id string, reason string) (*db.BunAppointment, error) {
+	existing, err := s.BookingRepository.FindAppointmentByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+	if existing.Status == "DONE" || existing.Status == "CANCELLED" {
+		return nil, fmt.Errorf("cannot cancel appointment in status %s", existing.Status)
+	}
+	now := time.Now()
+	existing.Status = "CANCELLED"
+	existing.CancellationReason = reason
+	existing.CancelledAt = &now
+	existing.UpdatedAt = now
 	existing.UpdatedAction = "CANCEL"
 	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
 		return nil, err
 	}
 	s.cacheDel(ctx, cache.Key("booking", "appointment", id))
 	return existing, nil
+}
+
+func (s *BookingService) RescheduleAppointment(ctx context.Context, id string, input model.RescheduleAppointmentInput) (*db.BunAppointment, error) {
+	existing, err := s.BookingRepository.FindAppointmentByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+	if existing.Status == "DONE" || existing.Status == "CANCELLED" {
+		return nil, fmt.Errorf("cannot reschedule appointment in status %s", existing.Status)
+	}
+	startAt, err := time.Parse(time.RFC3339, input.ScheduledStart)
+	if err != nil {
+		return nil, fmt.Errorf("invalid scheduled_start: %w", err)
+	}
+	endAt, err := time.Parse(time.RFC3339, input.ScheduledEnd)
+	if err != nil {
+		return nil, fmt.Errorf("invalid scheduled_end: %w", err)
+	}
+
+	now := time.Now()
+	oldStatus := existing.Status
+
+	existing.Status = "RESCHEDULED"
+	existing.RescheduleReason = input.Reason
+	existing.RescheduledToID = nil
+	existing.UpdatedAt = now
+	existing.UpdatedAction = "RESCHEDULE"
+	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	newAppt := &db.BunAppointment{
+		ID:                uuid.New().String(),
+		TenantID:          existing.TenantID,
+		BranchID:          existing.BranchID,
+		PatientID:         existing.PatientID,
+		PractitionerID:    existing.PractitionerID,
+		AppointmentSlotID: existing.AppointmentSlotID,
+		StartAt:           startAt,
+		EndAt:             endAt,
+		Status:            oldStatus,
+		Notes:             existing.Notes,
+		RescheduledFromID: &existing.ID,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		CreatedAction:     "RESCHEDULE",
+		UpdatedAction:     "RESCHEDULE",
+	}
+	if err := s.BookingRepository.CreateAppointment(ctx, newAppt); err != nil {
+		return nil, err
+	}
+
+	existing.RescheduledToID = &newAppt.ID
+	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	s.cacheDel(ctx, cache.Key("booking", "appointment", id))
+	s.cacheDel(ctx, cache.Key("booking", "appointment", newAppt.ID))
+	return newAppt, nil
 }
 
 // ScheduleException

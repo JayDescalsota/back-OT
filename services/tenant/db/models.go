@@ -29,7 +29,7 @@ func (BunTenant) IsEntity() {}
 
 // BunBranch maps to the branches table.
 type BunBranch struct {
-	bun.BaseModel `bun:"table:branches"`
+	bun.BaseModel `bun:"table:tenant_branches"`
 
 	ID        string  `bun:"id,pk"                           json:"id"`
 	TenantID  string  `bun:"tenant_id,notnull"               json:"tenantId"`
@@ -50,7 +50,7 @@ type BunBranch struct {
 func (BunBranch) IsEntity() {}
 
 type BunAddress struct {
-	bun.BaseModel `bun:"table:addresses"`
+	bun.BaseModel `bun:"table:tenant_addresses"`
 
 	ID        string `bun:"id,pk"            json:"id"`
 	Address   string `bun:"address,notnull"  json:"address"`

@@ -5,6 +5,7 @@ package model
 type MessageInput struct {
 	ThreadID string `json:"thread_id"`
 	Body     string `json:"body"`
+	Nonce    string `json:"nonce"`
 }
 
 type Mutation struct {
@@ -25,8 +26,15 @@ type Query struct {
 }
 
 type ThreadInput struct {
+	Title        string                 `json:"title"`
 	Type         string                 `json:"type"`
 	Participants []*ParticipantRefInput `json:"participants"`
+	Keys         []*ThreadKeyInput      `json:"keys"`
+}
+
+type ThreadKeyInput struct {
+	UserID       string `json:"user_id"`
+	EncryptedKey string `json:"encrypted_key"`
 }
 
 type ThreadUpdateInput struct {

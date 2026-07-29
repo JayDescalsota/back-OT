@@ -137,6 +137,20 @@ func (r *queryResolver) Patients(ctx context.Context, filter *model.PatientsFilt
 	return patients, nil
 }
 
+// PatientsByIds is the resolver for the patientsByIds field.
+func (r *queryResolver) PatientsByIds(ctx context.Context, ids []string) ([]*db.BunPatients, error) {
+	return r.Resolver.PatientService.GetPatientsByIDs(ctx, ids)
+}
+
+// PatientsForMessaging is the resolver for the patientsForMessaging field.
+func (r *queryResolver) PatientsForMessaging(ctx context.Context, search string, limit *int) ([]*db.BunPatients, error) {
+	l := 10
+	if limit != nil && *limit > 0 {
+		l = *limit
+	}
+	return r.Resolver.PatientService.SearchPatientsForMessaging(ctx, search, l)
+}
+
 // Guardian is the resolver for the guardian field.
 func (r *queryResolver) Guardian(ctx context.Context, id string) (*db.BunGuardians, error) {
 	return r.Resolver.PatientService.GetGuardianByID(ctx, id)
@@ -164,18 +178,3 @@ type (
 	patientTagsResolver struct{ *Resolver }
 	queryResolver       struct{ *Resolver }
 )
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *patientAddressResolver) ID(ctx context.Context, obj *db.BunPatientAddress) (string, error) {
-	return obj.PatientID, nil
-}
-func (r *Resolver) PatientAddress() generated.PatientAddressResolver {
-	return &patientAddressResolver{r}
-}
-*/

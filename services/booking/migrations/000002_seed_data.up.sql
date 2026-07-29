@@ -1,5 +1,5 @@
 -- Seed Branch Hours
-INSERT INTO branch_hour (id, tenant_id, branch_id, recurrence_rule, open_time, close_time, effective_from, is_active, created_action)
+INSERT INTO booking_branch_hours (id, tenant_id, branch_id, recurrence_rule, open_time, close_time, effective_from, is_active, created_action)
 VALUES
     -- Branch A1: Mon-Fri 08:00-17:00, Sat 08:00-12:00
     ('b0000000-0001-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', NOW(), true, 'seed'),
@@ -13,7 +13,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Practitioner Branches (link users as practitioners to branches)
-INSERT INTO practitioner_branch (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
+INSERT INTO booking_practitioner_branches (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
 VALUES
     -- user01 (therapist) assigned to Clinic A branches
     ('b0000000-0002-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'b1b2c3d4-0001-4000-8000-000000000001', 'therapist', true, true, NOW(), 'seed'),
@@ -24,7 +24,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Practitioner Availability
-INSERT INTO practitioner_availability (id, tenant_id, practitioner_id, recurrence_rule, available_from, available_to, effective_from, status, is_active, created_action)
+INSERT INTO booking_practitioner_availabilities (id, tenant_id, practitioner_id, recurrence_rule, available_from, available_to, effective_from, status, is_active, created_action)
 VALUES
     -- user01: Mon-Fri 08:00-17:00
     ('b0000000-0003-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', NOW(), 'ACTIVE', true, 'seed'),
@@ -33,7 +33,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Schedule Templates
-INSERT INTO schedule_template (id, tenant_id, branch_id, practitioner_id, recurrence_rule, start_time, end_time, slot_duration, buffer_duration, capacity, is_active, status, created_action)
+INSERT INTO booking_schedule_templates (id, tenant_id, branch_id, practitioner_id, recurrence_rule, start_time, end_time, slot_duration, buffer_duration, capacity, is_active, status, created_action)
 VALUES
     -- Branch A1 - user01: Morning session (08:00-12:00)
     ('b0000000-0004-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 12:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed'),
@@ -48,7 +48,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Appointment Slots (pre-generated slots for today)
-INSERT INTO appointment_slot (id, tenant_id, schedule_template_id, branch_id, practitioner_id, start_at, end_at, capacity, booked_count, status, generated_at, is_active, created_action)
+INSERT INTO booking_appointment_slots (id, tenant_id, schedule_template_id, branch_id, practitioner_id, start_at, end_at, capacity, booked_count, status, generated_at, is_active, created_action)
 VALUES
     -- Branch A1 - user01: 08:00-08:30 slot today
     ('b0000000-0005-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', 1, 1, 'AVAILABLE', NOW(), true, 'seed'),
@@ -83,7 +83,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Appointments (booked slots)
-INSERT INTO appointment (id, tenant_id, appointment_slot_id, branch_id, patient_id, practitioner_id, start_at, end_at, status, notes, created_action)
+INSERT INTO booking_appointments (id, tenant_id, appointment_slot_id, branch_id, patient_id, practitioner_id, start_at, end_at, status, notes, created_action)
 VALUES
     -- Juan Dela Cruz with user01 @ Branch A1, 08:00-08:30
     ('b0000000-0006-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0005-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', 'e1a1c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000003', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', 'CONFIRMED', 'Initial assessment for fine motor skills', 'seed'),
@@ -104,7 +104,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Additional Practitioner Branches for Clinic A staff
-INSERT INTO practitioner_branch (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
+INSERT INTO booking_practitioner_branches (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
 VALUES
     -- Maria Lopez (therapist) assigned to Clinic A branches
     ('b0000000-0002-4000-8000-000000000005', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000005', 'b1b2c3d4-0001-4000-8000-000000000001', 'therapist', true, true, NOW(), 'seed'),
@@ -115,7 +115,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Additional Practitioner Branches for Clinic B staff
-INSERT INTO practitioner_branch (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
+INSERT INTO booking_practitioner_branches (id, tenant_id, practitioner_id, branch_id, role, is_primary, is_active, joined_at, created_action)
 VALUES
     -- Miguel Santos (therapist) assigned to Clinic B branches
     ('b0000000-0002-4000-8000-000000000009', 'a1b2c3d4-0002-4000-8000-000000000002', '00000000-0000-0000-0000-000000000010', 'b1b2c3d4-0003-4000-8000-000000000003', 'therapist', true, true, NOW(), 'seed'),
@@ -126,7 +126,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Practitioner Availability for new practitioners
-INSERT INTO practitioner_availability (id, tenant_id, practitioner_id, recurrence_rule, available_from, available_to, effective_from, status, is_active, created_action)
+INSERT INTO booking_practitioner_availabilities (id, tenant_id, practitioner_id, recurrence_rule, available_from, available_to, effective_from, status, is_active, created_action)
 VALUES
     -- Maria Lopez: Mon-Fri 08:00-17:00 (Clinic A)
     ('b0000000-0003-4000-8000-000000000003', 'a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000005', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', NOW(), 'ACTIVE', true, 'seed'),
@@ -139,7 +139,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Schedule Templates for new practitioners
-INSERT INTO schedule_template (id, tenant_id, branch_id, practitioner_id, recurrence_rule, start_time, end_time, slot_duration, buffer_duration, capacity, is_active, status, created_action)
+INSERT INTO booking_schedule_templates (id, tenant_id, branch_id, practitioner_id, recurrence_rule, start_time, end_time, slot_duration, buffer_duration, capacity, is_active, status, created_action)
 VALUES
     -- Branch A1 - Maria Lopez: Full day (08:00-17:00)
     ('b0000000-0004-4000-8000-000000000006', 'a1b2c3d4-0001-4000-8000-000000000001', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000005', 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', '1970-01-01 08:00:00+00', '1970-01-01 17:00:00+00', 30, 0, 1, true, 'ACTIVE', 'seed'),
@@ -160,7 +160,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Additional Appointment Slots for new practitioners (today)
-INSERT INTO appointment_slot (id, tenant_id, schedule_template_id, branch_id, practitioner_id, start_at, end_at, capacity, booked_count, status, generated_at, is_active, created_action)
+INSERT INTO booking_appointment_slots (id, tenant_id, schedule_template_id, branch_id, practitioner_id, start_at, end_at, capacity, booked_count, status, generated_at, is_active, created_action)
 VALUES
     -- Branch A1 - Maria Lopez: 08:00-08:30
     ('b0000000-0005-4000-8000-000000000016', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000006', 'b1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000005', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours', DATE_TRUNC('day', NOW()) + INTERVAL '8 hours 30 minutes', 1, 0, 'AVAILABLE', NOW(), true, 'seed'),
@@ -175,14 +175,14 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Additional Appointments for new practitioners
-INSERT INTO appointment (id, tenant_id, appointment_slot_id, branch_id, patient_id, practitioner_id, start_at, end_at, status, notes, created_action)
+INSERT INTO booking_appointments (id, tenant_id, appointment_slot_id, branch_id, patient_id, practitioner_id, start_at, end_at, status, notes, created_action)
 VALUES
     -- Rosa Bautista with Maria Lopez @ Branch A2, 09:00-09:30 (slot doesn't exist yet, referencing a non-booked slot)
     ('b0000000-0006-4000-8000-000000000009', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0005-4000-8000-000000000018', 'b1b2c3d4-0002-4000-8000-000000000002', 'e1a1c3d4-0011-4000-8000-000000000011', '00000000-0000-0000-0000-000000000005', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours', DATE_TRUNC('day', NOW()) + INTERVAL '9 hours 30 minutes', 'PENDING', 'Initial evaluation with new therapist', 'seed')
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Schedule Exceptions (lunch break for Branch A1 templates)
-INSERT INTO schedule_exception (id, tenant_id, schedule_template_id, type, reason, start_at, end_at, status, is_active, created_action)
+INSERT INTO booking_schedule_exceptions (id, tenant_id, schedule_template_id, type, reason, start_at, end_at, status, is_active, created_action)
 VALUES
     ('b0000000-0007-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'LUNCH_BREAK', 'Staff lunch break', DATE_TRUNC('day', NOW()) + INTERVAL '12 hours', DATE_TRUNC('day', NOW()) + INTERVAL '13 hours', 'ACTIVE', true, 'seed')
 ON CONFLICT (id) DO NOTHING;

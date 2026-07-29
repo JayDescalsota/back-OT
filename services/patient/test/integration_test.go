@@ -191,14 +191,6 @@ func TestPatientService_Integration_CreatePatient(t *testing.T) {
 		Notes:       &notes,
 		Height:      &height,
 		Weight:      &weight,
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 
 	patient, err := svc.CreatePatient(ctx, input)
@@ -231,14 +223,6 @@ func TestPatientService_Integration_UpdatePatient(t *testing.T) {
 		Notes:       &notes,
 		Height:      &height,
 		Weight:      &weight,
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, input)
 	require.NoError(t, err)
@@ -275,14 +259,6 @@ func TestPatientService_Integration_DeletePatient(t *testing.T) {
 		LastName:    "Test",
 		DateOfBirth: "2020-01-01",
 		Gender:      "Male",
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, input)
 	require.NoError(t, err)
@@ -311,14 +287,6 @@ func TestPatientService_Integration_InactivateAndReactivatePatient(t *testing.T)
 		LastName:    "Test",
 		DateOfBirth: "2020-01-01",
 		Gender:      "Female",
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, input)
 	require.NoError(t, err)
@@ -353,14 +321,6 @@ func TestPatientService_Integration_PatientQuery(t *testing.T) {
 		LastName:    "Test",
 		DateOfBirth: "2020-01-01",
 		Gender:      "Male",
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, input)
 	require.NoError(t, err)
@@ -487,14 +447,6 @@ func TestPatientService_Integration_AddPatientGuardian(t *testing.T) {
 		LastName:    "Patient",
 		DateOfBirth: "2020-01-01",
 		Gender:      "Male",
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, patientInput)
 	require.NoError(t, err)
@@ -544,14 +496,6 @@ func TestPatientService_Integration_UpdatePatientGuardian(t *testing.T) {
 		LastName:    "Update",
 		DateOfBirth: "2020-01-01",
 		Gender:      "Male",
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, patientInput)
 	require.NoError(t, err)
@@ -591,14 +535,6 @@ func TestPatientService_Integration_RemovePatientGuardian(t *testing.T) {
 		LastName:    "Remove",
 		DateOfBirth: "2020-01-01",
 		Gender:      "Male",
-		Address: &model.PatientAddressInput{
-			Address:   "123 Test St",
-			Baranggay: "Test Barangay",
-			City:      "Test City",
-			State:     "Test State",
-			ZipCode:   "12345",
-			Country:   "Test Country",
-		},
 	}
 	patient, err := svc.CreatePatient(ctx, patientInput)
 	require.NoError(t, err)

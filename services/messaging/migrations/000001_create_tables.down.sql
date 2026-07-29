@@ -1,3 +1,3 @@
-DROP TABLE IF EXISTS message_participant;
-DROP TABLE IF EXISTS message;
-DROP TABLE IF EXISTS message_thread;
+DROP TABLE IF EXISTS messaging_participants;
+DROP TABLE IF EXISTS messaging_messages;
+DROP TABLE IF EXISTS messaging_threads;

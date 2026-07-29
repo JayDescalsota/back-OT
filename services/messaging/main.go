@@ -166,7 +166,8 @@ func sseHandler(w http.ResponseWriter, r *http.Request, redisClient *redis.Clien
 			for _, m := range stream.Messages {
 				threadID, _ := m.Values["thread_id"].(string)
 				senderID, _ := m.Values["sender_id"].(string)
-				body, _ := m.Values["body"].(string)
+								body, _ := m.Values["body"].(string)
+				nonce, _ := m.Values["nonce"].(string)
 				createdAt, _ := m.Values["created_at"].(string)
 				participantsRaw, _ := m.Values["participants"].(string)
 
@@ -189,6 +190,7 @@ func sseHandler(w http.ResponseWriter, r *http.Request, redisClient *redis.Clien
 					"thread_id":  threadID,
 					"sender_id":  senderID,
 					"body":       body,
+					"nonce":      nonce,
 					"created_at": createdAt,
 				})
 				fmt.Fprintf(writer, "data: %s\n\n", payload)

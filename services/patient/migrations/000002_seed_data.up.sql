@@ -19,7 +19,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed guardians
-INSERT INTO guardians (id, first_name, last_name, gender, email, phone, created_by, created_action)
+INSERT INTO patient_guardian_profiles (id, first_name, last_name, gender, email, phone, created_by, created_action)
 VALUES
     ('f1a1c3d4-0001-4000-8000-000000000001', 'Roberto', 'Dela Cruz', 'male', 'roberto.delacruz@email.com', '09171234567', '00000000-0000-0000-0000-000000000002', 'seed'),
     ('f1a1c3d4-0002-4000-8000-000000000002', 'Carmen', 'Santos', 'female', 'carmen.santos@email.com', '09172345678', '00000000-0000-0000-0000-000000000002', 'seed'),
@@ -37,7 +37,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Link patients to guardians
-INSERT INTO patient_guardians (patient_id, guardian_id, relationship, created_by, created_action)
+INSERT INTO patient_guardian_links (patient_id, guardian_id, relationship, created_by, created_action)
 VALUES
     ('e1a1c3d4-0001-4000-8000-000000000001', 'f1a1c3d4-0001-4000-8000-000000000001', 'father', '00000000-0000-0000-0000-000000000003', 'seed'),
     ('e1a1c3d4-0001-4000-8000-000000000001', 'f1a1c3d4-0007-4000-8000-000000000007', 'mother', '00000000-0000-0000-0000-000000000003', 'seed'),

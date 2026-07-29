@@ -8,7 +8,7 @@ import (
 
 // BunBranchHours defines operating hours for a clinic branch (never booked directly).
 type BunBranchHours struct {
-	bun.BaseModel  `bun:"table:branch_hour"`
+	bun.BaseModel  `bun:"table:booking_branch_hours"`
 	ID             string    `bun:"id,pk" json:"id"`
 	TenantID       string    `bun:"tenant_id" json:"tenant_id"`
 	BranchID       string    `bun:"branch_id" json:"branch_id"`
@@ -31,7 +31,7 @@ func (BunBranchHours) IsEntity() {}
 
 // BunPractitionerBranch defines practitioner branch affiliation.
 type BunPractitionerBranch struct {
-	bun.BaseModel  `bun:"table:practitioner_branch"`
+	bun.BaseModel  `bun:"table:booking_practitioner_branches"`
 	ID             string    `bun:"id,pk" json:"id"`
 	TenantID       string    `bun:"tenant_id" json:"tenant_id"`
 	PractitionerID string    `bun:"practitioner_id" json:"practitioner_id"`
@@ -53,7 +53,7 @@ func (BunPractitionerBranch) IsEntity() {}
 
 // BunPractitionerAvailability represents practitioner-managed availability shifts ("When am I available to work?").
 type BunPractitionerAvailability struct {
-	bun.BaseModel  `bun:"table:practitioner_availability"`
+	bun.BaseModel  `bun:"table:booking_practitioner_availabilities"`
 	ID             string    `bun:"id,pk" json:"id"`
 	TenantID       string    `bun:"tenant_id" json:"tenant_id"`
 	PractitionerID string    `bun:"practitioner_id" json:"practitioner_id"`
@@ -77,7 +77,7 @@ func (BunPractitionerAvailability) IsEntity() {}
 
 // BunScheduleTemplate defines recurring schedules that patients can book (PractitionerID nullable for clinic-first).
 type BunScheduleTemplate struct {
-	bun.BaseModel  `bun:"table:schedule_template"`
+	bun.BaseModel  `bun:"table:booking_schedule_templates"`
 	ID             string    `bun:"id,pk" json:"id"`
 	TenantID       string    `bun:"tenant_id" json:"tenant_id"`
 	BranchID       string    `bun:"branch_id" json:"branch_id"`
@@ -106,7 +106,7 @@ func (BunScheduleTemplate) IsEntity() {}
 
 // BunAppointmentSlot represents actual generated bookable time slots generated from ScheduleTemplates.
 type BunAppointmentSlot struct {
-	bun.BaseModel      `bun:"table:appointment_slot"`
+	bun.BaseModel      `bun:"table:booking_appointment_slots"`
 	ID                 string    `bun:"id,pk" json:"id"`
 	TenantID           string    `bun:"tenant_id" json:"tenant_id"`
 	ScheduleTemplateID string    `bun:"schedule_template_id" json:"schedule_template_id"`
@@ -132,17 +132,22 @@ func (BunAppointmentSlot) IsEntity() {}
 
 // BunAppointment represents patient bookings against appointment slots.
 type BunAppointment struct {
-	bun.BaseModel     `bun:"table:appointment"`
-	ID                string    `bun:"id,pk" json:"id"`
-	TenantID          string    `bun:"tenant_id" json:"tenant_id"`
-	AppointmentSlotID *string   `bun:"appointment_slot_id" json:"appointment_slot_id"`
-	BranchID          string    `bun:"branch_id" json:"branch_id"`
-	PatientID         *string   `bun:"patient_id" json:"patient_id"`
-	PractitionerID    *string   `bun:"practitioner_id" json:"practitioner_id"`
-	StartAt           time.Time `bun:"start_at" json:"start_at"`
-	EndAt             time.Time `bun:"end_at" json:"end_at"`
-	Status            string    `bun:"status" json:"status"` // PENDING / CONFIRMED / CHECKED_IN / IN_PROGRESS / COMPLETED / NO_SHOW / CANCELLED
-	Notes             string    `bun:"notes" json:"notes"`
+	bun.BaseModel      `bun:"table:booking_appointments"`
+	ID                 string     `bun:"id,pk" json:"id"`
+	TenantID           string     `bun:"tenant_id" json:"tenant_id"`
+	AppointmentSlotID  *string    `bun:"appointment_slot_id" json:"appointment_slot_id"`
+	BranchID           string     `bun:"branch_id" json:"branch_id"`
+	PatientID          *string    `bun:"patient_id" json:"patient_id"`
+	PractitionerID     *string    `bun:"practitioner_id" json:"practitioner_id"`
+	StartAt            time.Time  `bun:"start_at" json:"start_at"`
+	EndAt              time.Time  `bun:"end_at" json:"end_at"`
+	Status             string     `bun:"status" json:"status"` // PENDING / CONFIRMED / IN_PROGRESS / DONE / CANCELLED / RESCHEDULED
+	Notes              string     `bun:"notes" json:"notes"`
+	CancellationReason string     `bun:"cancellation_reason" json:"cancellation_reason"`
+	CancelledAt        *time.Time `bun:"cancelled_at" json:"cancelled_at"`
+	RescheduledFromID  *string    `bun:"rescheduled_from_id" json:"rescheduled_from_id"`
+	RescheduledToID    *string    `bun:"rescheduled_to_id" json:"rescheduled_to_id"`
+	RescheduleReason   string     `bun:"reschedule_reason" json:"reschedule_reason"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
@@ -156,7 +161,7 @@ func (BunAppointment) IsEntity() {}
 
 // BunScheduleException represents one-time schedule overrides (vacation, lunch, holiday, emergency closure).
 type BunScheduleException struct {
-	bun.BaseModel      `bun:"table:schedule_exception"`
+	bun.BaseModel      `bun:"table:booking_schedule_exceptions"`
 	ID                 string    `bun:"id,pk" json:"id"`
 	TenantID           string    `bun:"tenant_id" json:"tenant_id"`
 	ScheduleTemplateID *string   `bun:"schedule_template_id" json:"schedule_template_id"`

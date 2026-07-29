@@ -49,8 +49,8 @@ func (r *queryResolver) User(ctx context.Context, id string) (*model.User, error
 }
 
 // Users is the resolver for the users field.
-func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
-	return r.UserService.ListUsers(ctx)
+func (r *queryResolver) Users(ctx context.Context, ids []string) ([]*model.User, error) {
+	return r.UserService.ListUsers(ctx, ids)
 }
 
 // Mutation returns generated.MutationResolver implementation.

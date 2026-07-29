@@ -160,7 +160,20 @@ func proxyFor(target string) *httputil.ReverseProxy {
 		logger.Error(context.Background(), "invalid target URL", "target", target, "error", err)
 		os.Exit(1)
 	}
-	return httputil.NewSingleHostReverseProxy(u)
+	p := httputil.NewSingleHostReverseProxy(u)
+	// Strip any CORS headers the upstream sends so the gateway's
+	// setCORS headers (already written before the proxy call) are not
+	// replaced or duplicated by the upstream response.
+	p.ModifyResponse = func(resp *http.Response) error {
+		resp.Header.Del("Access-Control-Allow-Origin")
+		resp.Header.Del("Access-Control-Allow-Headers")
+		resp.Header.Del("Access-Control-Allow-Methods")
+		resp.Header.Del("Access-Control-Allow-Credentials")
+		resp.Header.Del("Access-Control-Max-Age")
+		resp.Header.Del("Access-Control-Expose-Headers")
+		return nil
+	}
+	return p
 }
 
 var allowedOrigins = []string{
@@ -168,19 +181,19 @@ var allowedOrigins = []string{
 	"http://localhost:4200",
 	"http://localhost:5173",
 	"http://localhost:8080",
+	"http://127.0.0.1:4200",
 	"https://studio.apollographql.com",
 }
 
 func setCORS(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
-	for _, allowed := range allowedOrigins {
-		if origin == allowed {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			break
-		}
+	if origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+	} else {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 	}
-	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-tenant-id, x-branch-id, x-user-id")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, x-tenant-id, x-branch-id, x-user-id, x-app-id, apollo-require-preflight, x-apollo-operation-name")
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 	w.Header().Set("Access-Control-Max-Age", "86400")
 }

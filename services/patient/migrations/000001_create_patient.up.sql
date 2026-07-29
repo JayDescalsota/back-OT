@@ -17,7 +17,7 @@ CREATE TABLE patients (
     updated_action TEXT
 );
 
-CREATE TABLE guardians (
+CREATE TABLE patient_guardian_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     first_name TEXT NOT NULL,
     last_name TEXT NOT NULL,
@@ -33,9 +33,9 @@ CREATE TABLE guardians (
     updated_action TEXT
 );
 
-CREATE TABLE patient_guardians (
+CREATE TABLE patient_guardian_links (
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    guardian_id UUID NOT NULL REFERENCES guardians(id) ON DELETE CASCADE,
+    guardian_id UUID NOT NULL REFERENCES patient_guardian_profiles(id) ON DELETE CASCADE,
     relationship TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
