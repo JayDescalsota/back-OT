@@ -187,6 +187,7 @@ input CancelAppointmentInput {
 }
 
 input RescheduleAppointmentInput {
+  practitioner_id: ID
   scheduled_start: DateTime!
   scheduled_end: DateTime!
   reason: String!

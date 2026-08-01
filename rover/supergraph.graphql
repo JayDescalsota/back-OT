@@ -218,6 +218,7 @@ input CancelAppointmentInput @join__type(graph: BOOKING) {
 }
 
 input RescheduleAppointmentInput @join__type(graph: BOOKING) {
+  practitioner_id: ID
   scheduled_start: DateTime!
   scheduled_end: DateTime!
   reason: String!

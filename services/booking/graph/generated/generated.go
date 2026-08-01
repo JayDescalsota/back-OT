@@ -1705,6 +1705,7 @@ input CancelAppointmentInput {
 }
 
 input RescheduleAppointmentInput {
+  practitioner_id: ID
   scheduled_start: DateTime!
   scheduled_end: DateTime!
   reason: String!
@@ -8723,13 +8724,20 @@ func (ec *executionContext) unmarshalInputRescheduleAppointmentInput(ctx context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"scheduled_start", "scheduled_end", "reason"}
+	fieldsInOrder := [...]string{"practitioner_id", "scheduled_start", "scheduled_end", "reason"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
+		case "practitioner_id":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("practitioner_id"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PractitionerID = data
 		case "scheduled_start":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("scheduled_start"))
 			data, err := ec.unmarshalNDateTime2string(ctx, v)

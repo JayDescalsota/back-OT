@@ -668,6 +668,15 @@ func (s *BookingService) StartAppointment(ctx context.Context, id string) (*db.B
 	if existing.Status != "CONFIRMED" {
 		return nil, fmt.Errorf("cannot start appointment in status %s", existing.Status)
 	}
+	now := time.Now()
+	start := existing.StartAt
+	startToday := start.Year() == now.Year() && start.YearDay() == now.YearDay()
+	if !startToday {
+		return nil, fmt.Errorf("appointment cannot be started: scheduled for %s, not today", start.Format(time.RFC3339))
+	}
+	if now.Before(start) {
+		return nil, fmt.Errorf("appointment cannot be started before scheduled time %s", start.Format(time.RFC3339))
+	}
 	existing.Status = "IN_PROGRESS"
 	existing.UpdatedAt = time.Now()
 	existing.UpdatedAction = "START"
@@ -745,6 +754,10 @@ func (s *BookingService) RescheduleAppointment(ctx context.Context, id string, i
 
 	now := time.Now()
 	oldStatus := existing.Status
+	newPractitionerID := existing.PractitionerID
+	if input.PractitionerID != nil && *input.PractitionerID != "" {
+		newPractitionerID = input.PractitionerID
+	}
 
 	existing.Status = "RESCHEDULED"
 	existing.RescheduleReason = input.Reason
@@ -760,7 +773,7 @@ func (s *BookingService) RescheduleAppointment(ctx context.Context, id string, i
 		TenantID:          existing.TenantID,
 		BranchID:          existing.BranchID,
 		PatientID:         existing.PatientID,
-		PractitionerID:    existing.PractitionerID,
+		PractitionerID:    newPractitionerID,
 		AppointmentSlotID: existing.AppointmentSlotID,
 		StartAt:           startAt,
 		EndAt:             endAt,
