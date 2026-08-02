@@ -223,3 +223,45 @@ func (r *PatientRepository) ReactivatePatientGuardian(ctx context.Context, patie
 		Exec(ctx)
 	return err
 }
+
+func (r *PatientRepository) FindGoalByID(ctx context.Context, id string) (*db.BunGoal, error) {
+	var goal db.BunGoal
+	err := r.db.NewSelect(ctx, &goal).Where("id = ?", id).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &goal, nil
+}
+
+func (r *PatientRepository) GetPatientGoals(ctx context.Context, patientID string) ([]*db.BunGoal, error) {
+	var goals []*db.BunGoal
+	err := r.db.NewSelect(ctx, &goals).
+		Where("patient_id = ? AND is_active = true", patientID).
+		Order("created_at ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return goals, nil
+}
+
+func (r *PatientRepository) CreateGoal(ctx context.Context, goal *db.BunGoal) error {
+	_, err := r.db.NewInsert(goal).Exec(ctx)
+	return err
+}
+
+func (r *PatientRepository) UpdateGoal(ctx context.Context, goal *db.BunGoal) error {
+	_, err := r.db.NewUpdate(ctx, goal).Where("id = ?", goal.ID).Exec(ctx)
+	return err
+}
+
+func (r *PatientRepository) DeleteGoal(ctx context.Context, id string) error {
+	_, err := r.db.NewUpdate(ctx, (*db.BunGoal)(nil)).
+		Where("id = ?", id).
+		Set("is_active = ?", false).
+		Exec(ctx)
+	return err
+}

@@ -2,6 +2,12 @@
 
 package model
 
+type AppointmentGoalUpdateInput struct {
+	Progress *int    `json:"progress,omitempty"`
+	Status   *string `json:"status,omitempty"`
+	Notes    *string `json:"notes,omitempty"`
+}
+
 type AppointmentInput struct {
 	PatientID      string  `json:"patient_id"`
 	PractitionerID string  `json:"practitioner_id"`
@@ -48,6 +54,12 @@ type BranchHoursUpdateInput struct {
 type CancelAppointmentInput struct {
 	Reason string `json:"reason"`
 }
+
+type Goal struct {
+	ID string `json:"id"`
+}
+
+func (Goal) IsEntity() {}
 
 type Mutation struct {
 }
@@ -104,6 +116,13 @@ type ScheduleTemplateUpdateInput struct {
 	BreakStart          *string `json:"break_start,omitempty"`
 	BreakEnd            *string `json:"break_end,omitempty"`
 	IsActive            *bool   `json:"is_active,omitempty"`
+}
+
+type SoapNoteInput struct {
+	Subjective *string `json:"subjective,omitempty"`
+	Objective  *string `json:"objective,omitempty"`
+	Assessment *string `json:"assessment,omitempty"`
+	Plan       *string `json:"plan,omitempty"`
 }
 
 type User struct {

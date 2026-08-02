@@ -502,3 +502,86 @@ func (r *BookingRepository) UpdateScheduleException(ctx context.Context, m *db.B
 	_, err := r.tenantdb.NewUpdate(ctx, m).Where("id = ?", m.ID).Exec(ctx)
 	return err
 }
+
+// Appointment Goals
+
+func (r *BookingRepository) FindAppointmentGoalByID(ctx context.Context, id string) (*db.BunAppointmentGoal, error) {
+	var m db.BunAppointmentGoal
+	err := r.db.NewSelect(ctx, &m).Where("id = ?", id).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (r *BookingRepository) FindAppointmentGoals(ctx context.Context, appointmentID string) ([]*db.BunAppointmentGoal, error) {
+	var list []*db.BunAppointmentGoal
+	err := r.db.NewSelect(ctx, &list).
+		Where("appointment_id = ? AND is_active = true", appointmentID).
+		Order("created_at ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *BookingRepository) CreateAppointmentGoal(ctx context.Context, m *db.BunAppointmentGoal) error {
+	_, err := r.db.NewInsert(m).Exec(ctx)
+	return err
+}
+
+func (r *BookingRepository) CreateAppointmentGoals(ctx context.Context, list []*db.BunAppointmentGoal) error {
+	_, err := r.db.NewInsert(&list).Exec(ctx)
+	return err
+}
+
+func (r *BookingRepository) UpdateAppointmentGoal(ctx context.Context, m *db.BunAppointmentGoal) error {
+	_, err := r.db.NewUpdate(ctx, m).Where("id = ?", m.ID).Exec(ctx)
+	return err
+}
+
+func (r *BookingRepository) RemoveAppointmentGoals(ctx context.Context, appointmentID string) error {
+	_, err := r.db.NewUpdate(ctx, (*db.BunAppointmentGoal)(nil)).
+		Where("appointment_id = ?", appointmentID).
+		Set("is_active = ?", false).
+		Set("updated_at = ?", time.Now().UTC()).
+		Exec(ctx)
+	return err
+}
+
+func (r *BookingRepository) RemoveAppointmentGoal(ctx context.Context, id string) error {
+	_, err := r.db.NewUpdate(ctx, (*db.BunAppointmentGoal)(nil)).
+		Where("id = ?", id).
+		Set("is_active = ?", false).
+		Set("updated_at = ?", time.Now().UTC()).
+		Exec(ctx)
+	return err
+}
+
+// SOAP Notes
+
+func (r *BookingRepository) FindSoapNoteByAppointment(ctx context.Context, appointmentID string) (*db.BunSoapNote, error) {
+	var m db.BunSoapNote
+	err := r.db.NewSelect(ctx, &m).Where("appointment_id = ?", appointmentID).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
+func (r *BookingRepository) CreateSoapNote(ctx context.Context, m *db.BunSoapNote) error {
+	_, err := r.db.NewInsert(m).Exec(ctx)
+	return err
+}
+
+func (r *BookingRepository) UpdateSoapNote(ctx context.Context, m *db.BunSoapNote) error {
+	_, err := r.db.NewUpdate(ctx, m).Where("id = ?", m.ID).Exec(ctx)
+	return err
+}

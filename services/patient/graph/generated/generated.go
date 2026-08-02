@@ -47,8 +47,19 @@ type ComplexityRoot struct {
 	}
 
 	Entity struct {
+		FindGoalByID     func(childComplexity int, id string) int
 		FindGuardianByID func(childComplexity int, id string) int
 		FindPatientByID  func(childComplexity int, id string) int
+	}
+
+	Goal struct {
+		Goal      func(childComplexity int) int
+		ID        func(childComplexity int) int
+		IsActive  func(childComplexity int) int
+		PatientID func(childComplexity int) int
+		Progress  func(childComplexity int) int
+		Status    func(childComplexity int) int
+		Target    func(childComplexity int) int
 	}
 
 	Guardian struct {
@@ -66,13 +77,16 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		AddPatientGuardian    func(childComplexity int, patientID string, guardianID string, relationship string) int
+		CreateGoal            func(childComplexity int, input model.GoalInput) int
 		CreateGuardian        func(childComplexity int, input model.GuardianInput) int
 		CreatePatient         func(childComplexity int, input model.PatientInput) int
+		DeleteGoal            func(childComplexity int, id string) int
 		DeleteGuardian        func(childComplexity int, id string) int
 		DeletePatient         func(childComplexity int, id string) int
 		InactivatePatient     func(childComplexity int, id string) int
 		ReactivatePatient     func(childComplexity int, id string) int
 		RemovePatientGuardian func(childComplexity int, patientID string, guardianID string) int
+		UpdateGoal            func(childComplexity int, id string, input model.GoalUpdateInput) int
 		UpdateGuardian        func(childComplexity int, id string, input model.GuardianUpdateInput) int
 		UpdatePatient         func(childComplexity int, id string, input model.PatientUpdateInput) int
 		UpdatePatientGuardian func(childComplexity int, patientID string, guardianID string, relationship string) int
@@ -84,6 +98,7 @@ type ComplexityRoot struct {
 		DateOfBirth func(childComplexity int) int
 		FirstName   func(childComplexity int) int
 		Gender      func(childComplexity int) int
+		Goals       func(childComplexity int) int
 		Guardian    func(childComplexity int) int
 		Height      func(childComplexity int) int
 		ID          func(childComplexity int) int
@@ -126,6 +141,7 @@ type ComplexityRoot struct {
 // region    ************************** generated!.gotpl **************************
 
 type EntityResolver interface {
+	FindGoalByID(ctx context.Context, id string) (*db.BunGoal, error)
 	FindGuardianByID(ctx context.Context, id string) (*db.BunGuardians, error)
 	FindPatientByID(ctx context.Context, id string) (*db.BunPatients, error)
 }
@@ -145,6 +161,9 @@ type MutationResolver interface {
 	AddPatientGuardian(ctx context.Context, patientID string, guardianID string, relationship string) (*model.PatientGuardianRelationship, error)
 	UpdatePatientGuardian(ctx context.Context, patientID string, guardianID string, relationship string) (*model.PatientGuardianRelationship, error)
 	RemovePatientGuardian(ctx context.Context, patientID string, guardianID string) (bool, error)
+	CreateGoal(ctx context.Context, input model.GoalInput) (*db.BunGoal, error)
+	UpdateGoal(ctx context.Context, id string, input model.GoalUpdateInput) (*db.BunGoal, error)
+	DeleteGoal(ctx context.Context, id string) (*db.BunGoal, error)
 }
 type PatientResolver interface {
 	DateOfBirth(ctx context.Context, obj *db.BunPatients) (string, error)
@@ -152,6 +171,7 @@ type PatientResolver interface {
 	Address(ctx context.Context, obj *db.BunPatients) (*model.Address, error)
 	Tag(ctx context.Context, obj *db.BunPatients) ([]*db.BunPatientTags, error)
 	Guardian(ctx context.Context, obj *db.BunPatients) ([]*db.BunGuardians, error)
+	Goals(ctx context.Context, obj *db.BunPatients) ([]*db.BunGoal, error)
 }
 type PatientTagsResolver interface {
 	ID(ctx context.Context, obj *db.BunPatientTags) (string, error)
@@ -190,6 +210,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Address.ID(childComplexity), true
 
+	case "Entity.findGoalByID":
+		if e.ComplexityRoot.Entity.FindGoalByID == nil {
+			break
+		}
+
+		args, err := ec.field_Entity_findGoalByID_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Entity.FindGoalByID(childComplexity, args["id"].(string)), true
 	case "Entity.findGuardianByID":
 		if e.ComplexityRoot.Entity.FindGuardianByID == nil {
 			break
@@ -212,6 +243,49 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entity.FindPatientByID(childComplexity, args["id"].(string)), true
+
+	case "Goal.goal":
+		if e.ComplexityRoot.Goal.Goal == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.Goal(childComplexity), true
+	case "Goal.id":
+		if e.ComplexityRoot.Goal.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.ID(childComplexity), true
+	case "Goal.isActive":
+		if e.ComplexityRoot.Goal.IsActive == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.IsActive(childComplexity), true
+	case "Goal.patientId":
+		if e.ComplexityRoot.Goal.PatientID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.PatientID(childComplexity), true
+	case "Goal.progress":
+		if e.ComplexityRoot.Goal.Progress == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.Progress(childComplexity), true
+	case "Goal.status":
+		if e.ComplexityRoot.Goal.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.Status(childComplexity), true
+	case "Goal.target":
+		if e.ComplexityRoot.Goal.Target == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.Target(childComplexity), true
 
 	case "Guardian.address":
 		if e.ComplexityRoot.Guardian.Address == nil {
@@ -285,6 +359,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.AddPatientGuardian(childComplexity, args["patientId"].(string), args["guardianId"].(string), args["relationship"].(string)), true
+	case "Mutation.createGoal":
+		if e.ComplexityRoot.Mutation.CreateGoal == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createGoal_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateGoal(childComplexity, args["input"].(model.GoalInput)), true
 	case "Mutation.createGuardian":
 		if e.ComplexityRoot.Mutation.CreateGuardian == nil {
 			break
@@ -307,6 +392,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreatePatient(childComplexity, args["input"].(model.PatientInput)), true
+	case "Mutation.deleteGoal":
+		if e.ComplexityRoot.Mutation.DeleteGoal == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteGoal_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.DeleteGoal(childComplexity, args["id"].(string)), true
 	case "Mutation.deleteGuardian":
 		if e.ComplexityRoot.Mutation.DeleteGuardian == nil {
 			break
@@ -362,6 +458,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RemovePatientGuardian(childComplexity, args["patientId"].(string), args["guardianId"].(string)), true
+	case "Mutation.updateGoal":
+		if e.ComplexityRoot.Mutation.UpdateGoal == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateGoal_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateGoal(childComplexity, args["id"].(string), args["input"].(model.GoalUpdateInput)), true
 	case "Mutation.updateGuardian":
 		if e.ComplexityRoot.Mutation.UpdateGuardian == nil {
 			break
@@ -426,6 +533,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Patient.Gender(childComplexity), true
+	case "Patient.goals":
+		if e.ComplexityRoot.Patient.Goals == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Patient.Goals(childComplexity), true
 	case "Patient.guardian":
 		if e.ComplexityRoot.Patient.Guardian == nil {
 			break
@@ -602,6 +715,8 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputGoalInput,
+		ec.unmarshalInputGoalUpdateInput,
 		ec.unmarshalInputGuardianInput,
 		ec.unmarshalInputGuardianUpdateInput,
 		ec.unmarshalInputPatientFilter,
@@ -703,6 +818,17 @@ type Patient @key(fields: "id") {
   address: Address
   tag: [PatientTags!]!
   guardian: [Guardian!]!
+  goals: [Goal!]!
+}
+
+type Goal @key(fields: "id") {
+  id: ID!
+  patientId: ID!
+  goal: String!
+  target: String
+  progress: Int!
+  status: String!
+  isActive: Boolean!
 }
 
 type PatientTags {
@@ -805,6 +931,24 @@ type Mutation {
   addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
   updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
   removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean!
+  createGoal(input: GoalInput!): Goal!
+  updateGoal(id: ID!, input: GoalUpdateInput!): Goal!
+  deleteGoal(id: ID!): Goal!
+}
+
+input GoalInput {
+  patientId: ID!
+  goal: String!
+  target: String
+  progress: Int
+  status: String
+}
+
+input GoalUpdateInput {
+  goal: String
+  target: String
+  progress: Int
+  status: String
 }
 `, BuiltIn: false},
 	{Name: "../../federation/directives.graphql", Input: `
@@ -861,10 +1005,11 @@ type Mutation {
 `, BuiltIn: true},
 	{Name: "../../federation/entity.graphql", Input: `
 # a union of all types that use the @key directive
-union _Entity = Address | Guardian | Patient
+union _Entity = Address | Goal | Guardian | Patient
 
 # fake type to build resolver interfaces for users to implement
 type Entity {
+	findGoalByID(id: ID!,): Goal!
 	findGuardianByID(id: ID!,): Guardian!
 	findPatientByID(id: ID!,): Patient!
 }
@@ -891,6 +1036,26 @@ func (ec *executionContext) childFields_Address(ctx context.Context, field graph
 		return ec.fieldContext_Address_id(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Address", field.Name)
+}
+
+func (ec *executionContext) childFields_Goal(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Goal_id(ctx, field)
+	case "patientId":
+		return ec.fieldContext_Goal_patientId(ctx, field)
+	case "goal":
+		return ec.fieldContext_Goal_goal(ctx, field)
+	case "target":
+		return ec.fieldContext_Goal_target(ctx, field)
+	case "progress":
+		return ec.fieldContext_Goal_progress(ctx, field)
+	case "status":
+		return ec.fieldContext_Goal_status(ctx, field)
+	case "isActive":
+		return ec.fieldContext_Goal_isActive(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Goal", field.Name)
 }
 
 func (ec *executionContext) childFields_Guardian(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -949,6 +1114,8 @@ func (ec *executionContext) childFields_Patient(ctx context.Context, field graph
 		return ec.fieldContext_Patient_tag(ctx, field)
 	case "guardian":
 		return ec.fieldContext_Patient_guardian(ctx, field)
+	case "goals":
+		return ec.fieldContext_Patient_goals(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Patient", field.Name)
 }
@@ -1099,6 +1266,20 @@ func (ec *executionContext) childFields___Type(ctx context.Context, field graphq
 
 // region    ***************************** args.gotpl *****************************
 
+func (ec *executionContext) field_Entity_findGoalByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Entity_findGuardianByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1157,6 +1338,20 @@ func (ec *executionContext) field_Mutation_addPatientGuardian_args(ctx context.C
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createGoal_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.GoalInput, error) {
+			return ec.unmarshalNGoalInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐGoalInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createGuardian_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1182,6 +1377,20 @@ func (ec *executionContext) field_Mutation_createPatient_args(ctx context.Contex
 		return nil, err
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteGoal_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -1260,6 +1469,28 @@ func (ec *executionContext) field_Mutation_removePatientGuardian_args(ctx contex
 		return nil, err
 	}
 	args["guardianId"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateGoal_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.GoalUpdateInput, error) {
+			return ec.unmarshalNGoalUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐGoalUpdateInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -1526,6 +1757,50 @@ func (ec *executionContext) fieldContext_Address_id(_ context.Context, field gra
 	return graphql.NewScalarFieldContext("Address", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
+func (ec *executionContext) _Entity_findGoalByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Entity_findGoalByID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Entity().FindGoalByID(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunGoal) graphql.Marshaler {
+			return ec.marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Entity_findGoalByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Goal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Entity_findGoalByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Entity_findGuardianByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1612,6 +1887,167 @@ func (ec *executionContext) fieldContext_Entity_findPatientByID(ctx context.Cont
 		return fc, err
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Goal_id(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Goal_patientId(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_patientId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PatientID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_patientId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _Goal_goal(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_goal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Goal, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_goal(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Goal_target(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_target(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Target, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_target(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Goal_progress(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_progress(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Progress, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_progress(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Goal_status(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _Goal_isActive(ctx context.Context, field graphql.CollectedField, obj *db.BunGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_isActive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsActive, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_isActive(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _Guardian_id(ctx context.Context, field graphql.CollectedField, obj *db.BunGuardians) (ret graphql.Marshaler) {
@@ -2346,6 +2782,138 @@ func (ec *executionContext) fieldContext_Mutation_removePatientGuardian(ctx cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createGoal(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createGoal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateGoal(ctx, fc.Args["input"].(model.GoalInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunGoal) graphql.Marshaler {
+			return ec.marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createGoal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Goal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateGoal(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateGoal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateGoal(ctx, fc.Args["id"].(string), fc.Args["input"].(model.GoalUpdateInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunGoal) graphql.Marshaler {
+			return ec.marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateGoal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Goal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_deleteGoal(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_deleteGoal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().DeleteGoal(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunGoal) graphql.Marshaler {
+			return ec.marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_deleteGoal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Goal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_deleteGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Patient_id(ctx context.Context, field graphql.CollectedField, obj *db.BunPatients) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2690,6 +3258,38 @@ func (ec *executionContext) fieldContext_Patient_guardian(_ context.Context, fie
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_Guardian(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Patient_goals(ctx context.Context, field graphql.CollectedField, obj *db.BunPatients) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Patient_goals(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Patient().Goals(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunGoal) graphql.Marshaler {
+			return ec.marshalNGoal2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoalᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Patient_goals(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Patient",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Goal(ctx, field)
 		},
 	}
 	return fc, nil
@@ -4264,6 +4864,115 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputGoalInput(ctx context.Context, obj any) (model.GoalInput, error) {
+	var it model.GoalInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"patientId", "goal", "target", "progress", "status"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "patientId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("patientId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PatientID = data
+		case "goal":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("goal"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Goal = data
+		case "target":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("target"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Target = data
+		case "progress":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("progress"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Progress = data
+		case "status":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Status = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputGoalUpdateInput(ctx context.Context, obj any) (model.GoalUpdateInput, error) {
+	var it model.GoalUpdateInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"goal", "target", "progress", "status"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "goal":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("goal"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Goal = data
+		case "target":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("target"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Target = data
+		case "progress":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("progress"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Progress = data
+		case "status":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Status = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputGuardianInput(ctx context.Context, obj any) (model.GuardianInput, error) {
 	var it model.GuardianInput
 	if obj == nil {
@@ -4699,6 +5408,13 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 			return graphql.Null
 		}
 		return ec._Guardian(ctx, sel, obj)
+	case db.BunGoal:
+		return ec._Goal(ctx, sel, &obj)
+	case *db.BunGoal:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Goal(ctx, sel, obj)
 	case model.Address:
 		return ec._Address(ctx, sel, &obj)
 	case *model.Address:
@@ -4777,6 +5493,28 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Entity")
+		case "findGoalByID":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Entity_findGoalByID(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "findGuardianByID":
 			field := field
 
@@ -4821,6 +5559,74 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var goalImplementors = []string{"Goal", "_Entity"}
+
+func (ec *executionContext) _Goal(ctx context.Context, sel ast.SelectionSet, obj *db.BunGoal) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, goalImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Goal")
+		case "id":
+			out.Values[i] = ec._Goal_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patientId":
+			out.Values[i] = ec._Goal_patientId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "goal":
+			out.Values[i] = ec._Goal_goal(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "target":
+			out.Values[i] = ec._Goal_target(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "progress":
+			out.Values[i] = ec._Goal_progress(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._Goal_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isActive":
+			out.Values[i] = ec._Goal_isActive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5088,6 +5894,27 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createGoal":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createGoal(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateGoal":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateGoal(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "deleteGoal":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_deleteGoal(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5295,6 +6122,44 @@ func (ec *executionContext) _Patient(ctx context.Context, sel ast.SelectionSet, 
 					}
 				}()
 				res = ec._Patient_guardian(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "goals":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Patient_goals(ctx, field, obj)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -6172,6 +7037,46 @@ func (ec *executionContext) marshalNFieldSet2string(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) marshalNGoal2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx context.Context, sel ast.SelectionSet, v db.BunGoal) graphql.Marshaler {
+	return ec._Goal(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGoal2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoalᚄ(ctx context.Context, sel ast.SelectionSet, v []*db.BunGoal) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGoal(ctx context.Context, sel ast.SelectionSet, v *db.BunGoal) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Goal(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNGoalInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐGoalInput(ctx context.Context, v any) (model.GoalInput, error) {
+	res, err := ec.unmarshalInputGoalInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNGoalUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐGoalUpdateInput(ctx context.Context, v any) (model.GoalUpdateInput, error) {
+	res, err := ec.unmarshalInputGoalUpdateInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) marshalNGuardian2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunGuardians(ctx context.Context, sel ast.SelectionSet, v db.BunGuardians) graphql.Marshaler {
 	return ec._Guardian(ctx, sel, &v)
 }
@@ -6255,6 +7160,22 @@ func (ec *executionContext) marshalNID2ᚕstringᚄ(ctx context.Context, sel ast
 	}
 
 	return ret
+}
+
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalInt(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) marshalNPatient2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatients(ctx context.Context, sel ast.SelectionSet, v db.BunPatients) graphql.Marshaler {

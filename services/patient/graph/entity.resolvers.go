@@ -12,6 +12,11 @@ import (
 	"github.com/clinicmanager/services/patient/graph/generated"
 )
 
+// FindGoalByID is the resolver for federation entity lookup of Goal.
+func (r *entityResolver) FindGoalByID(ctx context.Context, id string) (*db.BunGoal, error) {
+	return r.Resolver.PatientService.PatientRepository.FindGoalByID(ctx, id)
+}
+
 // FindGuardianByID is the resolver for federation entity lookup of Guardian.
 func (r *entityResolver) FindGuardianByID(ctx context.Context, id string) (*db.BunGuardians, error) {
 	return r.Resolver.PatientService.PatientRepository.FindGuardianByID(ctx, id)

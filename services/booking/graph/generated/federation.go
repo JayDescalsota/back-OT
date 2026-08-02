@@ -172,6 +172,25 @@ func (ec *executionContext) resolveEntity(
 
 			return entity, nil
 		}
+	case "AppointmentGoal":
+		resolverName, err := entityResolverNameForAppointmentGoal(ctx, rep)
+		if err != nil {
+			return nil, fmt.Errorf(`finding resolver for Entity "AppointmentGoal": %w`, err)
+		}
+		switch resolverName {
+
+		case "findAppointmentGoalByID":
+			id0, err := ec.unmarshalNID2string(ctx, rep["id"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 0 for findAppointmentGoalByID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindAppointmentGoalByID(ctx, id0)
+			if err != nil {
+				return nil, fmt.Errorf(`resolving Entity "AppointmentGoal": %w`, err)
+			}
+
+			return entity, nil
+		}
 	case "AppointmentSlot":
 		resolverName, err := entityResolverNameForAppointmentSlot(ctx, rep)
 		if err != nil {
@@ -286,6 +305,25 @@ func (ec *executionContext) resolveEntity(
 
 			return entity, nil
 		}
+	case "SoapNote":
+		resolverName, err := entityResolverNameForSoapNote(ctx, rep)
+		if err != nil {
+			return nil, fmt.Errorf(`finding resolver for Entity "SoapNote": %w`, err)
+		}
+		switch resolverName {
+
+		case "findSoapNoteByID":
+			id0, err := ec.unmarshalNID2string(ctx, rep["id"])
+			if err != nil {
+				return nil, fmt.Errorf(`unmarshalling param 0 for findSoapNoteByID(): %w`, err)
+			}
+			entity, err := ec.Resolvers.Entity().FindSoapNoteByID(ctx, id0)
+			if err != nil {
+				return nil, fmt.Errorf(`resolving Entity "SoapNote": %w`, err)
+			}
+
+			return entity, nil
+		}
 
 	}
 	return nil, fmt.Errorf("%w: %s", ErrUnknownType, typeName)
@@ -344,6 +382,41 @@ func entityResolverNameForAppointment(ctx context.Context, rep EntityRepresentat
 		return "findAppointmentByID", nil
 	}
 	return "", fmt.Errorf("%w for Appointment due to %v", ErrTypeNotFound,
+		errors.Join(entityResolverErrs...).Error())
+}
+
+func entityResolverNameForAppointmentGoal(ctx context.Context, rep EntityRepresentation) (string, error) {
+	// we collect errors because a later entity resolver may work fine
+	// when an entity has multiple keys
+	entityResolverErrs := []error{}
+	for {
+		var (
+			m   EntityRepresentation
+			val any
+			ok  bool
+		)
+		_ = val
+		// if all of the KeyFields values for this resolver are null,
+		// we shouldn't use use it
+		allNull := true
+		m = rep
+		val, ok = m["id"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"id\" for AppointmentGoal", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
+		if allNull {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to all null value KeyFields for AppointmentGoal", ErrTypeNotFound))
+			break
+		}
+		return "findAppointmentGoalByID", nil
+	}
+	return "", fmt.Errorf("%w for AppointmentGoal due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
 }
 
@@ -554,5 +627,40 @@ func entityResolverNameForScheduleTemplate(ctx context.Context, rep EntityRepres
 		return "findScheduleTemplateByID", nil
 	}
 	return "", fmt.Errorf("%w for ScheduleTemplate due to %v", ErrTypeNotFound,
+		errors.Join(entityResolverErrs...).Error())
+}
+
+func entityResolverNameForSoapNote(ctx context.Context, rep EntityRepresentation) (string, error) {
+	// we collect errors because a later entity resolver may work fine
+	// when an entity has multiple keys
+	entityResolverErrs := []error{}
+	for {
+		var (
+			m   EntityRepresentation
+			val any
+			ok  bool
+		)
+		_ = val
+		// if all of the KeyFields values for this resolver are null,
+		// we shouldn't use use it
+		allNull := true
+		m = rep
+		val, ok = m["id"]
+		if !ok {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to missing Key Field \"id\" for SoapNote", ErrTypeNotFound))
+			break
+		}
+		if allNull {
+			allNull = val == nil
+		}
+		if allNull {
+			entityResolverErrs = append(entityResolverErrs,
+				fmt.Errorf("%w due to all null value KeyFields for SoapNote", ErrTypeNotFound))
+			break
+		}
+		return "findSoapNoteByID", nil
+	}
+	return "", fmt.Errorf("%w for SoapNote due to %v", ErrTypeNotFound,
 		errors.Join(entityResolverErrs...).Error())
 }

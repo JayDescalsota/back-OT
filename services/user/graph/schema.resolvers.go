@@ -35,6 +35,9 @@ func (r *mutationResolver) UpdateUser(ctx context.Context, id string, input mode
 // UpsertProfile is the resolver for the upsertProfile field.
 func (r *mutationResolver) UpsertProfile(ctx context.Context, input model.UserProfileInput) (*model.UserProfile, error) {
 	userID := r.UserService.GetCurrentUserID(ctx)
+	if input.UserID != nil && *input.UserID != "" {
+		userID = *input.UserID
+	}
 	return r.UserService.UpsertProfile(ctx, userID, input)
 }
 

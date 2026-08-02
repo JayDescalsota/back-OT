@@ -183,3 +183,46 @@ type BunScheduleException struct {
 }
 
 func (BunScheduleException) IsEntity() {}
+
+// BunAppointmentGoal links an appointment (session) to a patient goal with a progress snapshot.
+type BunAppointmentGoal struct {
+	bun.BaseModel `bun:"table:booking_appointment_goals"`
+	ID            string `bun:"id,pk" json:"id"`
+	TenantID      string `bun:"tenant_id" json:"tenant_id"`
+	AppointmentID string `bun:"appointment_id" json:"appointment_id"`
+	GoalID        string `bun:"goal_id" json:"goal_id"`
+	Progress      int    `bun:"progress" json:"progress"`
+	Status        string `bun:"status" json:"status"`
+	Notes         string `bun:"notes" json:"notes"`
+	IsActive      bool   `bun:"is_active" json:"is_active"`
+
+	CreatedAt     time.Time `bun:"created_at" json:"-"`
+	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
+	CreatedBy     *string   `bun:"created_by" json:"-"`
+	CreatedAction string    `bun:"created_action" json:"-"`
+	UpdatedBy     *string   `bun:"updated_by" json:"-"`
+	UpdatedAction string    `bun:"updated_action" json:"-"`
+}
+
+func (BunAppointmentGoal) IsEntity() {}
+
+// BunSoapNote holds the SOAP clinical documentation for a single appointment session.
+type BunSoapNote struct {
+	bun.BaseModel `bun:"table:booking_soap_notes"`
+	ID            string `bun:"id,pk" json:"id"`
+	TenantID      string `bun:"tenant_id" json:"tenant_id"`
+	AppointmentID string `bun:"appointment_id" json:"appointment_id"`
+	Subjective    string `bun:"subjective" json:"subjective"`
+	Objective     string `bun:"objective" json:"objective"`
+	Assessment    string `bun:"assessment" json:"assessment"`
+	Plan          string `bun:"plan" json:"plan"`
+
+	CreatedAt     time.Time `bun:"created_at" json:"-"`
+	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
+	CreatedBy     *string   `bun:"created_by" json:"-"`
+	CreatedAction string    `bun:"created_action" json:"-"`
+	UpdatedBy     *string   `bun:"updated_by" json:"-"`
+	UpdatedAction string    `bun:"updated_action" json:"-"`
+}
+
+func (BunSoapNote) IsEntity() {}

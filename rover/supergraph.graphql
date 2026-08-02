@@ -138,6 +138,31 @@ type Appointment @join__type(graph: BOOKING, key: "id") {
   updated_by: ID
   practitioner: User
   patient: Patient
+  goals: [AppointmentGoal!]!
+  soap: SoapNote
+}
+
+type AppointmentGoal @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  appointment_id: ID!
+  goal_id: ID!
+  progress: Int!
+  status: String!
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime
+  goal: Goal!
+}
+
+type SoapNote @join__type(graph: BOOKING, key: "id") {
+  id: ID!
+  appointment_id: ID!
+  subjective: String
+  objective: String
+  assessment: String
+  plan: String
+  created_at: DateTime!
+  updated_at: DateTime
 }
 
 type ScheduleException @join__type(graph: BOOKING, key: "id") {
@@ -224,6 +249,19 @@ input RescheduleAppointmentInput @join__type(graph: BOOKING) {
   reason: String!
 }
 
+input AppointmentGoalUpdateInput @join__type(graph: BOOKING) {
+  progress: Int
+  status: String
+  notes: String
+}
+
+input SoapNoteInput @join__type(graph: BOOKING) {
+  subjective: String
+  objective: String
+  assessment: String
+  plan: String
+}
+
 input ScheduleExceptionInput @join__type(graph: BOOKING) {
   practitioner_id: ID!
   exception_date: DateTime!
@@ -300,10 +338,14 @@ type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__t
   createAppointment(input: AppointmentInput!): Appointment! @join__field(graph: BOOKING)
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment! @join__field(graph: BOOKING)
   confirmAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
-  startAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
+  startAppointment(id: ID!, goalIds: [ID!]): Appointment! @join__field(graph: BOOKING)
   completeAppointment(id: ID!): Appointment! @join__field(graph: BOOKING)
   cancelAppointment(id: ID!, input: CancelAppointmentInput!): Appointment! @join__field(graph: BOOKING)
   rescheduleAppointment(id: ID!, input: RescheduleAppointmentInput!): Appointment! @join__field(graph: BOOKING)
+  setAppointmentGoals(appointmentId: ID!, goalIds: [ID!]!): [AppointmentGoal!]! @join__field(graph: BOOKING)
+  updateAppointmentGoal(id: ID!, input: AppointmentGoalUpdateInput!): AppointmentGoal! @join__field(graph: BOOKING)
+  removeAppointmentGoal(id: ID!): Boolean! @join__field(graph: BOOKING)
+  upsertSoapNote(appointmentId: ID!, input: SoapNoteInput!): SoapNote! @join__field(graph: BOOKING)
   createScheduleException(input: ScheduleExceptionInput!): ScheduleException! @join__field(graph: BOOKING)
   deleteScheduleException(id: ID!): Boolean! @join__field(graph: BOOKING)
   createThread(input: ThreadInput!): MessageThread! @join__field(graph: MESSAGING)
@@ -325,6 +367,9 @@ type Mutation @join__type(graph: BOOKING) @join__type(graph: MESSAGING) @join__t
   addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship! @join__field(graph: PATIENT)
   updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship! @join__field(graph: PATIENT)
   removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean! @join__field(graph: PATIENT)
+  createGoal(input: GoalInput!): Goal! @join__field(graph: PATIENT)
+  updateGoal(id: ID!, input: GoalUpdateInput!): Goal! @join__field(graph: PATIENT)
+  deleteGoal(id: ID!): Goal! @join__field(graph: PATIENT)
   createAddress(input: AddressInput!): Address! @join__field(graph: TENANT)
   updateAddress(id: ID!, input: AddressInput!): Address! @join__field(graph: TENANT)
   createUser(input: CreateUserInput!): User! @join__field(graph: USER)
@@ -365,6 +410,17 @@ type Patient @join__type(graph: BOOKING, key: "id") @join__type(graph: PATIENT, 
   address: Address @join__field(graph: PATIENT)
   tag: [PatientTags!]! @join__field(graph: PATIENT)
   guardian: [Guardian!]! @join__field(graph: PATIENT)
+  goals: [Goal!]! @join__field(graph: PATIENT)
+}
+
+type Goal @join__type(graph: BOOKING, key: "id") @join__type(graph: PATIENT, key: "id") {
+  id: ID!
+  patientId: ID! @join__field(graph: PATIENT)
+  goal: String! @join__field(graph: PATIENT)
+  target: String @join__field(graph: PATIENT)
+  progress: Int! @join__field(graph: PATIENT)
+  status: String! @join__field(graph: PATIENT)
+  isActive: Boolean! @join__field(graph: PATIENT)
 }
 
 type MessageThread @join__type(graph: MESSAGING, key: "id") {
@@ -514,6 +570,21 @@ type PatientGuardianRelationship @join__type(graph: PATIENT) {
   relationship: String!
 }
 
+input GoalInput @join__type(graph: PATIENT) {
+  patientId: ID!
+  goal: String!
+  target: String
+  progress: Int
+  status: String
+}
+
+input GoalUpdateInput @join__type(graph: PATIENT) {
+  goal: String
+  target: String
+  progress: Int
+  status: String
+}
+
 type Address @join__type(graph: PATIENT, key: "id") @join__type(graph: TENANT, key: "id") @join__type(graph: USER, key: "id") {
   id: ID!
   address: String! @join__field(graph: TENANT)
@@ -640,6 +711,7 @@ input UpdateUserInput @join__type(graph: USER) {
 }
 
 input UserProfileInput @join__type(graph: USER) {
+  userId: ID
   firstName: String!
   lastName: String
   middleName: String

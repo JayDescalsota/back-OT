@@ -31,5 +31,9 @@ models:
     model: github.com/clinicmanager/services/booking/db.BunAppointmentSlot
   Appointment:
     model: github.com/clinicmanager/services/booking/db.BunAppointment
+  AppointmentGoal:
+    model: github.com/clinicmanager/services/booking/db.BunAppointmentGoal
+  SoapNote:
+    model: github.com/clinicmanager/services/booking/db.BunSoapNote
   ScheduleException:
     model: github.com/clinicmanager/services/booking/db.BunScheduleException

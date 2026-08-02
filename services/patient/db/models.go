@@ -84,3 +84,24 @@ type BunPatientTags struct {
 	UpdatedBy     *string   `bun:"updated_by" json:"-"`
 	UpdatedAction string    `bun:"updated_action" json:"-"`
 }
+
+type BunGoal struct {
+	bun.BaseModel `bun:"table:patient_goals"`
+
+	ID        string  `bun:"id,pk" json:"id"`
+	PatientID string  `bun:"patient_id" json:"patient_id"`
+	Goal      string  `bun:"goal,notnull" json:"goal"`
+	Target    *string `bun:"target" json:"target,omitempty"`
+	Progress  int     `bun:"progress,default:0" json:"progress"`
+	Status    string  `bun:"status,default:'Not Started'" json:"status"`
+	IsActive  bool    `bun:"is_active,default:true" json:"is_active"`
+
+	CreatedAt     time.Time `bun:"created_at" json:"-"`
+	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
+	CreatedBy     *string   `bun:"created_by" json:"-"`
+	CreatedAction string    `bun:"created_action" json:"-"`
+	UpdatedBy     *string   `bun:"updated_by" json:"-"`
+	UpdatedAction string    `bun:"updated_action" json:"-"`
+}
+
+func (BunGoal) IsEntity() {}

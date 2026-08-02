@@ -29,3 +29,5 @@ models:
     model: github.com/clinicmanager/services/patient/db.BunPatientTags
   PatientGuardians:
     model: github.com/clinicmanager/services/patient/db.BunPatientGuardians
+  Goal:
+    model: github.com/clinicmanager/services/patient/db.BunGoal

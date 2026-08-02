@@ -81,6 +81,21 @@ func (r *mutationResolver) RemovePatientGuardian(ctx context.Context, patientID 
 	return r.Resolver.PatientService.RemovePatientGuardian(ctx, patientID, guardianID)
 }
 
+// CreateGoal is the resolver for the createGoal field.
+func (r *mutationResolver) CreateGoal(ctx context.Context, input model.GoalInput) (*db.BunGoal, error) {
+	return r.Resolver.PatientService.CreateGoal(ctx, input)
+}
+
+// UpdateGoal is the resolver for the updateGoal field.
+func (r *mutationResolver) UpdateGoal(ctx context.Context, id string, input model.GoalUpdateInput) (*db.BunGoal, error) {
+	return r.Resolver.PatientService.UpdateGoal(ctx, id, input)
+}
+
+// DeleteGoal is the resolver for the deleteGoal field.
+func (r *mutationResolver) DeleteGoal(ctx context.Context, id string) (*db.BunGoal, error) {
+	return r.Resolver.PatientService.DeleteGoal(ctx, id)
+}
+
 // DateOfBirth is the resolver for the dateOfBirth field.
 func (r *patientResolver) DateOfBirth(ctx context.Context, obj *db.BunPatients) (string, error) {
 	if obj.DateOfBirth.IsZero() {
@@ -105,6 +120,11 @@ func (r *patientResolver) Tag(ctx context.Context, obj *db.BunPatients) ([]*db.B
 // Guardian is the resolver for the guardian field.
 func (r *patientResolver) Guardian(ctx context.Context, obj *db.BunPatients) ([]*db.BunGuardians, error) {
 	return r.Resolver.PatientService.GetPatientGuardians(ctx, obj.ID)
+}
+
+// Goals is the resolver for the goals field.
+func (r *patientResolver) Goals(ctx context.Context, obj *db.BunPatients) ([]*db.BunGoal, error) {
+	return r.Resolver.PatientService.GetPatientGoals(ctx, obj.ID)
 }
 
 // ID is the resolver for the id field.

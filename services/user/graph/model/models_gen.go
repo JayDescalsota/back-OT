@@ -87,6 +87,7 @@ type UserProfile struct {
 }
 
 type UserProfileInput struct {
+	UserID                   *string `json:"userId,omitempty"`
 	FirstName                string  `json:"firstName"`
 	LastName                 *string `json:"lastName,omitempty"`
 	MiddleName               *string `json:"middleName,omitempty"`

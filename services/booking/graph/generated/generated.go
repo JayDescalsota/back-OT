@@ -31,6 +31,7 @@ type Config = graphql.Config[ResolverRoot, DirectiveRoot, ComplexityRoot]
 
 type ResolverRoot interface {
 	Appointment() AppointmentResolver
+	AppointmentGoal() AppointmentGoalResolver
 	AppointmentSlot() AppointmentSlotResolver
 	BranchHours() BranchHoursResolver
 	Entity() EntityResolver
@@ -40,6 +41,7 @@ type ResolverRoot interface {
 	Query() QueryResolver
 	ScheduleException() ScheduleExceptionResolver
 	ScheduleTemplate() ScheduleTemplateResolver
+	SoapNote() SoapNoteResolver
 }
 
 type DirectiveRoot struct {
@@ -52,6 +54,7 @@ type ComplexityRoot struct {
 		CancelledAt        func(childComplexity int) int
 		CreatedAt          func(childComplexity int) int
 		CreatedBy          func(childComplexity int) int
+		Goals              func(childComplexity int) int
 		ID                 func(childComplexity int) int
 		Note               func(childComplexity int) int
 		Patient            func(childComplexity int) int
@@ -64,9 +67,22 @@ type ComplexityRoot struct {
 		ScheduledEnd       func(childComplexity int) int
 		ScheduledStart     func(childComplexity int) int
 		SlotID             func(childComplexity int) int
+		Soap               func(childComplexity int) int
 		Status             func(childComplexity int) int
 		UpdatedAt          func(childComplexity int) int
 		UpdatedBy          func(childComplexity int) int
+	}
+
+	AppointmentGoal struct {
+		AppointmentID func(childComplexity int) int
+		CreatedAt     func(childComplexity int) int
+		Goal          func(childComplexity int) int
+		GoalID        func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Notes         func(childComplexity int) int
+		Progress      func(childComplexity int) int
+		Status        func(childComplexity int) int
+		UpdatedAt     func(childComplexity int) int
 	}
 
 	AppointmentSlot struct {
@@ -100,12 +116,18 @@ type ComplexityRoot struct {
 
 	Entity struct {
 		FindAppointmentByID              func(childComplexity int, id string) int
+		FindAppointmentGoalByID          func(childComplexity int, id string) int
 		FindAppointmentSlotByID          func(childComplexity int, id string) int
 		FindBranchHoursByID              func(childComplexity int, id string) int
 		FindPractitionerAvailabilityByID func(childComplexity int, id string) int
 		FindPractitionerBranchByID       func(childComplexity int, id string) int
 		FindScheduleExceptionByID        func(childComplexity int, id string) int
 		FindScheduleTemplateByID         func(childComplexity int, id string) int
+		FindSoapNoteByID                 func(childComplexity int, id string) int
+	}
+
+	Goal struct {
+		ID func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -124,12 +146,16 @@ type ComplexityRoot struct {
 		DeleteScheduleException        func(childComplexity int, id string) int
 		DeleteScheduleTemplate         func(childComplexity int, id string) int
 		GenerateSlots                  func(childComplexity int, branchID string, practitionerID string, date string) int
+		RemoveAppointmentGoal          func(childComplexity int, id string) int
 		RescheduleAppointment          func(childComplexity int, id string, input model.RescheduleAppointmentInput) int
-		StartAppointment               func(childComplexity int, id string) int
+		SetAppointmentGoals            func(childComplexity int, appointmentID string, goalIds []string) int
+		StartAppointment               func(childComplexity int, id string, goalIds []string) int
 		UpdateAppointment              func(childComplexity int, id string, input model.AppointmentUpdateInput) int
+		UpdateAppointmentGoal          func(childComplexity int, id string, input model.AppointmentGoalUpdateInput) int
 		UpdateBranchHours              func(childComplexity int, id string, input model.BranchHoursUpdateInput) int
 		UpdateScheduleTemplate         func(childComplexity int, id string, input model.ScheduleTemplateUpdateInput) int
 		UpdateSlotStatus               func(childComplexity int, id string, status string) int
+		UpsertSoapNote                 func(childComplexity int, appointmentID string, input model.SoapNoteInput) int
 	}
 
 	Patient struct {
@@ -214,6 +240,17 @@ type ComplexityRoot struct {
 		UpdatedBy           func(childComplexity int) int
 	}
 
+	SoapNote struct {
+		AppointmentID func(childComplexity int) int
+		Assessment    func(childComplexity int) int
+		CreatedAt     func(childComplexity int) int
+		ID            func(childComplexity int) int
+		Objective     func(childComplexity int) int
+		Plan          func(childComplexity int) int
+		Subjective    func(childComplexity int) int
+		UpdatedAt     func(childComplexity int) int
+	}
+
 	User struct {
 		ID func(childComplexity int) int
 	}
@@ -241,6 +278,13 @@ type AppointmentResolver interface {
 
 	Practitioner(ctx context.Context, obj *db.BunAppointment) (*model.User, error)
 	Patient(ctx context.Context, obj *db.BunAppointment) (*model.Patient, error)
+	Goals(ctx context.Context, obj *db.BunAppointment) ([]*db.BunAppointmentGoal, error)
+	Soap(ctx context.Context, obj *db.BunAppointment) (*db.BunSoapNote, error)
+}
+type AppointmentGoalResolver interface {
+	CreatedAt(ctx context.Context, obj *db.BunAppointmentGoal) (string, error)
+	UpdatedAt(ctx context.Context, obj *db.BunAppointmentGoal) (*string, error)
+	Goal(ctx context.Context, obj *db.BunAppointmentGoal) (*model.Goal, error)
 }
 type AppointmentSlotResolver interface {
 	SlotDate(ctx context.Context, obj *db.BunAppointmentSlot) (string, error)
@@ -263,12 +307,14 @@ type BranchHoursResolver interface {
 }
 type EntityResolver interface {
 	FindAppointmentByID(ctx context.Context, id string) (*db.BunAppointment, error)
+	FindAppointmentGoalByID(ctx context.Context, id string) (*db.BunAppointmentGoal, error)
 	FindAppointmentSlotByID(ctx context.Context, id string) (*db.BunAppointmentSlot, error)
 	FindBranchHoursByID(ctx context.Context, id string) (*db.BunBranchHours, error)
 	FindPractitionerAvailabilityByID(ctx context.Context, id string) (*db.BunPractitionerAvailability, error)
 	FindPractitionerBranchByID(ctx context.Context, id string) (*db.BunPractitionerBranch, error)
 	FindScheduleExceptionByID(ctx context.Context, id string) (*db.BunScheduleException, error)
 	FindScheduleTemplateByID(ctx context.Context, id string) (*db.BunScheduleTemplate, error)
+	FindSoapNoteByID(ctx context.Context, id string) (*db.BunSoapNote, error)
 }
 type MutationResolver interface {
 	CreateBranchHours(ctx context.Context, input model.BranchHoursInput) (*db.BunBranchHours, error)
@@ -286,10 +332,14 @@ type MutationResolver interface {
 	CreateAppointment(ctx context.Context, input model.AppointmentInput) (*db.BunAppointment, error)
 	UpdateAppointment(ctx context.Context, id string, input model.AppointmentUpdateInput) (*db.BunAppointment, error)
 	ConfirmAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
-	StartAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
+	StartAppointment(ctx context.Context, id string, goalIds []string) (*db.BunAppointment, error)
 	CompleteAppointment(ctx context.Context, id string) (*db.BunAppointment, error)
 	CancelAppointment(ctx context.Context, id string, input model.CancelAppointmentInput) (*db.BunAppointment, error)
 	RescheduleAppointment(ctx context.Context, id string, input model.RescheduleAppointmentInput) (*db.BunAppointment, error)
+	SetAppointmentGoals(ctx context.Context, appointmentID string, goalIds []string) ([]*db.BunAppointmentGoal, error)
+	UpdateAppointmentGoal(ctx context.Context, id string, input model.AppointmentGoalUpdateInput) (*db.BunAppointmentGoal, error)
+	RemoveAppointmentGoal(ctx context.Context, id string) (bool, error)
+	UpsertSoapNote(ctx context.Context, appointmentID string, input model.SoapNoteInput) (*db.BunSoapNote, error)
 	CreateScheduleException(ctx context.Context, input model.ScheduleExceptionInput) (*db.BunScheduleException, error)
 	DeleteScheduleException(ctx context.Context, id string) (bool, error)
 }
@@ -350,6 +400,10 @@ type ScheduleTemplateResolver interface {
 
 	Practitioner(ctx context.Context, obj *db.BunScheduleTemplate) (*model.User, error)
 }
+type SoapNoteResolver interface {
+	CreatedAt(ctx context.Context, obj *db.BunSoapNote) (string, error)
+	UpdatedAt(ctx context.Context, obj *db.BunSoapNote) (*string, error)
+}
 
 // endregion ************************** generated!.gotpl **************************
 
@@ -399,6 +453,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Appointment.CreatedBy(childComplexity), true
+	case "Appointment.goals":
+		if e.ComplexityRoot.Appointment.Goals == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.Goals(childComplexity), true
 	case "Appointment.id":
 		if e.ComplexityRoot.Appointment.ID == nil {
 			break
@@ -471,6 +531,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Appointment.SlotID(childComplexity), true
+	case "Appointment.soap":
+		if e.ComplexityRoot.Appointment.Soap == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Appointment.Soap(childComplexity), true
 	case "Appointment.status":
 		if e.ComplexityRoot.Appointment.Status == nil {
 			break
@@ -489,6 +555,61 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Appointment.UpdatedBy(childComplexity), true
+
+	case "AppointmentGoal.appointment_id":
+		if e.ComplexityRoot.AppointmentGoal.AppointmentID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.AppointmentID(childComplexity), true
+	case "AppointmentGoal.created_at":
+		if e.ComplexityRoot.AppointmentGoal.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.CreatedAt(childComplexity), true
+	case "AppointmentGoal.goal":
+		if e.ComplexityRoot.AppointmentGoal.Goal == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.Goal(childComplexity), true
+	case "AppointmentGoal.goal_id":
+		if e.ComplexityRoot.AppointmentGoal.GoalID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.GoalID(childComplexity), true
+	case "AppointmentGoal.id":
+		if e.ComplexityRoot.AppointmentGoal.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.ID(childComplexity), true
+	case "AppointmentGoal.notes":
+		if e.ComplexityRoot.AppointmentGoal.Notes == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.Notes(childComplexity), true
+	case "AppointmentGoal.progress":
+		if e.ComplexityRoot.AppointmentGoal.Progress == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.Progress(childComplexity), true
+	case "AppointmentGoal.status":
+		if e.ComplexityRoot.AppointmentGoal.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.Status(childComplexity), true
+	case "AppointmentGoal.updated_at":
+		if e.ComplexityRoot.AppointmentGoal.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AppointmentGoal.UpdatedAt(childComplexity), true
 
 	case "AppointmentSlot.appointment_id":
 		if e.ComplexityRoot.AppointmentSlot.AppointmentID == nil {
@@ -641,6 +762,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entity.FindAppointmentByID(childComplexity, args["id"].(string)), true
+	case "Entity.findAppointmentGoalByID":
+		if e.ComplexityRoot.Entity.FindAppointmentGoalByID == nil {
+			break
+		}
+
+		args, err := ec.field_Entity_findAppointmentGoalByID_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Entity.FindAppointmentGoalByID(childComplexity, args["id"].(string)), true
 	case "Entity.findAppointmentSlotByID":
 		if e.ComplexityRoot.Entity.FindAppointmentSlotByID == nil {
 			break
@@ -707,6 +839,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entity.FindScheduleTemplateByID(childComplexity, args["id"].(string)), true
+	case "Entity.findSoapNoteByID":
+		if e.ComplexityRoot.Entity.FindSoapNoteByID == nil {
+			break
+		}
+
+		args, err := ec.field_Entity_findSoapNoteByID_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Entity.FindSoapNoteByID(childComplexity, args["id"].(string)), true
+
+	case "Goal.id":
+		if e.ComplexityRoot.Goal.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Goal.ID(childComplexity), true
 
 	case "Mutation.cancelAppointment":
 		if e.ComplexityRoot.Mutation.CancelAppointment == nil {
@@ -873,6 +1023,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.GenerateSlots(childComplexity, args["branch_id"].(string), args["practitioner_id"].(string), args["date"].(string)), true
+	case "Mutation.removeAppointmentGoal":
+		if e.ComplexityRoot.Mutation.RemoveAppointmentGoal == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_removeAppointmentGoal_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.RemoveAppointmentGoal(childComplexity, args["id"].(string)), true
 	case "Mutation.rescheduleAppointment":
 		if e.ComplexityRoot.Mutation.RescheduleAppointment == nil {
 			break
@@ -884,6 +1045,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.RescheduleAppointment(childComplexity, args["id"].(string), args["input"].(model.RescheduleAppointmentInput)), true
+	case "Mutation.setAppointmentGoals":
+		if e.ComplexityRoot.Mutation.SetAppointmentGoals == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setAppointmentGoals_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetAppointmentGoals(childComplexity, args["appointmentId"].(string), args["goalIds"].([]string)), true
 	case "Mutation.startAppointment":
 		if e.ComplexityRoot.Mutation.StartAppointment == nil {
 			break
@@ -894,7 +1066,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.StartAppointment(childComplexity, args["id"].(string)), true
+		return e.ComplexityRoot.Mutation.StartAppointment(childComplexity, args["id"].(string), args["goalIds"].([]string)), true
 	case "Mutation.updateAppointment":
 		if e.ComplexityRoot.Mutation.UpdateAppointment == nil {
 			break
@@ -906,6 +1078,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdateAppointment(childComplexity, args["id"].(string), args["input"].(model.AppointmentUpdateInput)), true
+	case "Mutation.updateAppointmentGoal":
+		if e.ComplexityRoot.Mutation.UpdateAppointmentGoal == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateAppointmentGoal_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateAppointmentGoal(childComplexity, args["id"].(string), args["input"].(model.AppointmentGoalUpdateInput)), true
 	case "Mutation.updateBranchHours":
 		if e.ComplexityRoot.Mutation.UpdateBranchHours == nil {
 			break
@@ -939,6 +1122,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdateSlotStatus(childComplexity, args["id"].(string), args["status"].(string)), true
+	case "Mutation.upsertSoapNote":
+		if e.ComplexityRoot.Mutation.UpsertSoapNote == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_upsertSoapNote_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpsertSoapNote(childComplexity, args["appointmentId"].(string), args["input"].(model.SoapNoteInput)), true
 
 	case "Patient.id":
 		if e.ComplexityRoot.Patient.ID == nil {
@@ -1406,6 +1600,55 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.ScheduleTemplate.UpdatedBy(childComplexity), true
 
+	case "SoapNote.appointment_id":
+		if e.ComplexityRoot.SoapNote.AppointmentID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.AppointmentID(childComplexity), true
+	case "SoapNote.assessment":
+		if e.ComplexityRoot.SoapNote.Assessment == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.Assessment(childComplexity), true
+	case "SoapNote.created_at":
+		if e.ComplexityRoot.SoapNote.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.CreatedAt(childComplexity), true
+	case "SoapNote.id":
+		if e.ComplexityRoot.SoapNote.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.ID(childComplexity), true
+	case "SoapNote.objective":
+		if e.ComplexityRoot.SoapNote.Objective == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.Objective(childComplexity), true
+	case "SoapNote.plan":
+		if e.ComplexityRoot.SoapNote.Plan == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.Plan(childComplexity), true
+	case "SoapNote.subjective":
+		if e.ComplexityRoot.SoapNote.Subjective == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.Subjective(childComplexity), true
+	case "SoapNote.updated_at":
+		if e.ComplexityRoot.SoapNote.UpdatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.SoapNote.UpdatedAt(childComplexity), true
+
 	case "User.id":
 		if e.ComplexityRoot.User.ID == nil {
 			break
@@ -1428,6 +1671,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	opCtx := graphql.GetOperationContext(ctx)
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
+		ec.unmarshalInputAppointmentGoalUpdateInput,
 		ec.unmarshalInputAppointmentInput,
 		ec.unmarshalInputAppointmentSlotsFilter,
 		ec.unmarshalInputAppointmentUpdateInput,
@@ -1441,6 +1685,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputScheduleExceptionInput,
 		ec.unmarshalInputScheduleTemplateInput,
 		ec.unmarshalInputScheduleTemplateUpdateInput,
+		ec.unmarshalInputSoapNoteInput,
 	)
 	first := true
 
@@ -1526,6 +1771,10 @@ extend type User @key(fields: "id") {
 }
 
 extend type Patient @key(fields: "id") {
+  id: ID! @external
+}
+
+extend type Goal @key(fields: "id") {
   id: ID! @external
 }
 
@@ -1625,6 +1874,31 @@ type Appointment @key(fields: "id") {
   updated_by: ID
   practitioner: User
   patient: Patient
+  goals: [AppointmentGoal!]!
+  soap: SoapNote
+}
+
+type AppointmentGoal @key(fields: "id") {
+  id: ID!
+  appointment_id: ID!
+  goal_id: ID!
+  progress: Int!
+  status: String!
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime
+  goal: Goal!
+}
+
+type SoapNote @key(fields: "id") {
+  id: ID!
+  appointment_id: ID!
+  subjective: String
+  objective: String
+  assessment: String
+  plan: String
+  created_at: DateTime!
+  updated_at: DateTime
 }
 
 type ScheduleException @key(fields: "id") {
@@ -1709,6 +1983,19 @@ input RescheduleAppointmentInput {
   scheduled_start: DateTime!
   scheduled_end: DateTime!
   reason: String!
+}
+
+input AppointmentGoalUpdateInput {
+  progress: Int
+  status: String
+  notes: String
+}
+
+input SoapNoteInput {
+  subjective: String
+  objective: String
+  assessment: String
+  plan: String
 }
 
 input ScheduleExceptionInput {
@@ -1801,10 +2088,18 @@ type Mutation {
   createAppointment(input: AppointmentInput!): Appointment!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   confirmAppointment(id: ID!): Appointment!
-  startAppointment(id: ID!): Appointment!
+  startAppointment(id: ID!, goalIds: [ID!]): Appointment!
   completeAppointment(id: ID!): Appointment!
   cancelAppointment(id: ID!, input: CancelAppointmentInput!): Appointment!
   rescheduleAppointment(id: ID!, input: RescheduleAppointmentInput!): Appointment!
+
+  # Session goals
+  setAppointmentGoals(appointmentId: ID!, goalIds: [ID!]!): [AppointmentGoal!]!
+  updateAppointmentGoal(id: ID!, input: AppointmentGoalUpdateInput!): AppointmentGoal!
+  removeAppointmentGoal(id: ID!): Boolean!
+
+  # SOAP notes
+  upsertSoapNote(appointmentId: ID!, input: SoapNoteInput!): SoapNote!
 
   # Schedule exceptions
   createScheduleException(input: ScheduleExceptionInput!): ScheduleException!
@@ -1865,17 +2160,19 @@ type Mutation {
 `, BuiltIn: true},
 	{Name: "../../federation/entity.graphql", Input: `
 # a union of all types that use the @key directive
-union _Entity = Appointment | AppointmentSlot | BranchHours | Patient | PractitionerAvailability | PractitionerBranch | ScheduleException | ScheduleTemplate | User
+union _Entity = Appointment | AppointmentGoal | AppointmentSlot | BranchHours | Goal | Patient | PractitionerAvailability | PractitionerBranch | ScheduleException | ScheduleTemplate | SoapNote | User
 
 # fake type to build resolver interfaces for users to implement
 type Entity {
 	findAppointmentByID(id: ID!,): Appointment!
+	findAppointmentGoalByID(id: ID!,): AppointmentGoal!
 	findAppointmentSlotByID(id: ID!,): AppointmentSlot!
 	findBranchHoursByID(id: ID!,): BranchHours!
 	findPractitionerAvailabilityByID(id: ID!,): PractitionerAvailability!
 	findPractitionerBranchByID(id: ID!,): PractitionerBranch!
 	findScheduleExceptionByID(id: ID!,): ScheduleException!
 	findScheduleTemplateByID(id: ID!,): ScheduleTemplate!
+	findSoapNoteByID(id: ID!,): SoapNote!
 }
 
 type _Service {
@@ -1936,8 +2233,36 @@ func (ec *executionContext) childFields_Appointment(ctx context.Context, field g
 		return ec.fieldContext_Appointment_practitioner(ctx, field)
 	case "patient":
 		return ec.fieldContext_Appointment_patient(ctx, field)
+	case "goals":
+		return ec.fieldContext_Appointment_goals(ctx, field)
+	case "soap":
+		return ec.fieldContext_Appointment_soap(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Appointment", field.Name)
+}
+
+func (ec *executionContext) childFields_AppointmentGoal(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_AppointmentGoal_id(ctx, field)
+	case "appointment_id":
+		return ec.fieldContext_AppointmentGoal_appointment_id(ctx, field)
+	case "goal_id":
+		return ec.fieldContext_AppointmentGoal_goal_id(ctx, field)
+	case "progress":
+		return ec.fieldContext_AppointmentGoal_progress(ctx, field)
+	case "status":
+		return ec.fieldContext_AppointmentGoal_status(ctx, field)
+	case "notes":
+		return ec.fieldContext_AppointmentGoal_notes(ctx, field)
+	case "created_at":
+		return ec.fieldContext_AppointmentGoal_created_at(ctx, field)
+	case "updated_at":
+		return ec.fieldContext_AppointmentGoal_updated_at(ctx, field)
+	case "goal":
+		return ec.fieldContext_AppointmentGoal_goal(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AppointmentGoal", field.Name)
 }
 
 func (ec *executionContext) childFields_AppointmentSlot(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1996,6 +2321,14 @@ func (ec *executionContext) childFields_BranchHours(ctx context.Context, field g
 		return ec.fieldContext_BranchHours_updated_by(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type BranchHours", field.Name)
+}
+
+func (ec *executionContext) childFields_Goal(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_Goal_id(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type Goal", field.Name)
 }
 
 func (ec *executionContext) childFields_Patient(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2122,6 +2455,28 @@ func (ec *executionContext) childFields_ScheduleTemplate(ctx context.Context, fi
 		return ec.fieldContext_ScheduleTemplate_practitioner(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ScheduleTemplate", field.Name)
+}
+
+func (ec *executionContext) childFields_SoapNote(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_SoapNote_id(ctx, field)
+	case "appointment_id":
+		return ec.fieldContext_SoapNote_appointment_id(ctx, field)
+	case "subjective":
+		return ec.fieldContext_SoapNote_subjective(ctx, field)
+	case "objective":
+		return ec.fieldContext_SoapNote_objective(ctx, field)
+	case "assessment":
+		return ec.fieldContext_SoapNote_assessment(ctx, field)
+	case "plan":
+		return ec.fieldContext_SoapNote_plan(ctx, field)
+	case "created_at":
+		return ec.fieldContext_SoapNote_created_at(ctx, field)
+	case "updated_at":
+		return ec.fieldContext_SoapNote_updated_at(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type SoapNote", field.Name)
 }
 
 func (ec *executionContext) childFields_User(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -2270,6 +2625,20 @@ func (ec *executionContext) field_Entity_findAppointmentByID_args(ctx context.Co
 	return args, nil
 }
 
+func (ec *executionContext) field_Entity_findAppointmentGoalByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Entity_findAppointmentSlotByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2341,6 +2710,20 @@ func (ec *executionContext) field_Entity_findScheduleExceptionByID_args(ctx cont
 }
 
 func (ec *executionContext) field_Entity_findScheduleTemplateByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Entity_findSoapNoteByID_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2588,6 +2971,20 @@ func (ec *executionContext) field_Mutation_generateSlots_args(ctx context.Contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_removeAppointmentGoal_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_rescheduleAppointment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2610,6 +3007,28 @@ func (ec *executionContext) field_Mutation_rescheduleAppointment_args(ctx contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_setAppointmentGoals_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "appointmentId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["appointmentId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "goalIds",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalNID2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["goalIds"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_startAppointment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -2621,6 +3040,36 @@ func (ec *executionContext) field_Mutation_startAppointment_args(ctx context.Con
 		return nil, err
 	}
 	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "goalIds",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalOID2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["goalIds"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateAppointmentGoal_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.AppointmentGoalUpdateInput, error) {
+			return ec.unmarshalNAppointmentGoalUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐAppointmentGoalUpdateInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -2709,6 +3158,28 @@ func (ec *executionContext) field_Mutation_updateSlotStatus_args(ctx context.Con
 		return nil, err
 	}
 	args["status"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_upsertSoapNote_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "appointmentId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["appointmentId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.SoapNoteInput, error) {
+			return ec.unmarshalNSoapNoteInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐSoapNoteInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -3506,6 +3977,286 @@ func (ec *executionContext) fieldContext_Appointment_patient(_ context.Context, 
 	return fc, nil
 }
 
+func (ec *executionContext) _Appointment_goals(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_goals(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Appointment().Goals(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunAppointmentGoal) graphql.Marshaler {
+			return ec.marshalNAppointmentGoal2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoalᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_goals(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Appointment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AppointmentGoal(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Appointment_soap(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointment) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Appointment_soap(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.Appointment().Soap(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunSoapNote) graphql.Marshaler {
+			return ec.marshalOSoapNote2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunSoapNote(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Appointment_soap(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Appointment",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SoapNote(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _AppointmentGoal_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_appointment_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_appointment_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AppointmentID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_appointment_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_goal_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_goal_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GoalID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_goal_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_progress(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_progress(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Progress, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_progress(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_status(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_notes(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_notes(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Notes, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_notes(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_created_at(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_created_at(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.AppointmentGoal().CreatedAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNDateTime2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_created_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, true, true, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_updated_at(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_updated_at(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.AppointmentGoal().UpdatedAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_updated_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AppointmentGoal", field, true, true, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _AppointmentGoal_goal(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentGoal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AppointmentGoal_goal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.AppointmentGoal().Goal(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.Goal) graphql.Marshaler {
+			return ec.marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AppointmentGoal_goal(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AppointmentGoal",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Goal(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _AppointmentSlot_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAppointmentSlot) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4088,6 +4839,50 @@ func (ec *executionContext) fieldContext_Entity_findAppointmentByID(ctx context.
 	return fc, nil
 }
 
+func (ec *executionContext) _Entity_findAppointmentGoalByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Entity_findAppointmentGoalByID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Entity().FindAppointmentGoalByID(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointmentGoal) graphql.Marshaler {
+			return ec.marshalNAppointmentGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Entity_findAppointmentGoalByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AppointmentGoal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Entity_findAppointmentGoalByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Entity_findAppointmentSlotByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -4350,6 +5145,73 @@ func (ec *executionContext) fieldContext_Entity_findScheduleTemplateByID(ctx con
 		return fc, err
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _Entity_findSoapNoteByID(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Entity_findSoapNoteByID(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Entity().FindSoapNoteByID(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunSoapNote) graphql.Marshaler {
+			return ec.marshalNSoapNote2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunSoapNote(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Entity_findSoapNoteByID(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entity",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SoapNote(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Entity_findSoapNoteByID_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Goal_id(ctx context.Context, field graphql.CollectedField, obj *model.Goal) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Goal_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Goal_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Goal", field, false, false, errors.New("field of type ID does not have child fields"))
 }
 
 func (ec *executionContext) _Mutation_createBranchHours(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -5022,7 +5884,7 @@ func (ec *executionContext) _Mutation_startAppointment(ctx context.Context, fiel
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().StartAppointment(ctx, fc.Args["id"].(string))
+			return ec.Resolvers.Mutation().StartAppointment(ctx, fc.Args["id"].(string), fc.Args["goalIds"].([]string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointment) graphql.Marshaler {
@@ -5182,6 +6044,182 @@ func (ec *executionContext) fieldContext_Mutation_rescheduleAppointment(ctx cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Mutation_rescheduleAppointment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setAppointmentGoals(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setAppointmentGoals(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetAppointmentGoals(ctx, fc.Args["appointmentId"].(string), fc.Args["goalIds"].([]string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunAppointmentGoal) graphql.Marshaler {
+			return ec.marshalNAppointmentGoal2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoalᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setAppointmentGoals(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AppointmentGoal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setAppointmentGoals_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateAppointmentGoal(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateAppointmentGoal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateAppointmentGoal(ctx, fc.Args["id"].(string), fc.Args["input"].(model.AppointmentGoalUpdateInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAppointmentGoal) graphql.Marshaler {
+			return ec.marshalNAppointmentGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoal(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateAppointmentGoal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AppointmentGoal(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateAppointmentGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_removeAppointmentGoal(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_removeAppointmentGoal(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().RemoveAppointmentGoal(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_removeAppointmentGoal(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_removeAppointmentGoal_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_upsertSoapNote(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_upsertSoapNote(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpsertSoapNote(ctx, fc.Args["appointmentId"].(string), fc.Args["input"].(model.SoapNoteInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunSoapNote) graphql.Marshaler {
+			return ec.marshalNSoapNote2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunSoapNote(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_upsertSoapNote(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_SoapNote(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_upsertSoapNote_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -7184,6 +8222,190 @@ func (ec *executionContext) fieldContext_ScheduleTemplate_practitioner(_ context
 	return fc, nil
 }
 
+func (ec *executionContext) _SoapNote_id(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_appointment_id(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_appointment_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AppointmentID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_appointment_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_subjective(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_subjective(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Subjective, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_subjective(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_objective(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_objective(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Objective, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_objective(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_assessment(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_assessment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Assessment, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_assessment(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_plan(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_plan(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Plan, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalOString2string(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_plan(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_created_at(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_created_at(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.SoapNote().CreatedAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNDateTime2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_created_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, true, true, errors.New("field of type DateTime does not have child fields"))
+}
+
+func (ec *executionContext) _SoapNote_updated_at(ctx context.Context, field graphql.CollectedField, obj *db.BunSoapNote) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_SoapNote_updated_at(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.SoapNote().UpdatedAt(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalODateTime2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_SoapNote_updated_at(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("SoapNote", field, true, true, errors.New("field of type DateTime does not have child fields"))
+}
+
 func (ec *executionContext) _User_id(ctx context.Context, field graphql.CollectedField, obj *model.User) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8289,6 +9511,50 @@ func (ec *executionContext) fieldContext___Type_isOneOf(_ context.Context, field
 
 // region    **************************** input.gotpl *****************************
 
+func (ec *executionContext) unmarshalInputAppointmentGoalUpdateInput(ctx context.Context, obj any) (model.AppointmentGoalUpdateInput, error) {
+	var it model.AppointmentGoalUpdateInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"progress", "status", "notes"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "progress":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("progress"))
+			data, err := ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Progress = data
+		case "status":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("status"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Status = data
+		case "notes":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("notes"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Notes = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputAppointmentInput(ctx context.Context, obj any) (model.AppointmentInput, error) {
 	var it model.AppointmentInput
 	if obj == nil {
@@ -8959,6 +10225,57 @@ func (ec *executionContext) unmarshalInputScheduleTemplateUpdateInput(ctx contex
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputSoapNoteInput(ctx context.Context, obj any) (model.SoapNoteInput, error) {
+	var it model.SoapNoteInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"subjective", "objective", "assessment", "plan"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "subjective":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("subjective"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Subjective = data
+		case "objective":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("objective"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Objective = data
+		case "assessment":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("assessment"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Assessment = data
+		case "plan":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("plan"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Plan = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -8974,6 +10291,13 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 			return graphql.Null
 		}
 		return ec._User(ctx, sel, obj)
+	case db.BunSoapNote:
+		return ec._SoapNote(ctx, sel, &obj)
+	case *db.BunSoapNote:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._SoapNote(ctx, sel, obj)
 	case db.BunScheduleTemplate:
 		return ec._ScheduleTemplate(ctx, sel, &obj)
 	case *db.BunScheduleTemplate:
@@ -9009,6 +10333,13 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 			return graphql.Null
 		}
 		return ec._Patient(ctx, sel, obj)
+	case model.Goal:
+		return ec._Goal(ctx, sel, &obj)
+	case *model.Goal:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._Goal(ctx, sel, obj)
 	case db.BunBranchHours:
 		return ec._BranchHours(ctx, sel, &obj)
 	case *db.BunBranchHours:
@@ -9023,6 +10354,13 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 			return graphql.Null
 		}
 		return ec._AppointmentSlot(ctx, sel, obj)
+	case db.BunAppointmentGoal:
+		return ec._AppointmentGoal(ctx, sel, &obj)
+	case *db.BunAppointmentGoal:
+		if obj == nil {
+			return graphql.Null
+		}
+		return ec._AppointmentGoal(ctx, sel, obj)
 	case db.BunAppointment:
 		return ec._Appointment(ctx, sel, &obj)
 	case *db.BunAppointment:
@@ -9425,6 +10763,259 @@ func (ec *executionContext) _Appointment(ctx context.Context, sel ast.SelectionS
 				}()
 				res = ec._Appointment_patient(ctx, field, obj)
 				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "goals":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Appointment_goals(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "soap":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Appointment_soap(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var appointmentGoalImplementors = []string{"AppointmentGoal", "_Entity"}
+
+func (ec *executionContext) _AppointmentGoal(ctx context.Context, sel ast.SelectionSet, obj *db.BunAppointmentGoal) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, appointmentGoalImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AppointmentGoal")
+		case "id":
+			out.Values[i] = ec._AppointmentGoal_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "appointment_id":
+			out.Values[i] = ec._AppointmentGoal_appointment_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "goal_id":
+			out.Values[i] = ec._AppointmentGoal_goal_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "progress":
+			out.Values[i] = ec._AppointmentGoal_progress(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "status":
+			out.Values[i] = ec._AppointmentGoal_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "notes":
+			out.Values[i] = ec._AppointmentGoal_notes(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "created_at":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._AppointmentGoal_created_at(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "updated_at":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._AppointmentGoal_updated_at(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "goal":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._AppointmentGoal_goal(ctx, field, obj)
+				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -10092,6 +11683,28 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "findAppointmentGoalByID":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Entity_findAppointmentGoalByID(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "findAppointmentSlotByID":
 			field := field
 
@@ -10224,6 +11837,66 @@ func (ec *executionContext) _Entity(ctx context.Context, sel ast.SelectionSet) g
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "findSoapNoteByID":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Entity_findSoapNoteByID(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var goalImplementors = []string{"Goal", "_Entity"}
+
+func (ec *executionContext) _Goal(ctx context.Context, sel ast.SelectionSet, obj *model.Goal) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, goalImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("Goal")
+		case "id":
+			out.Values[i] = ec._Goal_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -10394,6 +12067,34 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		case "rescheduleAppointment":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_rescheduleAppointment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "setAppointmentGoals":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setAppointmentGoals(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateAppointmentGoal":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateAppointmentGoal(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "removeAppointmentGoal":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_removeAppointmentGoal(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "upsertSoapNote":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_upsertSoapNote(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -12037,6 +13738,145 @@ func (ec *executionContext) _ScheduleTemplate(ctx context.Context, sel ast.Selec
 	return out
 }
 
+var soapNoteImplementors = []string{"SoapNote", "_Entity"}
+
+func (ec *executionContext) _SoapNote(ctx context.Context, sel ast.SelectionSet, obj *db.BunSoapNote) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, soapNoteImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("SoapNote")
+		case "id":
+			out.Values[i] = ec._SoapNote_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "appointment_id":
+			out.Values[i] = ec._SoapNote_appointment_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "subjective":
+			out.Values[i] = ec._SoapNote_subjective(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "objective":
+			out.Values[i] = ec._SoapNote_objective(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "assessment":
+			out.Values[i] = ec._SoapNote_assessment(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "plan":
+			out.Values[i] = ec._SoapNote_plan(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "created_at":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._SoapNote_created_at(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "updated_at":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._SoapNote_updated_at(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var userImplementors = []string{"User", "_Entity"}
 
 func (ec *executionContext) _User(ctx context.Context, sel ast.SelectionSet, obj *model.User) graphql.Marshaler {
@@ -12535,6 +14375,41 @@ func (ec *executionContext) marshalNAppointment2ᚖgithubᚗcomᚋclinicmanager�
 	return ec._Appointment(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNAppointmentGoal2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoal(ctx context.Context, sel ast.SelectionSet, v db.BunAppointmentGoal) graphql.Marshaler {
+	return ec._AppointmentGoal(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNAppointmentGoal2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoalᚄ(ctx context.Context, sel ast.SelectionSet, v []*db.BunAppointmentGoal) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNAppointmentGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoal(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNAppointmentGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunAppointmentGoal(ctx context.Context, sel ast.SelectionSet, v *db.BunAppointmentGoal) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AppointmentGoal(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNAppointmentGoalUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐAppointmentGoalUpdateInput(ctx context.Context, v any) (model.AppointmentGoalUpdateInput, error) {
+	res, err := ec.unmarshalInputAppointmentGoalUpdateInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNAppointmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐAppointmentInput(ctx context.Context, v any) (model.AppointmentInput, error) {
 	res, err := ec.unmarshalInputAppointmentInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12678,6 +14553,20 @@ func (ec *executionContext) marshalNFieldSet2string(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) marshalNGoal2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐGoal(ctx context.Context, sel ast.SelectionSet, v model.Goal) graphql.Marshaler {
+	return ec._Goal(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNGoal2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐGoal(ctx context.Context, sel ast.SelectionSet, v *model.Goal) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._Goal(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalNID2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalID(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -12692,6 +14581,35 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalNID2ᚖstring(ctx context.Context, v any) (*string, error) {
@@ -12879,6 +14797,25 @@ func (ec *executionContext) unmarshalNScheduleTemplateInput2githubᚗcomᚋclini
 
 func (ec *executionContext) unmarshalNScheduleTemplateUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐScheduleTemplateUpdateInput(ctx context.Context, v any) (model.ScheduleTemplateUpdateInput, error) {
 	res, err := ec.unmarshalInputScheduleTemplateUpdateInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSoapNote2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunSoapNote(ctx context.Context, sel ast.SelectionSet, v db.BunSoapNote) graphql.Marshaler {
+	return ec._SoapNote(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNSoapNote2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunSoapNote(ctx context.Context, sel ast.SelectionSet, v *db.BunSoapNote) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._SoapNote(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNSoapNoteInput2githubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋgraphᚋmodelᚐSoapNoteInput(ctx context.Context, v any) (model.SoapNoteInput, error) {
+	res, err := ec.unmarshalInputSoapNoteInput(ctx, v)
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
@@ -13320,6 +15257,41 @@ func (ec *executionContext) marshalODateTime2ᚖstring(ctx context.Context, sel 
 	return res
 }
 
+func (ec *executionContext) unmarshalOID2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNID2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOID2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNID2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -13389,6 +15361,13 @@ func (ec *executionContext) marshalOScheduleTemplate2ᚖgithubᚗcomᚋclinicman
 		return graphql.Null
 	}
 	return ec._ScheduleTemplate(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOSoapNote2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋbookingᚋdbᚐBunSoapNote(ctx context.Context, sel ast.SelectionSet, v *db.BunSoapNote) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._SoapNote(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v any) (string, error) {

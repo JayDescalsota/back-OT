@@ -765,6 +765,7 @@ input UpdateUserInput {
 }
 
 input UserProfileInput {
+  userId: ID
   firstName: String!
   lastName: String
   middleName: String
@@ -4202,13 +4203,20 @@ func (ec *executionContext) unmarshalInputUserProfileInput(ctx context.Context, 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"firstName", "lastName", "middleName", "suffix", "title", "phone", "mobile", "dateOfBirth", "gender", "addressId", "timezone", "preferredLanguage", "emergencyContactName", "emergencyContactPhone", "emergencyContactRelation", "notes"}
+	fieldsInOrder := [...]string{"userId", "firstName", "lastName", "middleName", "suffix", "title", "phone", "mobile", "dateOfBirth", "gender", "addressId", "timezone", "preferredLanguage", "emergencyContactName", "emergencyContactPhone", "emergencyContactRelation", "notes"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
 			continue
 		}
 		switch k {
+		case "userId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("userId"))
+			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.UserID = data
 		case "firstName":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("firstName"))
 			data, err := ec.unmarshalNString2string(ctx, v)

@@ -73,6 +73,35 @@ func (r *appointmentResolver) Patient(ctx context.Context, obj *db.BunAppointmen
 	return &model.Patient{ID: *obj.PatientID}, nil
 }
 
+// Goals is the resolver for the goals field.
+func (r *appointmentResolver) Goals(ctx context.Context, obj *db.BunAppointment) ([]*db.BunAppointmentGoal, error) {
+	return r.BookingService.GetAppointmentGoals(ctx, obj.ID)
+}
+
+// Soap is the resolver for the soap field.
+func (r *appointmentResolver) Soap(ctx context.Context, obj *db.BunAppointment) (*db.BunSoapNote, error) {
+	return r.BookingService.GetAppointmentSoap(ctx, obj.ID)
+}
+
+// CreatedAt is the resolver for the created_at field.
+func (r *appointmentGoalResolver) CreatedAt(ctx context.Context, obj *db.BunAppointmentGoal) (string, error) {
+	return obj.CreatedAt.Format(time.RFC3339), nil
+}
+
+// UpdatedAt is the resolver for the updated_at field.
+func (r *appointmentGoalResolver) UpdatedAt(ctx context.Context, obj *db.BunAppointmentGoal) (*string, error) {
+	if obj.UpdatedAt.IsZero() {
+		return nil, nil
+	}
+	s := obj.UpdatedAt.Format(time.RFC3339)
+	return &s, nil
+}
+
+// Goal is the resolver for the goal field.
+func (r *appointmentGoalResolver) Goal(ctx context.Context, obj *db.BunAppointmentGoal) (*model.Goal, error) {
+	return &model.Goal{ID: obj.GoalID}, nil
+}
+
 // SlotDate is the resolver for the slot_date field.
 func (r *appointmentSlotResolver) SlotDate(ctx context.Context, obj *db.BunAppointmentSlot) (string, error) {
 	return obj.StartAt.Format("2006-01-02"), nil
@@ -236,8 +265,8 @@ func (r *mutationResolver) ConfirmAppointment(ctx context.Context, id string) (*
 }
 
 // StartAppointment is the resolver for the startAppointment field.
-func (r *mutationResolver) StartAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
-	return r.BookingService.StartAppointment(ctx, id)
+func (r *mutationResolver) StartAppointment(ctx context.Context, id string, goalIds []string) (*db.BunAppointment, error) {
+	return r.BookingService.StartAppointment(ctx, id, goalIds)
 }
 
 // CompleteAppointment is the resolver for the completeAppointment field.
@@ -253,6 +282,26 @@ func (r *mutationResolver) CancelAppointment(ctx context.Context, id string, inp
 // RescheduleAppointment is the resolver for the rescheduleAppointment field.
 func (r *mutationResolver) RescheduleAppointment(ctx context.Context, id string, input model.RescheduleAppointmentInput) (*db.BunAppointment, error) {
 	return r.BookingService.RescheduleAppointment(ctx, id, input)
+}
+
+// SetAppointmentGoals is the resolver for the setAppointmentGoals field.
+func (r *mutationResolver) SetAppointmentGoals(ctx context.Context, appointmentID string, goalIds []string) ([]*db.BunAppointmentGoal, error) {
+	return r.BookingService.SetAppointmentGoals(ctx, appointmentID, goalIds)
+}
+
+// UpdateAppointmentGoal is the resolver for the updateAppointmentGoal field.
+func (r *mutationResolver) UpdateAppointmentGoal(ctx context.Context, id string, input model.AppointmentGoalUpdateInput) (*db.BunAppointmentGoal, error) {
+	return r.BookingService.UpdateAppointmentGoal(ctx, id, input)
+}
+
+// RemoveAppointmentGoal is the resolver for the removeAppointmentGoal field.
+func (r *mutationResolver) RemoveAppointmentGoal(ctx context.Context, id string) (bool, error) {
+	return r.BookingService.RemoveAppointmentGoal(ctx, id)
+}
+
+// UpsertSoapNote is the resolver for the upsertSoapNote field.
+func (r *mutationResolver) UpsertSoapNote(ctx context.Context, appointmentID string, input model.SoapNoteInput) (*db.BunSoapNote, error) {
+	return r.BookingService.UpsertSoapNote(ctx, appointmentID, input)
 }
 
 // CreateScheduleException is the resolver for the createScheduleException field.
@@ -495,8 +544,27 @@ func (r *scheduleTemplateResolver) Practitioner(ctx context.Context, obj *db.Bun
 	return &model.User{ID: *obj.PractitionerID}, nil
 }
 
+// CreatedAt is the resolver for the created_at field.
+func (r *soapNoteResolver) CreatedAt(ctx context.Context, obj *db.BunSoapNote) (string, error) {
+	return obj.CreatedAt.Format(time.RFC3339), nil
+}
+
+// UpdatedAt is the resolver for the updated_at field.
+func (r *soapNoteResolver) UpdatedAt(ctx context.Context, obj *db.BunSoapNote) (*string, error) {
+	if obj.UpdatedAt.IsZero() {
+		return nil, nil
+	}
+	s := obj.UpdatedAt.Format(time.RFC3339)
+	return &s, nil
+}
+
 // Appointment returns generated.AppointmentResolver implementation.
 func (r *Resolver) Appointment() generated.AppointmentResolver { return &appointmentResolver{r} }
+
+// AppointmentGoal returns generated.AppointmentGoalResolver implementation.
+func (r *Resolver) AppointmentGoal() generated.AppointmentGoalResolver {
+	return &appointmentGoalResolver{r}
+}
 
 // AppointmentSlot returns generated.AppointmentSlotResolver implementation.
 func (r *Resolver) AppointmentSlot() generated.AppointmentSlotResolver {
@@ -532,8 +600,12 @@ func (r *Resolver) ScheduleTemplate() generated.ScheduleTemplateResolver {
 	return &scheduleTemplateResolver{r}
 }
 
+// SoapNote returns generated.SoapNoteResolver implementation.
+func (r *Resolver) SoapNote() generated.SoapNoteResolver { return &soapNoteResolver{r} }
+
 type (
 	appointmentResolver              struct{ *Resolver }
+	appointmentGoalResolver          struct{ *Resolver }
 	appointmentSlotResolver          struct{ *Resolver }
 	branchHoursResolver              struct{ *Resolver }
 	mutationResolver                 struct{ *Resolver }
@@ -542,4 +614,5 @@ type (
 	queryResolver                    struct{ *Resolver }
 	scheduleExceptionResolver        struct{ *Resolver }
 	scheduleTemplateResolver         struct{ *Resolver }
+	soapNoteResolver                 struct{ *Resolver }
 )

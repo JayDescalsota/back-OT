@@ -2,6 +2,21 @@
 
 package model
 
+type GoalInput struct {
+	PatientID string  `json:"patientId"`
+	Goal      string  `json:"goal"`
+	Target    *string `json:"target,omitempty"`
+	Progress  *int    `json:"progress,omitempty"`
+	Status    *string `json:"status,omitempty"`
+}
+
+type GoalUpdateInput struct {
+	Goal     *string `json:"goal,omitempty"`
+	Target   *string `json:"target,omitempty"`
+	Progress *int    `json:"progress,omitempty"`
+	Status   *string `json:"status,omitempty"`
+}
+
 type GuardianInput struct {
 	FirstName string  `json:"firstName"`
 	LastName  string  `json:"lastName"`

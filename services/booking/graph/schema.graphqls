@@ -11,6 +11,10 @@ extend type Patient @key(fields: "id") {
   id: ID! @external
 }
 
+extend type Goal @key(fields: "id") {
+  id: ID! @external
+}
+
 type BranchHours @key(fields: "id") {
   id: ID!
   branch_id: ID!
@@ -107,6 +111,31 @@ type Appointment @key(fields: "id") {
   updated_by: ID
   practitioner: User
   patient: Patient
+  goals: [AppointmentGoal!]!
+  soap: SoapNote
+}
+
+type AppointmentGoal @key(fields: "id") {
+  id: ID!
+  appointment_id: ID!
+  goal_id: ID!
+  progress: Int!
+  status: String!
+  notes: String
+  created_at: DateTime!
+  updated_at: DateTime
+  goal: Goal!
+}
+
+type SoapNote @key(fields: "id") {
+  id: ID!
+  appointment_id: ID!
+  subjective: String
+  objective: String
+  assessment: String
+  plan: String
+  created_at: DateTime!
+  updated_at: DateTime
 }
 
 type ScheduleException @key(fields: "id") {
@@ -191,6 +220,19 @@ input RescheduleAppointmentInput {
   scheduled_start: DateTime!
   scheduled_end: DateTime!
   reason: String!
+}
+
+input AppointmentGoalUpdateInput {
+  progress: Int
+  status: String
+  notes: String
+}
+
+input SoapNoteInput {
+  subjective: String
+  objective: String
+  assessment: String
+  plan: String
 }
 
 input ScheduleExceptionInput {
@@ -283,10 +325,18 @@ type Mutation {
   createAppointment(input: AppointmentInput!): Appointment!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   confirmAppointment(id: ID!): Appointment!
-  startAppointment(id: ID!): Appointment!
+  startAppointment(id: ID!, goalIds: [ID!]): Appointment!
   completeAppointment(id: ID!): Appointment!
   cancelAppointment(id: ID!, input: CancelAppointmentInput!): Appointment!
   rescheduleAppointment(id: ID!, input: RescheduleAppointmentInput!): Appointment!
+
+  # Session goals
+  setAppointmentGoals(appointmentId: ID!, goalIds: [ID!]!): [AppointmentGoal!]!
+  updateAppointmentGoal(id: ID!, input: AppointmentGoalUpdateInput!): AppointmentGoal!
+  removeAppointmentGoal(id: ID!): Boolean!
+
+  # SOAP notes
+  upsertSoapNote(appointmentId: ID!, input: SoapNoteInput!): SoapNote!
 
   # Schedule exceptions
   createScheduleException(input: ScheduleExceptionInput!): ScheduleException!

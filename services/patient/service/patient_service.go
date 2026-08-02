@@ -350,3 +350,81 @@ func (s *PatientService) GetGuardianByID(ctx context.Context, id string) (*db.Bu
 	s.cacheSet(ctx, ck, m)
 	return m, nil
 }
+
+func (s *PatientService) GetPatientGoals(ctx context.Context, patientID string) ([]*db.BunGoal, error) {
+	return s.PatientRepository.GetPatientGoals(ctx, patientID)
+}
+
+func (s *PatientService) CreateGoal(ctx context.Context, input model.GoalInput) (*db.BunGoal, error) {
+	progress := 0
+	if input.Progress != nil {
+		progress = *input.Progress
+	}
+	status := "Not Started"
+	if input.Status != nil && *input.Status != "" {
+		status = *input.Status
+	}
+	goal := &db.BunGoal{
+		ID:        uuid.NewString(),
+		PatientID: input.PatientID,
+		Goal:      input.Goal,
+		Target:    input.Target,
+		Progress:  progress,
+		Status:    status,
+		IsActive:  true,
+	}
+
+	if err := s.PatientRepository.CreateGoal(ctx, goal); err != nil {
+		return nil, err
+	}
+
+	s.cacheDel(ctx, cache.Key("patient", "patient", input.PatientID))
+	return goal, nil
+}
+
+func (s *PatientService) UpdateGoal(ctx context.Context, id string, input model.GoalUpdateInput) (*db.BunGoal, error) {
+	existing, err := s.PatientRepository.FindGoalByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+
+	if input.Goal != nil {
+		existing.Goal = *input.Goal
+	}
+	if input.Target != nil {
+		existing.Target = input.Target
+	}
+	if input.Progress != nil {
+		existing.Progress = *input.Progress
+	}
+	if input.Status != nil && *input.Status != "" {
+		existing.Status = *input.Status
+	}
+
+	if err := s.PatientRepository.UpdateGoal(ctx, existing); err != nil {
+		return nil, err
+	}
+
+	s.cacheDel(ctx, cache.Key("patient", "patient", existing.PatientID))
+	return existing, nil
+}
+
+func (s *PatientService) DeleteGoal(ctx context.Context, id string) (*db.BunGoal, error) {
+	existing, err := s.PatientRepository.FindGoalByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+
+	if err := s.PatientRepository.DeleteGoal(ctx, id); err != nil {
+		return nil, err
+	}
+
+	s.cacheDel(ctx, cache.Key("patient", "patient", existing.PatientID))
+	return existing, nil
+}

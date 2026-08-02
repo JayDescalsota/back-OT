@@ -17,6 +17,17 @@ type Patient @key(fields: "id") {
   address: Address
   tag: [PatientTags!]!
   guardian: [Guardian!]!
+  goals: [Goal!]!
+}
+
+type Goal @key(fields: "id") {
+  id: ID!
+  patientId: ID!
+  goal: String!
+  target: String
+  progress: Int!
+  status: String!
+  isActive: Boolean!
 }
 
 type PatientTags {
@@ -119,4 +130,22 @@ type Mutation {
   addPatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
   updatePatientGuardian(patientId: ID!, guardianId: ID!, relationship: String!): PatientGuardianRelationship!
   removePatientGuardian(patientId: ID!, guardianId: ID!): Boolean!
+  createGoal(input: GoalInput!): Goal!
+  updateGoal(id: ID!, input: GoalUpdateInput!): Goal!
+  deleteGoal(id: ID!): Goal!
+}
+
+input GoalInput {
+  patientId: ID!
+  goal: String!
+  target: String
+  progress: Int
+  status: String
+}
+
+input GoalUpdateInput {
+  goal: String
+  target: String
+  progress: Int
+  status: String
 }

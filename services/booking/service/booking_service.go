@@ -657,7 +657,7 @@ func (s *BookingService) ConfirmAppointment(ctx context.Context, id string) (*db
 	return existing, nil
 }
 
-func (s *BookingService) StartAppointment(ctx context.Context, id string) (*db.BunAppointment, error) {
+func (s *BookingService) StartAppointment(ctx context.Context, id string, goalIDs []string) (*db.BunAppointment, error) {
 	existing, err := s.BookingRepository.FindAppointmentByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -682,6 +682,11 @@ func (s *BookingService) StartAppointment(ctx context.Context, id string) (*db.B
 	existing.UpdatedAction = "START"
 	if err := s.BookingRepository.UpdateAppointment(ctx, existing); err != nil {
 		return nil, err
+	}
+	if len(goalIDs) > 0 {
+		if _, err := s.SetAppointmentGoals(ctx, id, goalIDs); err != nil {
+			return nil, err
+		}
 	}
 	s.cacheDel(ctx, cache.Key("booking", "appointment", id))
 	return existing, nil
@@ -878,6 +883,135 @@ func (s *BookingService) DeleteScheduleException(ctx context.Context, id string)
 	return true, nil
 }
 
+// Appointment Goals
+
+func (s *BookingService) GetAppointmentGoals(ctx context.Context, appointmentID string) ([]*db.BunAppointmentGoal, error) {
+	return s.BookingRepository.FindAppointmentGoals(ctx, appointmentID)
+}
+
+func (s *BookingService) SetAppointmentGoals(ctx context.Context, appointmentID string, goalIDs []string) ([]*db.BunAppointmentGoal, error) {
+	if err := s.BookingRepository.RemoveAppointmentGoals(ctx, appointmentID); err != nil {
+		return nil, err
+	}
+	tctx := sharedCtx.FromContext(ctx)
+	now := time.Now()
+	list := make([]*db.BunAppointmentGoal, 0, len(goalIDs))
+	for _, gid := range goalIDs {
+		list = append(list, &db.BunAppointmentGoal{
+			ID:            uuid.NewString(),
+			TenantID:      tctx.TenantID,
+			AppointmentID: appointmentID,
+			GoalID:        gid,
+			Progress:      0,
+			Status:        "Not Started",
+			IsActive:      true,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+			CreatedAction: "CREATE",
+		})
+	}
+	if len(list) > 0 {
+		if err := s.BookingRepository.CreateAppointmentGoals(ctx, list); err != nil {
+			return nil, err
+		}
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", appointmentID))
+	return s.BookingRepository.FindAppointmentGoals(ctx, appointmentID)
+}
+
+func (s *BookingService) UpdateAppointmentGoal(ctx context.Context, id string, input model.AppointmentGoalUpdateInput) (*db.BunAppointmentGoal, error) {
+	existing, err := s.BookingRepository.FindAppointmentGoalByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+	if input.Progress != nil {
+		existing.Progress = *input.Progress
+	}
+	if input.Status != nil && *input.Status != "" {
+		existing.Status = *input.Status
+	}
+	if input.Notes != nil {
+		existing.Notes = *input.Notes
+	}
+	existing.UpdatedAt = time.Now()
+	existing.UpdatedAction = "UPDATE"
+	if err := s.BookingRepository.UpdateAppointmentGoal(ctx, existing); err != nil {
+		return nil, err
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", existing.AppointmentID))
+	return existing, nil
+}
+
+func (s *BookingService) RemoveAppointmentGoal(ctx context.Context, id string) (bool, error) {
+	existing, err := s.BookingRepository.FindAppointmentGoalByID(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	if existing == nil {
+		return false, nil
+	}
+	if err := s.BookingRepository.RemoveAppointmentGoal(ctx, id); err != nil {
+		return false, err
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", existing.AppointmentID))
+	return true, nil
+}
+
+// SOAP Notes
+
+func (s *BookingService) GetAppointmentSoap(ctx context.Context, appointmentID string) (*db.BunSoapNote, error) {
+	return s.BookingRepository.FindSoapNoteByAppointment(ctx, appointmentID)
+}
+
+func (s *BookingService) UpsertSoapNote(ctx context.Context, appointmentID string, input model.SoapNoteInput) (*db.BunSoapNote, error) {
+	existing, err := s.BookingRepository.FindSoapNoteByAppointment(ctx, appointmentID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	if existing == nil {
+		tctx := sharedCtx.FromContext(ctx)
+		existing = &db.BunSoapNote{
+			ID:            uuid.NewString(),
+			TenantID:      tctx.TenantID,
+			AppointmentID: appointmentID,
+			Subjective:    derefStr(input.Subjective),
+			Objective:     derefStr(input.Objective),
+			Assessment:    derefStr(input.Assessment),
+			Plan:          derefStr(input.Plan),
+			CreatedAt:     now,
+			UpdatedAt:     now,
+			CreatedAction: "CREATE",
+		}
+		if err := s.BookingRepository.CreateSoapNote(ctx, existing); err != nil {
+			return nil, err
+		}
+	} else {
+		if input.Subjective != nil {
+			existing.Subjective = *input.Subjective
+		}
+		if input.Objective != nil {
+			existing.Objective = *input.Objective
+		}
+		if input.Assessment != nil {
+			existing.Assessment = *input.Assessment
+		}
+		if input.Plan != nil {
+			existing.Plan = *input.Plan
+		}
+		existing.UpdatedAt = now
+		existing.UpdatedAction = "UPDATE"
+		if err := s.BookingRepository.UpdateSoapNote(ctx, existing); err != nil {
+			return nil, err
+		}
+	}
+	s.cacheDel(ctx, cache.Key("booking", "appointment", appointmentID))
+	return existing, nil
+}
+
 // Helpers
 
 func parseTimeVal(s string) time.Time {
@@ -935,6 +1069,13 @@ func parseTime(s string) time.Time {
 }
 
 func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func derefStr(s *string) string {
 	if s == nil {
 		return ""
 	}
