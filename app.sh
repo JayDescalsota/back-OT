@@ -252,6 +252,11 @@ case "$CMD" in
     done
     ;;
   setup)
+    # Configure git hooks if in a git repository
+    if [ -d "$SCRIPT_DIR/.git" ] && [ -d "$SCRIPT_DIR/.githooks" ]; then
+      git config core.hooksPath .githooks >/dev/null 2>&1 || true
+    fi
+
     echo "Stopping and removing all services..."
     $DOCKER_COMPOSE down -v
 

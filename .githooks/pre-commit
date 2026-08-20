@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+echo "🔍 [Pre-commit] Checking Go backend..."
+
+# 1. Format staged Go files
+gofiles=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [ -n "$gofiles" ]; then
+    echo "  ↳ Formatting staged .go files with gofmt..."
+    for file in $gofiles; do
+        if [ -f "$file" ]; then
+            gofmt -s -w "$file"
+            git add "$file"
+        fi
+    done
+fi
+
+# 2. Run go vet across all packages
+if command -v go >/dev/null 2>&1; then
+    echo "  ↳ Running go vet ./..."
+    go vet ./...
+else
+    echo "  ⚠️ Go binary not found in PATH, skipping go vet."
+fi
+
+echo "✅ [Pre-commit] All backend checks passed!"
