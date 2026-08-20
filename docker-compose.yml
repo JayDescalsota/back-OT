@@ -1,7 +1,9 @@
+name: clinic
+
 services:
   loki:
     image: grafana/loki:2.9.8
-    container_name: loki
+    container_name: clinic_loki
     restart: unless-stopped
     ports:
       - "3100:3100"
@@ -11,7 +13,7 @@ services:
 
   promtail:
     image: grafana/promtail:2.9.8
-    container_name: promtail
+    container_name: clinic_promtail
     restart: unless-stopped
     volumes:
       - ./monitoring/promtail/config.yml:/etc/promtail/config.yml
@@ -23,7 +25,7 @@ services:
 
   grafana:
     image: grafana/grafana:12.0.2
-    container_name: grafana
+    container_name: clinic_grafana
     restart: unless-stopped
     environment:
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -38,7 +40,7 @@ services:
 
   db:
     image: postgres:17
-    container_name: postgres
+    container_name: clinic_postgres
     restart: unless-stopped
 
     environment:
@@ -46,20 +48,20 @@ services:
       POSTGRES_PASSWORD: 1
       POSTGRES_DB: clinic
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:8-alpine
-    container_name: redis
+    container_name: clinic_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
 
   router:
     image: ghcr.io/apollographql/router:v1.45.0
-    container_name: apollo_router
+    container_name: clinic_apollo_router
     ports:
       - "4001"  # internal — accessible via Docker DNS
     volumes:
@@ -78,7 +80,7 @@ services:
       context: .
       dockerfile: services/gateway/Dockerfile
     image: clinic/gateway:latest
-    container_name: gateway
+    container_name: clinic_gateway
     restart: unless-stopped
     ports:
       - "4000:4000"
@@ -87,7 +89,7 @@ services:
     environment:
       IN_DOCKER: "true"
       ROUTER_URL: http://router:4000
-      USER_SVC_URL: http://user:8081
+      USER_SVC_URL: http://user:8181
     volumes:
       - ./.env:/app/.env
     depends_on:
@@ -99,14 +101,14 @@ services:
       context: .
       dockerfile: services/user/Dockerfile
     image: clinic/user:latest
-    container_name: user
+    container_name: clinic_user
     restart: unless-stopped
     env_file:
       - .env
     environment:
       IN_DOCKER: "true"
     ports:
-      - "8081:8081"
+      - "8181:8181"
     volumes:
       - ./.env:/app/.env
     depends_on:
@@ -118,14 +120,14 @@ services:
       context: .
       dockerfile: services/tenant/Dockerfile
     image: clinic/tenant:latest
-    container_name: tenant
+    container_name: clinic_tenant
     restart: unless-stopped
     env_file:
       - .env
     environment:
       IN_DOCKER: "true"
     ports:
-      - "8082:8082"
+      - "8182:8182"
     volumes:
       - ./.env:/app/.env
     depends_on:
@@ -137,14 +139,14 @@ services:
       context: .
       dockerfile: services/patient/Dockerfile
     image: clinic/patient:latest
-    container_name: patient
+    container_name: clinic_patient
     restart: unless-stopped
     env_file:
       - .env
     environment:
       IN_DOCKER: "true"
     ports:
-      - "8083:8083"
+      - "8183:8183"
     volumes:
       - ./.env:/app/.env
     depends_on:
@@ -156,14 +158,14 @@ services:
       context: .
       dockerfile: services/booking/Dockerfile
     image: clinic/booking:latest
-    container_name: booking
+    container_name: clinic_booking
     restart: unless-stopped
     env_file:
       - .env
     environment:
       IN_DOCKER: "true"
     ports:
-      - "8084:8084"
+      - "8184:8184"
     volumes:
       - ./.env:/app/.env
     depends_on:
@@ -175,14 +177,14 @@ services:
       context: .
       dockerfile: services/messaging/Dockerfile
     image: clinic/messaging:latest
-    container_name: messaging
+    container_name: clinic_messaging
     restart: unless-stopped
     env_file:
       - .env
     environment:
       IN_DOCKER: "true"
     ports:
-      - "8085:8085"
+      - "8185:8185"
     volumes:
       - ./.env:/app/.env
     depends_on:

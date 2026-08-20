@@ -81,30 +81,185 @@ case "$CMD" in
   *) echo "Unknown command: $CMD"; usage ;;
 esac
 
+# Docker compose command detection (supports 'docker compose' and 'docker-compose')
+if docker compose version >/dev/null 2>&1; then
+  DOCKER_COMPOSE="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  DOCKER_COMPOSE="docker-compose"
+else
+  DOCKER_COMPOSE="docker compose"
+fi
+
+# Helper to prompt user (defaults to Yes)
+prompt_confirm() {
+  local prompt_msg="$1"
+  read -r -p "$prompt_msg [Y/n]: " response
+  case "$response" in
+    [nN][oO]|[nN])
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+# Ensure Docker daemon is running, try to launch Docker Desktop if not
+ensure_docker_running() {
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "❌ Docker is not installed."
+    if prompt_confirm "Would you like to open the Docker Desktop download page?"; then
+      if command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -Command "Start-Process 'https://www.docker.com/products/docker-desktop/'"
+      elif command -v open >/dev/null 2>&1; then
+        open "https://www.docker.com/products/docker-desktop/"
+      elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "https://www.docker.com/products/docker-desktop/"
+      fi
+    fi
+    echo "Please install Docker and re-run this script."
+    exit 1
+  fi
+
+  if ! docker info >/dev/null 2>&1; then
+    echo "⚠️  Docker daemon is not running. Attempting to start Docker..."
+    started=false
+
+    # Windows (Docker Desktop)
+    if [ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]; then
+      powershell.exe -Command "Start-Process 'C:\Program Files\Docker\Docker\Docker Desktop.exe'" >/dev/null 2>&1 &
+      started=true
+    elif [ -n "$PROGRAMFILES" ] && [ -f "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" ]; then
+      powershell.exe -Command "Start-Process '$PROGRAMFILES\Docker\Docker\Docker Desktop.exe'" >/dev/null 2>&1 &
+      started=true
+    elif command -v powershell.exe >/dev/null 2>&1; then
+      powershell.exe -Command "Start-Process 'Docker Desktop'" >/dev/null 2>&1 || true
+      started=true
+    # macOS
+    elif [ -d "/Applications/Docker.app" ]; then
+      open -a Docker
+      started=true
+    # Linux systemd
+    elif command -v systemctl >/dev/null 2>&1; then
+      sudo systemctl start docker || true
+      started=true
+    fi
+
+    echo "⏳ Waiting for Docker daemon to become ready..."
+    local retries=45
+    while ! docker info >/dev/null 2>&1; do
+      sleep 2
+      retries=$((retries - 1))
+      if [ $retries -le 0 ]; then
+        echo "❌ Docker daemon failed to start in time. Please launch Docker Desktop manually and re-run."
+        exit 1
+      fi
+      printf "."
+    done
+    echo ""
+    echo "✅ Docker is running."
+  fi
+}
+
+# Ensure Apollo Rover CLI is installed
+ensure_rover() {
+  # Add default Rover install paths to current PATH if not present
+  export PATH="$HOME/.rover/bin:$USERPROFILE/.rover/bin:$LOCALAPPDATA/Rover/bin:$PATH"
+
+  if ! command -v rover >/dev/null 2>&1; then
+    echo "⚠️  Apollo Rover CLI ('rover') is required but not found."
+    if prompt_confirm "Would you like to install Apollo Rover now?"; then
+      echo "Installing Apollo Rover..."
+      if command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "iwr 'https://rover.apollo.dev/win/latest' | iex"
+      elif command -v curl >/dev/null 2>&1; then
+        curl -sSL https://rover.apollo.dev/nix/latest | sh
+      elif command -v npm >/dev/null 2>&1; then
+        npm install -g @apollo/rover
+      else
+        echo "❌ Neither PowerShell, curl, nor npm found to install rover."
+        echo "Please install Rover manually: https://www.apollographql.com/docs/rover/getting-started"
+        exit 1
+      fi
+
+      export PATH="$HOME/.rover/bin:$USERPROFILE/.rover/bin:$LOCALAPPDATA/Rover/bin:$PATH"
+      if ! command -v rover >/dev/null 2>&1; then
+        echo "Rover was installed. You may need to restart your terminal if it is not immediately recognized."
+      else
+        echo "✅ Apollo Rover installed successfully."
+      fi
+    else
+      echo "Skipping Rover installation. Note that supergraph composition may fail without it."
+    fi
+  fi
+}
+
+# Ensure Go is installed
+ensure_go() {
+  if ! command -v go >/dev/null 2>&1; then
+    echo "❌ Go is not installed, but is required for '$CMD'."
+    if prompt_confirm "Would you like to open the Go download page?"; then
+      if command -v powershell.exe >/dev/null 2>&1; then
+        powershell.exe -Command "Start-Process 'https://go.dev/dl/'"
+      elif command -v open >/dev/null 2>&1; then
+        open "https://go.dev/dl/"
+      elif command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "https://go.dev/dl/"
+      fi
+    fi
+    echo "Please install Go and re-run this script."
+    exit 1
+  fi
+}
+
+# Check prerequisites based on the command being run
+check_prerequisites() {
+  case "$CMD" in
+    up|down|setup|migrate)
+      ensure_docker_running
+      ;;
+  esac
+
+  case "$CMD" in
+    setup|gqlgen)
+      ensure_rover
+      ;;
+  esac
+
+  case "$CMD" in
+    build|gqlgen)
+      ensure_go
+      ;;
+  esac
+}
+
+# Run prerequisite checks before executing commands
+check_prerequisites
+
 case "$CMD" in
   up)
-    docker-compose up -d
+    $DOCKER_COMPOSE up -d
     ;;
   down)
-    docker-compose down
+    $DOCKER_COMPOSE down
     ;;
   build)
     for svc in "${TARGETS[@]}"; do
       echo "Building $svc..."
       (cd "$SCRIPT_DIR" && go build -o "bin/$svc" "./services/$svc")
       echo "Rebuilding and restarting docker container for $svc..."
-      docker-compose up -d --build "$svc"
+      $DOCKER_COMPOSE up -d --build "$svc"
     done
     ;;
   setup)
     echo "Stopping and removing all services..."
-    docker compose down -v
+    $DOCKER_COMPOSE down -v
 
     echo "Starting database and redis..."
-    docker-compose up -d db redis
+    $DOCKER_COMPOSE up -d db redis
 
     echo "Waiting for database to be ready..."
-    until docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do
+    until $DOCKER_COMPOSE exec -T db pg_isready -U postgres >/dev/null 2>&1; do
       sleep 1
     done
 
@@ -117,7 +272,7 @@ case "$CMD" in
       fi
       DB_NAME=$(get_db_name "$SVC_DB_URL")
       if [ -n "$DB_NAME" ] && [ "$DB_NAME" != "postgres" ]; then
-        docker-compose exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
+        $DOCKER_COMPOSE exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
       fi
     done
 
@@ -136,7 +291,7 @@ case "$CMD" in
         for f in "$migration_dir"/*.up.sql; do
           [ -f "$f" ] || continue
           echo "  Applying $(basename "$f")..."
-          docker-compose exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
+          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
           echo "  WARN: could not run $(basename "$f") — check DB_URL"
         done
       else
@@ -148,14 +303,14 @@ case "$CMD" in
     rover supergraph compose --config "$SCRIPT_DIR/supergraph-config.yaml" > "$SCRIPT_DIR/rover/supergraph.graphql"
 
     echo "Building and starting all services..."
-    docker-compose up -d --build
+    $DOCKER_COMPOSE up -d --build
     ;;
   migrate)
     echo "Starting database..."
-    docker-compose up -d db
+    $DOCKER_COMPOSE up -d db
 
     echo "Waiting for database to be ready..."
-    until docker-compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do
+    until $DOCKER_COMPOSE exec -T db pg_isready -U postgres >/dev/null 2>&1; do
       sleep 1
     done
 
@@ -168,7 +323,7 @@ case "$CMD" in
       fi
       DB_NAME=$(get_db_name "$SVC_DB_URL")
       if [ -n "$DB_NAME" ] && [ "$DB_NAME" != "postgres" ]; then
-        docker-compose exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
+        $DOCKER_COMPOSE exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
       fi
     done
 
@@ -187,7 +342,7 @@ case "$CMD" in
         for f in "$migration_dir"/*.up.sql; do
           [ -f "$f" ] || continue
           echo "  Applying $(basename "$f")..."
-          docker-compose exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
+          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
           echo "  WARN: could not run $(basename "$f") — check DB_URL"
         done
       else

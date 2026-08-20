@@ -1,22 +1,22 @@
-federation_version: 2
+federation_version: =2.8.2
 subgraphs:
   user:
-    routing_url: http://user:8081/graphql
+    routing_url: http://user:8181/graphql
     schema:
       file: ../services/user/graph/schema.graphqls
   tenant:
-    routing_url: http://tenant:8082/graphql
+    routing_url: http://tenant:8182/graphql
     schema:
       file: ../services/tenant/graph/schema.graphqls
   patient:
-    routing_url: http://patient:8083/graphql
+    routing_url: http://patient:8183/graphql
     schema:
       file: ../services/patient/graph/schema.graphqls
   booking:
-    routing_url: http://booking:8084/graphql
+    routing_url: http://booking:8184/graphql
     schema:
       file: ../services/booking/graph/schema.graphqls
   messaging:
-    routing_url: http://messaging:8085/graphql
+    routing_url: http://messaging:8185/graphql
     schema:
       file: ../services/messaging/graph/schema.graphqls

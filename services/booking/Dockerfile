@@ -9,5 +9,5 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o booking ./services/booking
 FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /app/booking .
-EXPOSE 8084
+EXPOSE 8184
 CMD ["./booking"]

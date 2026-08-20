@@ -9,5 +9,5 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o patient ./services/patient
 FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /app/patient .
-EXPOSE 8083
+EXPOSE 8183
 CMD ["./patient"]

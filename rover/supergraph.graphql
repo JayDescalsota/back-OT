@@ -1,4 +1,4 @@
-﻿schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) {
+schema @link(url: "https://specs.apollo.dev/link/v1.0") @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION) {
   query: Query
   mutation: Mutation
 }
@@ -31,11 +31,11 @@ enum link__Purpose {
 scalar link__Import
 
 enum join__Graph {
-  BOOKING @join__graph(name: "booking", url: "http://booking:8084/graphql")
-  MESSAGING @join__graph(name: "messaging", url: "http://messaging:8085/graphql")
-  PATIENT @join__graph(name: "patient", url: "http://patient:8083/graphql")
-  TENANT @join__graph(name: "tenant", url: "http://tenant:8082/graphql")
-  USER @join__graph(name: "user", url: "http://user:8081/graphql")
+  BOOKING @join__graph(name: "booking", url: "http://booking:8184/graphql")
+  MESSAGING @join__graph(name: "messaging", url: "http://messaging:8185/graphql")
+  PATIENT @join__graph(name: "patient", url: "http://patient:8183/graphql")
+  TENANT @join__graph(name: "tenant", url: "http://tenant:8182/graphql")
+  USER @join__graph(name: "user", url: "http://user:8181/graphql")
 }
 
 scalar join__FieldSet

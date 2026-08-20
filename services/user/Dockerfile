@@ -13,5 +13,5 @@ RUN CGO_ENABLED=0 GOOS=linux \
 FROM alpine:3.22
 WORKDIR /app
 COPY --from=builder /app/user .
-EXPOSE 8081
+EXPOSE 8181
 CMD ["./user"]
