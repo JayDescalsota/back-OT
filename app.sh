@@ -31,8 +31,8 @@ usage() {
   echo "Usage: $0 {up|down|build|setup|migrate|gqlgen} [options]"
   echo ""
   echo "Commands:"
-  echo "  up          Start services via docker-compose"
-  echo "  down        Stop services via docker-compose"
+  echo "  up          Start services via compose (Docker or Podman)"
+  echo "  down        Stop services via compose (Docker or Podman)"
   echo "  build       Build Go binaries"
   echo "  setup       Run migrations and seed data"
   echo "  migrate     Run migrations only"
@@ -81,15 +81,6 @@ case "$CMD" in
   *) echo "Unknown command: $CMD"; usage ;;
 esac
 
-# Docker compose command detection (supports 'docker compose' and 'docker-compose')
-if docker compose version >/dev/null 2>&1; then
-  DOCKER_COMPOSE="docker compose"
-elif command -v docker-compose >/dev/null 2>&1; then
-  DOCKER_COMPOSE="docker-compose"
-else
-  DOCKER_COMPOSE="docker compose"
-fi
-
 # Helper to prompt user (defaults to Yes)
 prompt_confirm() {
   local prompt_msg="$1"
@@ -104,61 +95,39 @@ prompt_confirm() {
   esac
 }
 
-# Ensure Docker daemon is running, try to launch Docker Desktop if not
-ensure_docker_running() {
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "❌ Docker is not installed."
-    if prompt_confirm "Would you like to open the Docker Desktop download page?"; then
-      if command -v powershell.exe >/dev/null 2>&1; then
-        powershell.exe -Command "Start-Process 'https://www.docker.com/products/docker-desktop/'"
-      elif command -v open >/dev/null 2>&1; then
-        open "https://www.docker.com/products/docker-desktop/"
-      elif command -v xdg-open >/dev/null 2>&1; then
-        xdg-open "https://www.docker.com/products/docker-desktop/"
-      fi
+# Detect which container runtime is actively running (Docker or Podman)
+DOCKER_COMPOSE=""
+ensure_container_running() {
+  # 1. Check if Docker is actively running
+  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    if docker compose version >/dev/null 2>&1; then
+      DOCKER_COMPOSE="docker compose"
+    elif command -v docker-compose >/dev/null 2>&1; then
+      DOCKER_COMPOSE="docker-compose"
+    else
+      DOCKER_COMPOSE="docker compose"
     fi
-    echo "Please install Docker and re-run this script."
-    exit 1
+    echo "✅ Docker is running ($DOCKER_COMPOSE)."
+    return 0
   fi
 
-  if ! docker info >/dev/null 2>&1; then
-    echo "⚠️  Docker daemon is not running. Attempting to start Docker..."
-    started=false
-
-    # Windows (Docker Desktop)
-    if [ -f "/c/Program Files/Docker/Docker/Docker Desktop.exe" ]; then
-      powershell.exe -Command "Start-Process 'C:\Program Files\Docker\Docker\Docker Desktop.exe'" >/dev/null 2>&1 &
-      started=true
-    elif [ -n "$PROGRAMFILES" ] && [ -f "$PROGRAMFILES/Docker/Docker/Docker Desktop.exe" ]; then
-      powershell.exe -Command "Start-Process '$PROGRAMFILES\Docker\Docker\Docker Desktop.exe'" >/dev/null 2>&1 &
-      started=true
-    elif command -v powershell.exe >/dev/null 2>&1; then
-      powershell.exe -Command "Start-Process 'Docker Desktop'" >/dev/null 2>&1 || true
-      started=true
-    # macOS
-    elif [ -d "/Applications/Docker.app" ]; then
-      open -a Docker
-      started=true
-    # Linux systemd
-    elif command -v systemctl >/dev/null 2>&1; then
-      sudo systemctl start docker || true
-      started=true
+  # 2. Check if Podman is actively running
+  if command -v podman >/dev/null 2>&1 && podman info >/dev/null 2>&1; then
+    if podman compose version >/dev/null 2>&1; then
+      DOCKER_COMPOSE="podman compose"
+    elif command -v podman-compose >/dev/null 2>&1; then
+      DOCKER_COMPOSE="podman-compose"
+    else
+      DOCKER_COMPOSE="podman compose"
     fi
-
-    echo "⏳ Waiting for Docker daemon to become ready..."
-    local retries=45
-    while ! docker info >/dev/null 2>&1; do
-      sleep 2
-      retries=$((retries - 1))
-      if [ $retries -le 0 ]; then
-        echo "❌ Docker daemon failed to start in time. Please launch Docker Desktop manually and re-run."
-        exit 1
-      fi
-      printf "."
-    done
-    echo ""
-    echo "✅ Docker is running."
+    echo "✅ Podman is running ($DOCKER_COMPOSE)."
+    return 0
   fi
+
+  # 3. Neither is running
+  echo "❌ No active container runtime found."
+  echo "   Please start Docker Desktop or run 'podman machine start', then re-run this script."
+  exit 1
 }
 
 # Ensure Apollo Rover CLI is installed
@@ -215,8 +184,8 @@ ensure_go() {
 # Check prerequisites based on the command being run
 check_prerequisites() {
   case "$CMD" in
-    up|down|setup|migrate)
-      ensure_docker_running
+    up|down|build|setup|migrate)
+      ensure_container_running
       ;;
   esac
 
