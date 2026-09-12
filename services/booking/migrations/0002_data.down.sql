@@ -1,0 +1,7 @@
+DELETE FROM booking_schedule_exceptions;
+DELETE FROM booking_appointments;
+DELETE FROM booking_appointment_slots;
+DELETE FROM booking_schedule_templates;
+DELETE FROM booking_practitioner_availabilities;
+DELETE FROM booking_practitioner_branches;
+DELETE FROM booking_branch_hours;

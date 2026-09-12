@@ -186,3 +186,4 @@ INSERT INTO booking_schedule_exceptions (id, tenant_id, schedule_template_id, ty
 VALUES
     ('b0000000-0007-4000-8000-000000000001', 'a1b2c3d4-0001-4000-8000-000000000001', 'b0000000-0004-4000-8000-000000000001', 'LUNCH_BREAK', 'Staff lunch break', DATE_TRUNC('day', NOW()) + INTERVAL '12 hours', DATE_TRUNC('day', NOW()) + INTERVAL '13 hours', 'ACTIVE', true, 'seed')
 ON CONFLICT (id) DO NOTHING;
+

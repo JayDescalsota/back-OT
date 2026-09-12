@@ -105,6 +105,40 @@ func (r *PatientRepository) UpdatePatient(ctx context.Context, patient *db.BunPa
 	return err
 }
 
+func (r *PatientRepository) FindPatientAddress(ctx context.Context, patientID string) (*db.BunPatientAddress, error) {
+	var address db.BunPatientAddress
+	err := r.db.NewSelect(ctx, &address).Where("patient_id = ?", patientID).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &address, nil
+}
+
+func (r *PatientRepository) FindPatientAddressByID(ctx context.Context, id string) (*db.BunPatientAddress, error) {
+	var address db.BunPatientAddress
+	err := r.db.NewSelect(ctx, &address).Where("id = ?", id).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &address, nil
+}
+
+func (r *PatientRepository) CreatePatientAddress(ctx context.Context, address *db.BunPatientAddress) error {
+	_, err := r.db.NewInsert(address).Exec(ctx)
+	return err
+}
+
+func (r *PatientRepository) UpdatePatientAddress(ctx context.Context, address *db.BunPatientAddress) error {
+	_, err := r.db.NewUpdate(ctx, address).Where("id = ?", address.ID).Exec(ctx)
+	return err
+}
+
 func (r *PatientRepository) DeletePatient(ctx context.Context, id string) error {
 	var patient db.BunPatients
 	_, err := r.db.NewDelete(ctx, &patient).Where("id = ?", id).Exec(ctx)

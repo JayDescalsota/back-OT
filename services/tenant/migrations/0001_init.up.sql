@@ -87,3 +87,32 @@ CREATE TABLE tenant_user_assignments (
 CREATE INDEX idx_assignments_user ON tenant_user_assignments (user_id);
 CREATE INDEX idx_assignments_tenant_branch ON tenant_user_assignments (tenant_id, branch_id);
 CREATE INDEX idx_tenant_branches_tenant ON tenant_branches (tenant_id);
+
+
+CREATE TABLE tenant_addresses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    address TEXT NOT NULL,
+    baranggay TEXT NOT NULL DEFAULT '',
+    city TEXT NOT NULL,
+    state TEXT NOT NULL,
+    zip_code TEXT NOT NULL,
+    country TEXT NOT NULL DEFAULT 'Philippines',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_by TEXT,
+    created_action TEXT NOT NULL DEFAULT 'CREATE',
+    updated_by TEXT,
+    updated_action TEXT NOT NULL DEFAULT 'CREATE'
+);
+
+ALTER TABLE tenant_branches ADD COLUMN address_id UUID REFERENCES tenant_addresses(id);
+
+CREATE TABLE apps (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+

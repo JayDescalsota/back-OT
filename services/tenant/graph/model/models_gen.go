@@ -15,6 +15,13 @@ type AddressInput struct {
 	Country   *string `json:"country,omitempty"`
 }
 
+type BranchInput struct {
+	Name     string  `json:"name"`
+	Timezone string  `json:"timezone"`
+	Phone    *string `json:"phone,omitempty"`
+	IsActive bool    `json:"isActive"`
+}
+
 type Mutation struct {
 }
 

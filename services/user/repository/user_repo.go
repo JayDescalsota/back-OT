@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"time"
 
-	sharedctx "github.com/clinicmanager/shared/context"
 	shareddb "github.com/clinicmanager/shared/db"
 	"github.com/google/uuid"
 	"github.com/uptrace/bun"
@@ -299,23 +298,13 @@ func (r *UserRepo) GetAppRoleByID(ctx context.Context, id int) (*models.AppRole,
 
 func (r *UserRepo) FindAllUsers(ctx context.Context) ([]*models.User, error) {
 	var users []*models.User
-	tctx := sharedctx.FromContext(ctx)
 	query := `SELECT DISTINCT u.id, u.email, u.password_hash, u.is_active, u.is_validated,
 		u.validated_at, u.validation_token, u.password_reset_at, u.password_reset_token,
 		u.password_reset_expires_at, u.last_login, u.created_at, u.updated_at,
 		u.created_by, u.updated_by, u.created_action, u.updated_action
 		FROM users AS u
-		JOIN tenant_user_assignments AS tua ON tua.user_id = u.id
-		WHERE tua.is_active = true`
+		WHERE u.is_active = true`
 	args := []interface{}{}
-	if tctx.TenantID != "" {
-		query += " AND tua.tenant_id = ?"
-		args = append(args, tctx.TenantID)
-	}
-	if tctx.BranchID != "" {
-		query += " AND tua.branch_id = ?"
-		args = append(args, tctx.BranchID)
-	}
 	query += " ORDER BY u.created_at DESC"
 	err := r.alldb.Raw().NewRaw(query, args...).Scan(ctx, &users)
 	if err != nil {
@@ -416,19 +405,13 @@ func (r *UserRepo) FindUsersByIDs(ctx context.Context, ids []string) ([]*models.
 	if len(ids) == 0 {
 		return users, nil
 	}
-	tctx := sharedctx.FromContext(ctx)
 	query := `SELECT DISTINCT u.id, u.email, u.password_hash, u.is_active, u.is_validated,
 		u.validated_at, u.validation_token, u.password_reset_at, u.password_reset_token,
 		u.password_reset_expires_at, u.last_login, u.created_at, u.updated_at,
 		u.created_by, u.updated_by, u.created_action, u.updated_action
 		FROM users AS u
-		JOIN tenant_user_assignments AS tua ON tua.user_id = u.id
-		WHERE tua.is_active = true AND u.id IN (?)`
+		WHERE u.is_active = true AND u.id IN (?)`
 	args := []interface{}{bun.In(ids)}
-	if tctx.TenantID != "" {
-		query += " AND tua.tenant_id = ?"
-		args = append(args, tctx.TenantID)
-	}
 	err := r.alldb.Raw().NewRaw(query, args...).Scan(ctx, &users)
 	return users, err
 }

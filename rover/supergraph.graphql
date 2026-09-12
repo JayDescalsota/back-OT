@@ -208,6 +208,15 @@ input BranchHoursUpdateInput
   is_active: Boolean
 }
 
+input BranchInput
+  @join__type(graph: TENANT)
+{
+  name: String!
+  timezone: String!
+  phone: String
+  isActive: Boolean!
+}
+
 input CancelAppointmentInput
   @join__type(graph: BOOKING)
 {
@@ -410,6 +419,8 @@ type Mutation
   registerPublicKey(public_key: String!): Boolean! @join__field(graph: MESSAGING)
   createPatient(input: PatientInput!): Patient! @join__field(graph: PATIENT)
   updatePatient(id: ID!, input: PatientUpdateInput!): Patient! @join__field(graph: PATIENT)
+  createPatientAddress(patientId: ID!, input: PatientAddressInput!): PatientAddress! @join__field(graph: PATIENT)
+  updatePatientAddress(id: ID!, input: PatientAddressInput!): PatientAddress! @join__field(graph: PATIENT)
   deletePatient(id: ID!): Patient! @join__field(graph: PATIENT)
   inactivatePatient(id: ID!): Patient! @join__field(graph: PATIENT)
   reactivatePatient(id: ID!): Patient! @join__field(graph: PATIENT)
@@ -422,8 +433,9 @@ type Mutation
   createGoal(input: GoalInput!): Goal! @join__field(graph: PATIENT)
   updateGoal(id: ID!, input: GoalUpdateInput!): Goal! @join__field(graph: PATIENT)
   deleteGoal(id: ID!): Goal! @join__field(graph: PATIENT)
-  createAddress(input: AddressInput!): Address! @join__field(graph: TENANT)
-  updateAddress(id: ID!, input: AddressInput!): Address! @join__field(graph: TENANT)
+  createTenantAddress(input: AddressInput!): Address! @join__field(graph: TENANT)
+  updateTenantAddress(id: ID!, input: AddressInput!): Address! @join__field(graph: TENANT)
+  updateBranch(id: ID!, input: BranchInput!): Branch! @join__field(graph: TENANT)
   createUser(input: CreateUserInput!): User! @join__field(graph: USER)
   updateUser(id: ID!, input: UpdateUserInput!): User! @join__field(graph: USER)
   upsertProfile(input: UserProfileInput!): UserProfile! @join__field(graph: USER)
@@ -459,10 +471,34 @@ type Patient
   height: String @join__field(graph: PATIENT)
   weight: String @join__field(graph: PATIENT)
   isActive: Boolean! @join__field(graph: PATIENT)
-  address: Address @join__field(graph: PATIENT)
+  address: PatientAddress @join__field(graph: PATIENT)
   tag: [PatientTags!]! @join__field(graph: PATIENT)
   guardian: [Guardian!]! @join__field(graph: PATIENT)
   goals: [Goal!]! @join__field(graph: PATIENT)
+}
+
+type PatientAddress
+  @join__type(graph: PATIENT)
+{
+  id: ID!
+  patientId: ID!
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
+input PatientAddressInput
+  @join__type(graph: PATIENT)
+{
+  address: String!
+  baranggay: String
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String
 }
 
 input PatientFilter

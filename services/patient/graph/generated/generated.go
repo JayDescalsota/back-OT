@@ -80,6 +80,7 @@ type ComplexityRoot struct {
 		CreateGoal            func(childComplexity int, input model.GoalInput) int
 		CreateGuardian        func(childComplexity int, input model.GuardianInput) int
 		CreatePatient         func(childComplexity int, input model.PatientInput) int
+		CreatePatientAddress  func(childComplexity int, patientID string, input model.PatientAddressInput) int
 		DeleteGoal            func(childComplexity int, id string) int
 		DeleteGuardian        func(childComplexity int, id string) int
 		DeletePatient         func(childComplexity int, id string) int
@@ -89,6 +90,7 @@ type ComplexityRoot struct {
 		UpdateGoal            func(childComplexity int, id string, input model.GoalUpdateInput) int
 		UpdateGuardian        func(childComplexity int, id string, input model.GuardianUpdateInput) int
 		UpdatePatient         func(childComplexity int, id string, input model.PatientUpdateInput) int
+		UpdatePatientAddress  func(childComplexity int, id string, input model.PatientAddressInput) int
 		UpdatePatientGuardian func(childComplexity int, patientID string, guardianID string, relationship string) int
 	}
 
@@ -108,6 +110,17 @@ type ComplexityRoot struct {
 		Tag         func(childComplexity int) int
 		TenantID    func(childComplexity int) int
 		Weight      func(childComplexity int) int
+	}
+
+	PatientAddress struct {
+		Address   func(childComplexity int) int
+		Baranggay func(childComplexity int) int
+		City      func(childComplexity int) int
+		Country   func(childComplexity int) int
+		ID        func(childComplexity int) int
+		PatientID func(childComplexity int) int
+		State     func(childComplexity int) int
+		ZipCode   func(childComplexity int) int
 	}
 
 	PatientGuardianRelationship struct {
@@ -152,6 +165,8 @@ type GuardianResolver interface {
 type MutationResolver interface {
 	CreatePatient(ctx context.Context, input model.PatientInput) (*db.BunPatients, error)
 	UpdatePatient(ctx context.Context, id string, input model.PatientUpdateInput) (*db.BunPatients, error)
+	CreatePatientAddress(ctx context.Context, patientID string, input model.PatientAddressInput) (*db.BunPatientAddress, error)
+	UpdatePatientAddress(ctx context.Context, id string, input model.PatientAddressInput) (*db.BunPatientAddress, error)
 	DeletePatient(ctx context.Context, id string) (*db.BunPatients, error)
 	InactivatePatient(ctx context.Context, id string) (*db.BunPatients, error)
 	ReactivatePatient(ctx context.Context, id string) (*db.BunPatients, error)
@@ -168,7 +183,7 @@ type MutationResolver interface {
 type PatientResolver interface {
 	DateOfBirth(ctx context.Context, obj *db.BunPatients) (string, error)
 
-	Address(ctx context.Context, obj *db.BunPatients) (*model.Address, error)
+	Address(ctx context.Context, obj *db.BunPatients) (*db.BunPatientAddress, error)
 	Tag(ctx context.Context, obj *db.BunPatients) ([]*db.BunPatientTags, error)
 	Guardian(ctx context.Context, obj *db.BunPatients) ([]*db.BunGuardians, error)
 	Goals(ctx context.Context, obj *db.BunPatients) ([]*db.BunGoal, error)
@@ -392,6 +407,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreatePatient(childComplexity, args["input"].(model.PatientInput)), true
+	case "Mutation.createPatientAddress":
+		if e.ComplexityRoot.Mutation.CreatePatientAddress == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createPatientAddress_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreatePatientAddress(childComplexity, args["patientId"].(string), args["input"].(model.PatientAddressInput)), true
 	case "Mutation.deleteGoal":
 		if e.ComplexityRoot.Mutation.DeleteGoal == nil {
 			break
@@ -491,6 +517,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.UpdatePatient(childComplexity, args["id"].(string), args["input"].(model.PatientUpdateInput)), true
+	case "Mutation.updatePatientAddress":
+		if e.ComplexityRoot.Mutation.UpdatePatientAddress == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updatePatientAddress_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdatePatientAddress(childComplexity, args["id"].(string), args["input"].(model.PatientAddressInput)), true
 	case "Mutation.updatePatientGuardian":
 		if e.ComplexityRoot.Mutation.UpdatePatientGuardian == nil {
 			break
@@ -593,6 +630,55 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Patient.Weight(childComplexity), true
+
+	case "PatientAddress.address":
+		if e.ComplexityRoot.PatientAddress.Address == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.Address(childComplexity), true
+	case "PatientAddress.baranggay":
+		if e.ComplexityRoot.PatientAddress.Baranggay == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.Baranggay(childComplexity), true
+	case "PatientAddress.city":
+		if e.ComplexityRoot.PatientAddress.City == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.City(childComplexity), true
+	case "PatientAddress.country":
+		if e.ComplexityRoot.PatientAddress.Country == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.Country(childComplexity), true
+	case "PatientAddress.id":
+		if e.ComplexityRoot.PatientAddress.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.ID(childComplexity), true
+	case "PatientAddress.patientId":
+		if e.ComplexityRoot.PatientAddress.PatientID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.PatientID(childComplexity), true
+	case "PatientAddress.state":
+		if e.ComplexityRoot.PatientAddress.State == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.State(childComplexity), true
+	case "PatientAddress.zipCode":
+		if e.ComplexityRoot.PatientAddress.ZipCode == nil {
+			break
+		}
+
+		return e.ComplexityRoot.PatientAddress.ZipCode(childComplexity), true
 
 	case "PatientGuardianRelationship.guardianId":
 		if e.ComplexityRoot.PatientGuardianRelationship.GuardianID == nil {
@@ -719,6 +805,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 		ec.unmarshalInputGoalUpdateInput,
 		ec.unmarshalInputGuardianInput,
 		ec.unmarshalInputGuardianUpdateInput,
+		ec.unmarshalInputPatientAddressInput,
 		ec.unmarshalInputPatientFilter,
 		ec.unmarshalInputPatientInput,
 		ec.unmarshalInputPatientPagination,
@@ -803,6 +890,17 @@ var sources = []*ast.Source{
   id: ID! @external
 }
 
+type PatientAddress {
+  id: ID!
+  patientId: ID!
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
 type Patient @key(fields: "id") {
   id: ID!
   tenantId: String!
@@ -815,7 +913,7 @@ type Patient @key(fields: "id") {
   height: String
   weight: String
   isActive: Boolean!
-  address: Address
+  address: PatientAddress
   tag: [PatientTags!]!
   guardian: [Guardian!]!
   goals: [Goal!]!
@@ -885,6 +983,15 @@ input PatientUpdateInput {
   addressId: ID
 }
 
+input PatientAddressInput {
+  address: String!
+  baranggay: String
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String
+}
+
 input GuardianInput {
   firstName: String!
   lastName: String!
@@ -922,6 +1029,8 @@ type Query {
 type Mutation {
   createPatient(input: PatientInput!): Patient!
   updatePatient(id: ID!, input: PatientUpdateInput!): Patient!
+  createPatientAddress(patientId: ID!, input: PatientAddressInput!): PatientAddress!
+  updatePatientAddress(id: ID!, input: PatientAddressInput!): PatientAddress!
   deletePatient(id: ID!): Patient!
   inactivatePatient(id: ID!): Patient!
   reactivatePatient(id: ID!): Patient!
@@ -1118,6 +1227,28 @@ func (ec *executionContext) childFields_Patient(ctx context.Context, field graph
 		return ec.fieldContext_Patient_goals(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Patient", field.Name)
+}
+
+func (ec *executionContext) childFields_PatientAddress(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_PatientAddress_id(ctx, field)
+	case "patientId":
+		return ec.fieldContext_PatientAddress_patientId(ctx, field)
+	case "address":
+		return ec.fieldContext_PatientAddress_address(ctx, field)
+	case "baranggay":
+		return ec.fieldContext_PatientAddress_baranggay(ctx, field)
+	case "city":
+		return ec.fieldContext_PatientAddress_city(ctx, field)
+	case "state":
+		return ec.fieldContext_PatientAddress_state(ctx, field)
+	case "zipCode":
+		return ec.fieldContext_PatientAddress_zipCode(ctx, field)
+	case "country":
+		return ec.fieldContext_PatientAddress_country(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type PatientAddress", field.Name)
 }
 
 func (ec *executionContext) childFields_PatientGuardianRelationship(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -1366,6 +1497,28 @@ func (ec *executionContext) field_Mutation_createGuardian_args(ctx context.Conte
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createPatientAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "patientId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["patientId"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.PatientAddressInput, error) {
+			return ec.unmarshalNPatientAddressInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐPatientAddressInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createPatient_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1508,6 +1661,28 @@ func (ec *executionContext) field_Mutation_updateGuardian_args(ctx context.Conte
 	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
 		func(ctx context.Context, v any) (model.GuardianUpdateInput, error) {
 			return ec.unmarshalNGuardianUpdateInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐGuardianUpdateInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updatePatientAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.PatientAddressInput, error) {
+			return ec.unmarshalNPatientAddressInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐPatientAddressInput(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -2386,6 +2561,94 @@ func (ec *executionContext) fieldContext_Mutation_updatePatient(ctx context.Cont
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createPatientAddress(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createPatientAddress(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreatePatientAddress(ctx, fc.Args["patientId"].(string), fc.Args["input"].(model.PatientAddressInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunPatientAddress) graphql.Marshaler {
+			return ec.marshalNPatientAddress2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatientAddress(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createPatientAddress(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PatientAddress(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createPatientAddress_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updatePatientAddress(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updatePatientAddress(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdatePatientAddress(ctx, fc.Args["id"].(string), fc.Args["input"].(model.PatientAddressInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunPatientAddress) graphql.Marshaler {
+			return ec.marshalNPatientAddress2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatientAddress(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updatePatientAddress(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_PatientAddress(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updatePatientAddress_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Mutation_deletePatient(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3179,8 +3442,8 @@ func (ec *executionContext) _Patient_address(ctx context.Context, field graphql.
 			return ec.Resolvers.Patient().Address(ctx, obj)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *model.Address) graphql.Marshaler {
-			return ec.marshalOAddress2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐAddress(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunPatientAddress) graphql.Marshaler {
+			return ec.marshalOPatientAddress2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatientAddress(ctx, selections, v)
 		},
 		true,
 		false,
@@ -3193,7 +3456,7 @@ func (ec *executionContext) fieldContext_Patient_address(_ context.Context, fiel
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_Address(ctx, field)
+			return ec.childFields_PatientAddress(ctx, field)
 		},
 	}
 	return fc, nil
@@ -3293,6 +3556,190 @@ func (ec *executionContext) fieldContext_Patient_goals(_ context.Context, field 
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _PatientAddress_id(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_patientId(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_patientId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PatientID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_patientId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_address(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_address(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Address, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_address(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_baranggay(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_baranggay(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Baranggay, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_baranggay(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_city(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_city(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.City, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_city(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_state(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_state(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.State, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_state(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_zipCode(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_zipCode(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ZipCode, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_zipCode(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _PatientAddress_country(ctx context.Context, field graphql.CollectedField, obj *db.BunPatientAddress) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_PatientAddress_country(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Country, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_PatientAddress_country(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("PatientAddress", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _PatientGuardianRelationship_patientId(ctx context.Context, field graphql.CollectedField, obj *model.PatientGuardianRelationship) (ret graphql.Marshaler) {
@@ -5117,6 +5564,71 @@ func (ec *executionContext) unmarshalInputGuardianUpdateInput(ctx context.Contex
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputPatientAddressInput(ctx context.Context, obj any) (model.PatientAddressInput, error) {
+	var it model.PatientAddressInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"address", "baranggay", "city", "state", "zipCode", "country"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "address":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("address"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Address = data
+		case "baranggay":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("baranggay"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Baranggay = data
+		case "city":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("city"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.City = data
+		case "state":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("state"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.State = data
+		case "zipCode":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("zipCode"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.ZipCode = data
+		case "country":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("country"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Country = data
+		}
+	}
+	return it, nil
+}
+
 func (ec *executionContext) unmarshalInputPatientFilter(ctx context.Context, obj any) (model.PatientFilter, error) {
 	var it model.PatientFilter
 	if obj == nil {
@@ -5831,6 +6343,20 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createPatientAddress":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createPatientAddress(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatePatientAddress":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updatePatientAddress(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "deletePatient":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
 				return ec._Mutation_deletePatient(ctx, field)
@@ -6188,6 +6714,79 @@ func (ec *executionContext) _Patient(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var patientAddressImplementors = []string{"PatientAddress"}
+
+func (ec *executionContext) _PatientAddress(ctx context.Context, sel ast.SelectionSet, obj *db.BunPatientAddress) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, patientAddressImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("PatientAddress")
+		case "id":
+			out.Values[i] = ec._PatientAddress_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "patientId":
+			out.Values[i] = ec._PatientAddress_patientId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "address":
+			out.Values[i] = ec._PatientAddress_address(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "baranggay":
+			out.Values[i] = ec._PatientAddress_baranggay(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "city":
+			out.Values[i] = ec._PatientAddress_city(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "state":
+			out.Values[i] = ec._PatientAddress_state(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "zipCode":
+			out.Values[i] = ec._PatientAddress_zipCode(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "country":
+			out.Values[i] = ec._PatientAddress_country(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -7208,6 +7807,25 @@ func (ec *executionContext) marshalNPatient2ᚖgithubᚗcomᚋclinicmanagerᚋse
 	return ec._Patient(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNPatientAddress2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatientAddress(ctx context.Context, sel ast.SelectionSet, v db.BunPatientAddress) graphql.Marshaler {
+	return ec._PatientAddress(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNPatientAddress2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatientAddress(ctx context.Context, sel ast.SelectionSet, v *db.BunPatientAddress) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._PatientAddress(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNPatientAddressInput2githubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐPatientAddressInput(ctx context.Context, v any) (model.PatientAddressInput, error) {
+	res, err := ec.unmarshalInputPatientAddressInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNPatientFilter2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐPatientFilter(ctx context.Context, v any) (*model.PatientFilter, error) {
 	res, err := ec.unmarshalInputPatientFilter(ctx, v)
 	return &res, graphql.ErrorOnPath(ctx, err)
@@ -7722,6 +8340,13 @@ func (ec *executionContext) marshalOPatient2ᚖgithubᚗcomᚋclinicmanagerᚋse
 		return graphql.Null
 	}
 	return ec._Patient(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOPatientAddress2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋdbᚐBunPatientAddress(ctx context.Context, sel ast.SelectionSet, v *db.BunPatientAddress) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._PatientAddress(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOPatientFilter2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋpatientᚋgraphᚋmodelᚐPatientFilterᚄ(ctx context.Context, v any) ([]*model.PatientFilter, error) {

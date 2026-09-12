@@ -32,6 +32,28 @@ type BunPatients struct {
 
 func (BunPatients) IsEntity() {}
 
+type BunPatientAddress struct {
+	bun.BaseModel `bun:"table:patient_addresses"`
+
+	ID        string `bun:"id,pk"             json:"id"`
+	PatientID string `bun:"patient_id,notnull"  json:"patientId"`
+	Address   string `bun:"address,notnull"     json:"address"`
+	Baranggay string `bun:"baranggay,notnull"   json:"baranggay"`
+	City      string `bun:"city,notnull"        json:"city"`
+	State     string `bun:"state,notnull"       json:"state"`
+	ZipCode   string `bun:"zip_code,notnull"    json:"zipCode"`
+	Country   string `bun:"country,notnull"     json:"country"`
+
+	CreatedAt     time.Time `bun:"created_at" json:"-"`
+	UpdatedAt     time.Time `bun:"updated_at" json:"-"`
+	CreatedBy     *string   `bun:"created_by" json:"-"`
+	CreatedAction string    `bun:"created_action" json:"-"`
+	UpdatedBy     *string   `bun:"updated_by" json:"-"`
+	UpdatedAction string    `bun:"updated_action" json:"-"`
+}
+
+func (BunPatientAddress) IsEntity() {}
+
 type BunGuardians struct {
 	bun.BaseModel `bun:"table:patient_guardian_profiles"`
 

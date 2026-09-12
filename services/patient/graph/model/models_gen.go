@@ -40,6 +40,15 @@ type GuardianUpdateInput struct {
 type Mutation struct {
 }
 
+type PatientAddressInput struct {
+	Address   string  `json:"address"`
+	Baranggay *string `json:"baranggay,omitempty"`
+	City      string  `json:"city"`
+	State     string  `json:"state"`
+	ZipCode   string  `json:"zipCode"`
+	Country   *string `json:"country,omitempty"`
+}
+
 type PatientFilter struct {
 	Search *string `json:"search,omitempty"`
 }

@@ -36,6 +36,16 @@ func (r *mutationResolver) UpdatePatient(ctx context.Context, id string, input m
 	return r.Resolver.PatientService.UpdatePatient(ctx, id, input)
 }
 
+// CreatePatientAddress is the resolver for the createPatientAddress field.
+func (r *mutationResolver) CreatePatientAddress(ctx context.Context, patientID string, input model.PatientAddressInput) (*db.BunPatientAddress, error) {
+	return r.Resolver.PatientService.CreatePatientAddress(ctx, patientID, input)
+}
+
+// UpdatePatientAddress is the resolver for the updatePatientAddress field.
+func (r *mutationResolver) UpdatePatientAddress(ctx context.Context, id string, input model.PatientAddressInput) (*db.BunPatientAddress, error) {
+	return r.Resolver.PatientService.UpdatePatientAddress(ctx, id, input)
+}
+
 // DeletePatient is the resolver for the deletePatient field.
 func (r *mutationResolver) DeletePatient(ctx context.Context, id string) (*db.BunPatients, error) {
 	return r.Resolver.PatientService.DeletePatient(ctx, id)
@@ -105,11 +115,8 @@ func (r *patientResolver) DateOfBirth(ctx context.Context, obj *db.BunPatients) 
 }
 
 // Address is the resolver for the address field.
-func (r *patientResolver) Address(ctx context.Context, obj *db.BunPatients) (*model.Address, error) {
-	if obj.AddressID == nil {
-		return nil, nil
-	}
-	return &model.Address{ID: *obj.AddressID}, nil
+func (r *patientResolver) Address(ctx context.Context, obj *db.BunPatients) (*db.BunPatientAddress, error) {
+	return r.Resolver.PatientService.GetPatientAddress(ctx, obj.ID)
 }
 
 // Tag is the resolver for the tag field.

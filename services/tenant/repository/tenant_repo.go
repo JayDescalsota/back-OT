@@ -16,6 +16,7 @@ type TenantRepository interface {
 	FindTenantBySlug(ctx context.Context, slug string) (*db.BunTenant, error)
 	ListTenants(ctx context.Context) ([]*db.BunTenant, error)
 	FindBranchByID(ctx context.Context, id string) (*db.BunBranch, error)
+	UpdateBranch(ctx context.Context, id string, branch *db.BunBranch) error
 	FindBranchesByTenant(ctx context.Context, tenantID string) ([]*db.BunBranch, error)
 	FindRoleByID(ctx context.Context, id string) (*db.BunTenantRole, error)
 	ListSystemRoles(ctx context.Context) ([]*db.BunTenantRole, error)
@@ -93,6 +94,11 @@ func (r *TenantRepo) FindBranchByID(ctx context.Context, id string) (*db.BunBran
 		return nil, err
 	}
 	return branch, nil
+}
+
+func (r *TenantRepo) UpdateBranch(ctx context.Context, id string, branch *db.BunBranch) error {
+	_, err := r.tenantdb.NewUpdate(ctx, branch).Where("id = ?", id).Exec(ctx)
+	return err
 }
 
 func (r *TenantRepo) FindBranchesByTenant(ctx context.Context, tenantID string) ([]*db.BunBranch, error) {

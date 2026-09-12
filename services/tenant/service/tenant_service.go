@@ -83,6 +83,14 @@ func (s *TenantService) GetBranchByID(ctx context.Context, id string) (*db.BunBr
 	return m, nil
 }
 
+func (s *TenantService) UpdateBranch(ctx context.Context, id string, branch *db.BunBranch) error {
+	err := s.tenantRepo.UpdateBranch(ctx, id, branch)
+	if err == nil {
+		s.cacheDel(ctx, cache.Key("tenant", "branch", id))
+	}
+	return err
+}
+
 func (s *TenantService) GetRoleByID(ctx context.Context, id string) (*db.BunTenantRole, error) {
 	ck := cache.Key("tenant", "role", id)
 	var cached db.BunTenantRole

@@ -23,8 +23,8 @@ func (r *branchResolver) Address(ctx context.Context, obj *db.BunBranch) (*db.Bu
 	return r.TenantService.GetAddressByID(ctx, *obj.AddressID)
 }
 
-// CreateAddress is the resolver for the createAddress field.
-func (r *mutationResolver) CreateAddress(ctx context.Context, input model.AddressInput) (*db.BunAddress, error) {
+// CreateTenantAddress is the resolver for the createTenantAddress field.
+func (r *mutationResolver) CreateTenantAddress(ctx context.Context, input model.AddressInput) (*db.BunAddress, error) {
 	ct := sharedctx.FromContext(ctx)
 	baranggay := ""
 	if input.Baranggay != nil {
@@ -52,8 +52,8 @@ func (r *mutationResolver) CreateAddress(ctx context.Context, input model.Addres
 	return addr, nil
 }
 
-// UpdateAddress is the resolver for the updateAddress field.
-func (r *mutationResolver) UpdateAddress(ctx context.Context, id string, input model.AddressInput) (*db.BunAddress, error) {
+// UpdateTenantAddress is the resolver for the updateTenantAddress field.
+func (r *mutationResolver) UpdateTenantAddress(ctx context.Context, id string, input model.AddressInput) (*db.BunAddress, error) {
 	addr, err := r.TenantService.GetAddressByID(ctx, id)
 	if err != nil || addr == nil {
 		if addr == nil {
@@ -79,6 +79,25 @@ func (r *mutationResolver) UpdateAddress(ctx context.Context, id string, input m
 		return nil, err
 	}
 	return addr, nil
+}
+
+// UpdateBranch is the resolver for the updateBranch field.
+func (r *mutationResolver) UpdateBranch(ctx context.Context, id string, input model.BranchInput) (*db.BunBranch, error) {
+	branch, err := r.TenantService.GetBranchByID(ctx, id)
+	if err != nil || branch == nil {
+		if branch == nil {
+			return nil, fmt.Errorf("branch not found")
+		}
+		return nil, err
+	}
+	branch.Name = input.Name
+	branch.Timezone = input.Timezone
+	branch.IsActive = input.IsActive
+	branch.Phone = input.Phone
+	if err := r.TenantService.UpdateBranch(ctx, id, branch); err != nil {
+		return nil, err
+	}
+	return branch, nil
 }
 
 // MeTenant is the resolver for the meTenant field.

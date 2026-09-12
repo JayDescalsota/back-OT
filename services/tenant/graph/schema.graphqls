@@ -74,8 +74,9 @@ type Query {
 }
 
 type Mutation {
-  createAddress(input: AddressInput!): Address!
-  updateAddress(id: ID!, input: AddressInput!): Address!
+  createTenantAddress(input: AddressInput!): Address!
+  updateTenantAddress(id: ID!, input: AddressInput!): Address!
+  updateBranch(id: ID!, input: BranchInput!): Branch!
 }
 
 input AddressInput {
@@ -85,4 +86,11 @@ input AddressInput {
   state: String!
   zipCode: String!
   country: String
+}
+
+input BranchInput {
+  name: String!
+  timezone: String!
+  phone: String
+  isActive: Boolean!
 }

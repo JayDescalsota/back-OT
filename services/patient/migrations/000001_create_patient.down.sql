@@ -1,5 +1,0 @@
-DROP TABLE IF EXISTS patient_addresses CASCADE;
-DROP TABLE IF EXISTS patient_tags CASCADE;
-DROP TABLE IF EXISTS patient_guardian_links CASCADE;
-DROP TABLE IF EXISTS patient_guardian_profiles CASCADE;
-DROP TABLE IF EXISTS patients CASCADE;

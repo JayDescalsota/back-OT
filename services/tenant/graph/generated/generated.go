@@ -71,8 +71,9 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateAddress func(childComplexity int, input model.AddressInput) int
-		UpdateAddress func(childComplexity int, id string, input model.AddressInput) int
+		CreateTenantAddress func(childComplexity int, input model.AddressInput) int
+		UpdateBranch        func(childComplexity int, id string, input model.BranchInput) int
+		UpdateTenantAddress func(childComplexity int, id string, input model.AddressInput) int
 	}
 
 	Query struct {
@@ -153,8 +154,9 @@ type EntityResolver interface {
 	FindUserByID(ctx context.Context, id string) (*model.User, error)
 }
 type MutationResolver interface {
-	CreateAddress(ctx context.Context, input model.AddressInput) (*db.BunAddress, error)
-	UpdateAddress(ctx context.Context, id string, input model.AddressInput) (*db.BunAddress, error)
+	CreateTenantAddress(ctx context.Context, input model.AddressInput) (*db.BunAddress, error)
+	UpdateTenantAddress(ctx context.Context, id string, input model.AddressInput) (*db.BunAddress, error)
+	UpdateBranch(ctx context.Context, id string, input model.BranchInput) (*db.BunBranch, error)
 }
 type QueryResolver interface {
 	MeTenant(ctx context.Context) (*model.User, error)
@@ -341,28 +343,39 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Entity.FindUserByID(childComplexity, args["id"].(string)), true
 
-	case "Mutation.createAddress":
-		if e.ComplexityRoot.Mutation.CreateAddress == nil {
+	case "Mutation.createTenantAddress":
+		if e.ComplexityRoot.Mutation.CreateTenantAddress == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_createAddress_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_createTenantAddress_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.CreateAddress(childComplexity, args["input"].(model.AddressInput)), true
-	case "Mutation.updateAddress":
-		if e.ComplexityRoot.Mutation.UpdateAddress == nil {
+		return e.ComplexityRoot.Mutation.CreateTenantAddress(childComplexity, args["input"].(model.AddressInput)), true
+	case "Mutation.updateBranch":
+		if e.ComplexityRoot.Mutation.UpdateBranch == nil {
 			break
 		}
 
-		args, err := ec.field_Mutation_updateAddress_args(ctx, rawArgs)
+		args, err := ec.field_Mutation_updateBranch_args(ctx, rawArgs)
 		if err != nil {
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Mutation.UpdateAddress(childComplexity, args["id"].(string), args["input"].(model.AddressInput)), true
+		return e.ComplexityRoot.Mutation.UpdateBranch(childComplexity, args["id"].(string), args["input"].(model.BranchInput)), true
+	case "Mutation.updateTenantAddress":
+		if e.ComplexityRoot.Mutation.UpdateTenantAddress == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateTenantAddress_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateTenantAddress(childComplexity, args["id"].(string), args["input"].(model.AddressInput)), true
 
 	case "Query.address":
 		if e.ComplexityRoot.Query.Address == nil {
@@ -656,6 +669,7 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	ec := newExecutionContext(opCtx, e, make(chan graphql.DeferredResult))
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputAddressInput,
+		ec.unmarshalInputBranchInput,
 	)
 	first := true
 
@@ -807,8 +821,9 @@ type Query {
 }
 
 type Mutation {
-  createAddress(input: AddressInput!): Address!
-  updateAddress(id: ID!, input: AddressInput!): Address!
+  createTenantAddress(input: AddressInput!): Address!
+  updateTenantAddress(id: ID!, input: AddressInput!): Address!
+  updateBranch(id: ID!, input: BranchInput!): Branch!
 }
 
 input AddressInput {
@@ -818,6 +833,13 @@ input AddressInput {
   state: String!
   zipCode: String!
   country: String
+}
+
+input BranchInput {
+  name: String!
+  timezone: String!
+  phone: String
+  isActive: Boolean!
 }
 `, BuiltIn: false},
 	{Name: "../../federation/directives.graphql", Input: `
@@ -1238,7 +1260,7 @@ func (ec *executionContext) field_Entity_findUserByID_args(ctx context.Context, 
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_createAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_createTenantAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
@@ -1252,7 +1274,29 @@ func (ec *executionContext) field_Mutation_createAddress_args(ctx context.Contex
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_updateAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+func (ec *executionContext) field_Mutation_updateBranch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.BranchInput, error) {
+			return ec.unmarshalNBranchInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐBranchInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateTenantAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
@@ -2041,17 +2085,17 @@ func (ec *executionContext) fieldContext_Entity_findUserByID(ctx context.Context
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_createAddress(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_createTenantAddress(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_createAddress(ctx, field)
+			return ec.fieldContext_Mutation_createTenantAddress(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().CreateAddress(ctx, fc.Args["input"].(model.AddressInput))
+			return ec.Resolvers.Mutation().CreateTenantAddress(ctx, fc.Args["input"].(model.AddressInput))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAddress) graphql.Marshaler {
@@ -2061,7 +2105,7 @@ func (ec *executionContext) _Mutation_createAddress(ctx context.Context, field g
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Mutation_createAddress(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_createTenantAddress(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -2078,24 +2122,24 @@ func (ec *executionContext) fieldContext_Mutation_createAddress(ctx context.Cont
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_createAddress_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_createTenantAddress_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
 	return fc, nil
 }
 
-func (ec *executionContext) _Mutation_updateAddress(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_updateTenantAddress(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Mutation_updateAddress(ctx, field)
+			return ec.fieldContext_Mutation_updateTenantAddress(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Mutation().UpdateAddress(ctx, fc.Args["id"].(string), fc.Args["input"].(model.AddressInput))
+			return ec.Resolvers.Mutation().UpdateTenantAddress(ctx, fc.Args["id"].(string), fc.Args["input"].(model.AddressInput))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *db.BunAddress) graphql.Marshaler {
@@ -2105,7 +2149,7 @@ func (ec *executionContext) _Mutation_updateAddress(ctx context.Context, field g
 		true,
 	)
 }
-func (ec *executionContext) fieldContext_Mutation_updateAddress(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Mutation_updateTenantAddress(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Mutation",
 		Field:      field,
@@ -2122,7 +2166,51 @@ func (ec *executionContext) fieldContext_Mutation_updateAddress(ctx context.Cont
 		}
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
-	if fc.Args, err = ec.field_Mutation_updateAddress_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+	if fc.Args, err = ec.field_Mutation_updateTenantAddress_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateBranch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateBranch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateBranch(ctx, fc.Args["id"].(string), fc.Args["input"].(model.BranchInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunBranch) graphql.Marshaler {
+			return ec.marshalNBranch2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunBranch(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateBranch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Branch(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateBranch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -4468,6 +4556,57 @@ func (ec *executionContext) unmarshalInputAddressInput(ctx context.Context, obj 
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputBranchInput(ctx context.Context, obj any) (model.BranchInput, error) {
+	var it model.BranchInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "timezone", "phone", "isActive"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "timezone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("timezone"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Timezone = data
+		case "phone":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("phone"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Phone = data
+		case "isActive":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("isActive"))
+			data, err := ec.unmarshalNBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.IsActive = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -4893,16 +5032,23 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Mutation")
-		case "createAddress":
+		case "createTenantAddress":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_createAddress(ctx, field)
+				return ec._Mutation_createTenantAddress(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "updateAddress":
+		case "updateTenantAddress":
 			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
-				return ec._Mutation_updateAddress(ctx, field)
+				return ec._Mutation_updateTenantAddress(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateBranch":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateBranch(ctx, field)
 			})
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
@@ -6023,6 +6169,11 @@ func (ec *executionContext) marshalNBranch2ᚖgithubᚗcomᚋclinicmanagerᚋser
 		return graphql.Null
 	}
 	return ec._Branch(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNBranchInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐBranchInput(ctx context.Context, v any) (model.BranchInput, error) {
+	res, err := ec.unmarshalInputBranchInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) unmarshalNFieldSet2string(ctx context.Context, v any) (string, error) {

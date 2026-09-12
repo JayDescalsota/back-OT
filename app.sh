@@ -246,7 +246,9 @@ case "$CMD" in
       fi
       DB_NAME=$(get_db_name "$SVC_DB_URL")
       if [ -n "$DB_NAME" ] && [ "$DB_NAME" != "postgres" ]; then
-        $DOCKER_COMPOSE exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
+        if ! $DOCKER_COMPOSE exec -T db psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME';" | grep -q 1; then
+          $DOCKER_COMPOSE exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null
+        fi
       fi
     done
 
@@ -261,12 +263,35 @@ case "$CMD" in
         if [ -z "$SVC_DB_URL" ]; then
           SVC_DB_URL="$DB_URL"
         fi
+
+        $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -c '
+          CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            dirty BOOLEAN NOT NULL DEFAULT false,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+        ' >/dev/null
         
         for f in "$migration_dir"/*.up.sql; do
           [ -f "$f" ] || continue
-          echo "  Applying $(basename "$f")..."
-          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
-          echo "  WARN: could not run $(basename "$f") — check DB_URL"
+          filename="$(basename "$f")"
+          version="${filename%%_*}"
+          state="$($DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -Atc "SELECT CASE WHEN dirty THEN 'dirty' ELSE 'clean' END FROM schema_migrations WHERE version = '$version';" | tr -d '\r')"
+          if [ "$state" = "clean" ]; then
+            echo "  Skipping $filename (already applied)"
+            continue
+          fi
+          if [ "$state" = "dirty" ]; then
+            echo "  ERROR: $filename is marked dirty; repair it before retrying" >&2
+            exit 1
+          fi
+          echo "  Applying $filename..."
+          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -c "INSERT INTO schema_migrations (version, dirty) VALUES ('$version', true);" >/dev/null
+          if ! $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -f - < "$f" >/dev/null; then
+            echo "  ERROR: $filename failed and remains marked dirty" >&2
+            exit 1
+          fi
+          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -c "UPDATE schema_migrations SET dirty = false, applied_at = NOW() WHERE version = '$version';" >/dev/null
         done
       else
         echo "  No migrations directory found for $svc"
@@ -297,7 +322,9 @@ case "$CMD" in
       fi
       DB_NAME=$(get_db_name "$SVC_DB_URL")
       if [ -n "$DB_NAME" ] && [ "$DB_NAME" != "postgres" ]; then
-        $DOCKER_COMPOSE exec -T db psql -U postgres -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null 2>&1 || true
+        if ! $DOCKER_COMPOSE exec -T db psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME';" | grep -q 1; then
+          $DOCKER_COMPOSE exec -T db psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$DB_NAME\";" >/dev/null
+        fi
       fi
     done
 
@@ -312,12 +339,35 @@ case "$CMD" in
         if [ -z "$SVC_DB_URL" ]; then
           SVC_DB_URL="$DB_URL"
         fi
+
+        $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -c '
+          CREATE TABLE IF NOT EXISTS schema_migrations (
+            version TEXT PRIMARY KEY,
+            dirty BOOLEAN NOT NULL DEFAULT false,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          );
+        ' >/dev/null
         
         for f in "$migration_dir"/*.up.sql; do
           [ -f "$f" ] || continue
-          echo "  Applying $(basename "$f")..."
-          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -f - < "$f" >/dev/null || \
-          echo "  WARN: could not run $(basename "$f") — check DB_URL"
+          filename="$(basename "$f")"
+          version="${filename%%_*}"
+          state="$($DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -Atc "SELECT CASE WHEN dirty THEN 'dirty' ELSE 'clean' END FROM schema_migrations WHERE version = '$version';" | tr -d '\r')"
+          if [ "$state" = "clean" ]; then
+            echo "  Skipping $filename (already applied)"
+            continue
+          fi
+          if [ "$state" = "dirty" ]; then
+            echo "  ERROR: $filename is marked dirty; repair it before retrying" >&2
+            exit 1
+          fi
+          echo "  Applying $filename..."
+          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -c "INSERT INTO schema_migrations (version, dirty) VALUES ('$version', true);" >/dev/null
+          if ! $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -f - < "$f" >/dev/null; then
+            echo "  ERROR: $filename failed and remains marked dirty" >&2
+            exit 1
+          fi
+          $DOCKER_COMPOSE exec -T db psql "$SVC_DB_URL" -v ON_ERROR_STOP=1 -c "UPDATE schema_migrations SET dirty = false, applied_at = NOW() WHERE version = '$version';" >/dev/null
         done
       else
         echo "  No migrations directory found for $svc"

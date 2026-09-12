@@ -2,6 +2,17 @@ extend type Address @key(fields: "id") {
   id: ID! @external
 }
 
+type PatientAddress {
+  id: ID!
+  patientId: ID!
+  address: String!
+  baranggay: String!
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String!
+}
+
 type Patient @key(fields: "id") {
   id: ID!
   tenantId: String!
@@ -14,7 +25,7 @@ type Patient @key(fields: "id") {
   height: String
   weight: String
   isActive: Boolean!
-  address: Address
+  address: PatientAddress
   tag: [PatientTags!]!
   guardian: [Guardian!]!
   goals: [Goal!]!
@@ -84,6 +95,15 @@ input PatientUpdateInput {
   addressId: ID
 }
 
+input PatientAddressInput {
+  address: String!
+  baranggay: String
+  city: String!
+  state: String!
+  zipCode: String!
+  country: String
+}
+
 input GuardianInput {
   firstName: String!
   lastName: String!
@@ -121,6 +141,8 @@ type Query {
 type Mutation {
   createPatient(input: PatientInput!): Patient!
   updatePatient(id: ID!, input: PatientUpdateInput!): Patient!
+  createPatientAddress(patientId: ID!, input: PatientAddressInput!): PatientAddress!
+  updatePatientAddress(id: ID!, input: PatientAddressInput!): PatientAddress!
   deletePatient(id: ID!): Patient!
   inactivatePatient(id: ID!): Patient!
   reactivatePatient(id: ID!): Patient!

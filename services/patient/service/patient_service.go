@@ -150,6 +150,56 @@ func (s *PatientService) UpdatePatient(ctx context.Context, id string, input mod
 	return existing, nil
 }
 
+func (s *PatientService) GetPatientAddress(ctx context.Context, patientID string) (*db.BunPatientAddress, error) {
+	return s.PatientRepository.FindPatientAddress(ctx, patientID)
+}
+
+func (s *PatientService) CreatePatientAddress(ctx context.Context, patientID string, input model.PatientAddressInput) (*db.BunPatientAddress, error) {
+	address := &db.BunPatientAddress{
+		ID:        uuid.NewString(),
+		PatientID: patientID,
+		Address:   input.Address,
+		Baranggay: valueOrDefault(input.Baranggay, ""),
+		City:      input.City,
+		State:     input.State,
+		ZipCode:   input.ZipCode,
+		Country:   valueOrDefault(input.Country, "Philippines"),
+	}
+	if err := s.PatientRepository.CreatePatientAddress(ctx, address); err != nil {
+		return nil, err
+	}
+	s.cacheDel(ctx, cache.Key("patient", "patient", patientID))
+	return address, nil
+}
+
+func (s *PatientService) UpdatePatientAddress(ctx context.Context, id string, input model.PatientAddressInput) (*db.BunPatientAddress, error) {
+	address, err := s.PatientRepository.FindPatientAddressByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if address == nil {
+		return nil, nil
+	}
+	address.Address = input.Address
+	address.Baranggay = valueOrDefault(input.Baranggay, "")
+	address.City = input.City
+	address.State = input.State
+	address.ZipCode = input.ZipCode
+	address.Country = valueOrDefault(input.Country, "Philippines")
+	if err := s.PatientRepository.UpdatePatientAddress(ctx, address); err != nil {
+		return nil, err
+	}
+	s.cacheDel(ctx, cache.Key("patient", "patient", address.PatientID))
+	return address, nil
+}
+
+func valueOrDefault(value *string, fallback string) string {
+	if value == nil {
+		return fallback
+	}
+	return *value
+}
+
 func (s *PatientService) DeletePatient(ctx context.Context, id string) (*db.BunPatients, error) {
 	return s.InactivatePatient(ctx, id)
 }
