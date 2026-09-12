@@ -96,7 +96,6 @@ func (s *PatientService) CreatePatient(ctx context.Context, input model.PatientI
 		Height:      input.Height,
 		Weight:      input.Weight,
 		IsActive:    true,
-		AddressID:   input.AddressID,
 	}
 
 	if err := s.PatientRepository.CreatePatient(ctx, patient); err != nil {

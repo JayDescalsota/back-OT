@@ -67,7 +67,6 @@ type PatientInput struct {
 	Notes       *string `json:"notes,omitempty"`
 	Height      *string `json:"height,omitempty"`
 	Weight      *string `json:"weight,omitempty"`
-	AddressID   *string `json:"addressId,omitempty"`
 }
 
 type PatientPagination struct {
@@ -83,7 +82,6 @@ type PatientUpdateInput struct {
 	Notes       *string `json:"notes,omitempty"`
 	Height      *string `json:"height,omitempty"`
 	Weight      *string `json:"weight,omitempty"`
-	AddressID   *string `json:"addressId,omitempty"`
 }
 
 type PatientsFilter struct {

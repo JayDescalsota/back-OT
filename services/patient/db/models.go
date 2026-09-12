@@ -20,7 +20,6 @@ type BunPatients struct {
 	Height      *string   `bun:"height" json:"height,omitempty"`
 	Weight      *string   `bun:"weight" json:"weight,omitempty"`
 	IsActive    bool      `bun:"is_active,default:true" json:"is_active"`
-	AddressID   *string   `bun:"address_id" json:"addressId,omitempty"`
 
 	CreatedAt     time.Time `bun:"created_at" json:"-"`
 	UpdatedAt     time.Time `bun:"updated_at" json:"-"`

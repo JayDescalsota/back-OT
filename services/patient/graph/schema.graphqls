@@ -81,7 +81,6 @@ input PatientInput {
   notes: String
   height: String
   weight: String
-  addressId: ID
 }
 
 input PatientUpdateInput {
@@ -92,7 +91,6 @@ input PatientUpdateInput {
   notes: String
   height: String
   weight: String
-  addressId: ID
 }
 
 input PatientAddressInput {

@@ -969,7 +969,6 @@ input PatientInput {
   notes: String
   height: String
   weight: String
-  addressId: ID
 }
 
 input PatientUpdateInput {
@@ -980,7 +979,6 @@ input PatientUpdateInput {
   notes: String
   height: String
   weight: String
-  addressId: ID
 }
 
 input PatientAddressInput {
@@ -5670,7 +5668,7 @@ func (ec *executionContext) unmarshalInputPatientInput(ctx context.Context, obj 
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"firstName", "lastName", "dateOfBirth", "gender", "notes", "height", "weight", "addressId"}
+	fieldsInOrder := [...]string{"firstName", "lastName", "dateOfBirth", "gender", "notes", "height", "weight"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5726,13 +5724,6 @@ func (ec *executionContext) unmarshalInputPatientInput(ctx context.Context, obj 
 				return it, err
 			}
 			it.Weight = data
-		case "addressId":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("addressId"))
-			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.AddressID = data
 		}
 	}
 	return it, nil
@@ -5793,7 +5784,7 @@ func (ec *executionContext) unmarshalInputPatientUpdateInput(ctx context.Context
 		asMap[k] = v
 	}
 
-	fieldsInOrder := [...]string{"firstName", "lastName", "dateOfBirth", "gender", "notes", "height", "weight", "addressId"}
+	fieldsInOrder := [...]string{"firstName", "lastName", "dateOfBirth", "gender", "notes", "height", "weight"}
 	for _, k := range fieldsInOrder {
 		v, ok := asMap[k]
 		if !ok {
@@ -5849,13 +5840,6 @@ func (ec *executionContext) unmarshalInputPatientUpdateInput(ctx context.Context
 				return it, err
 			}
 			it.Weight = data
-		case "addressId":
-			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("addressId"))
-			data, err := ec.unmarshalOID2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-			it.AddressID = data
 		}
 	}
 	return it, nil

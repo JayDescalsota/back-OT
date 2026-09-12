@@ -525,7 +525,6 @@ input PatientInput
   notes: String
   height: String
   weight: String
-  addressId: ID
 }
 
 input PatientPagination
@@ -559,7 +558,6 @@ input PatientUpdateInput
   notes: String
   height: String
   weight: String
-  addressId: ID
 }
 
 type PractitionerAvailability
