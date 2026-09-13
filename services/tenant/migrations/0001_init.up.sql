@@ -124,6 +124,7 @@ CREATE TABLE tenant_invites (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     role_id UUID NOT NULL REFERENCES tenant_roles(id) ON DELETE RESTRICT,
     status TEXT NOT NULL DEFAULT 'pending',
+    token TEXT UNIQUE NOT NULL,
     invited_by UUID,
     accepted_at TIMESTAMPTZ,
     expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',

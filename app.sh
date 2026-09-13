@@ -268,12 +268,13 @@ find_migration() {
 }
 
 apply_migration() {
-  local svc_db_url="$1"
-  local migration="$2"
+  local svc="$1"
+  local svc_db_url="$2"
+  local migration="$3"
   local filename version state down_migration
 
   filename="$(basename "$migration")"
-  version="${filename%%_*}"
+  version="${svc}_${filename%%_*}"
   state="$($DOCKER_COMPOSE exec -T db psql "$svc_db_url" -Atc "SELECT CASE WHEN dirty THEN 'dirty' ELSE 'clean' END FROM schema_migrations WHERE version = '$version';" | tr -d '\r')"
 
   if [ "$state" = "clean" ]; then
@@ -304,12 +305,13 @@ apply_migration() {
 }
 
 rollback_migration() {
-  local svc_db_url="$1"
-  local migration="$2"
+  local svc="$1"
+  local svc_db_url="$2"
+  local migration="$3"
   local filename version state down_migration
 
   filename="$(basename "$migration")"
-  version="${filename%%_*}"
+  version="${svc}_${filename%%_*}"
   state="$($DOCKER_COMPOSE exec -T db psql "$svc_db_url" -Atc "SELECT CASE WHEN dirty THEN 'dirty' ELSE 'clean' END FROM schema_migrations WHERE version = '$version';" | tr -d '\r')"
 
   if [ "$state" != "clean" ]; then
@@ -348,7 +350,7 @@ run_migrations() {
     if [ "$CMD" != "migrate" ] || [ -z "$MIGRATION_VERSION" ] || [ "$MIGRATION_ACTION" = "latest" ]; then
       for migration in "$migration_dir"/*.up.sql; do
         [ -f "$migration" ] || continue
-        apply_migration "$svc_db_url" "$migration" || return 1
+        apply_migration "$svc" "$svc_db_url" "$migration" || return 1
       done
     else
       local migration
@@ -357,9 +359,9 @@ run_migrations() {
         return 1
       }
       if [ "$MIGRATION_ACTION" = "up" ]; then
-        apply_migration "$svc_db_url" "$migration" || return 1
+        apply_migration "$svc" "$svc_db_url" "$migration" || return 1
       else
-        rollback_migration "$svc_db_url" "$migration" || return 1
+        rollback_migration "$svc" "$svc_db_url" "$migration" || return 1
       fi
     fi
   done

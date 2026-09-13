@@ -1,1 +1,0 @@
-ALTER TABLE tenant_invites ADD COLUMN token TEXT UNIQUE;
