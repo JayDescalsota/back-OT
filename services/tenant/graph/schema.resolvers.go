@@ -100,6 +100,41 @@ func (r *mutationResolver) UpdateBranch(ctx context.Context, id string, input mo
 	return branch, nil
 }
 
+// CreateTenantRole is the resolver for the createTenantRole field.
+func (r *mutationResolver) CreateTenantRole(ctx context.Context, input model.CreateTenantRoleInput) (*db.BunTenantRole, error) {
+	return r.TenantService.CreateTenantRole(ctx, input.Name, input.BranchID, input.Description)
+}
+
+// SetRoleActive is the resolver for the setRoleActive field.
+func (r *mutationResolver) SetRoleActive(ctx context.Context, id string, isActive bool) (*db.BunTenantRole, error) {
+	return r.TenantService.SetRoleActive(ctx, id, isActive)
+}
+
+// SetRolePermissions is the resolver for the setRolePermissions field.
+func (r *mutationResolver) SetRolePermissions(ctx context.Context, input model.SetRolePermissionsInput) (*db.BunTenantRole, error) {
+	return r.TenantService.SetRolePermissions(ctx, input.RoleID, input.PermissionIds)
+}
+
+// InviteUser is the resolver for the inviteUser field.
+func (r *mutationResolver) InviteUser(ctx context.Context, email string, branchID string, roleID string) (bool, error) {
+	return r.TenantService.InviteUser(ctx, email, branchID, roleID)
+}
+
+// UpdateAssignment is the resolver for the updateAssignment field.
+func (r *mutationResolver) UpdateAssignment(ctx context.Context, id string, input model.UpdateAssignmentInput) (*model.TenantUserAssignment, error) {
+	return r.TenantService.UpdateAssignment(ctx, id, input.RoleID)
+}
+
+// SetAssignmentActive is the resolver for the setAssignmentActive field.
+func (r *mutationResolver) SetAssignmentActive(ctx context.Context, id string, isActive bool) (*model.TenantUserAssignment, error) {
+	return r.TenantService.SetAssignmentActive(ctx, id, isActive)
+}
+
+// ResendInvite is the resolver for the resendInvite field.
+func (r *mutationResolver) ResendInvite(ctx context.Context, id string) (*model.TenantInvite, error) {
+	return r.TenantService.ResendInvite(ctx, id)
+}
+
 // MeTenant is the resolver for the meTenant field.
 func (r *queryResolver) MeTenant(ctx context.Context) (*model.User, error) {
 	userID := sharedctx.UserIDFromCtx(ctx)
@@ -125,7 +160,7 @@ func (r *queryResolver) Branch(ctx context.Context, id string) (*db.BunBranch, e
 
 // Address is the resolver for the address field.
 func (r *queryResolver) Address(ctx context.Context, id string) (*db.BunAddress, error) {
-	panic(fmt.Errorf("not implemented: Address - address"))
+	return r.TenantService.GetAddressByID(ctx, id)
 }
 
 // TenantRole is the resolver for the tenantRole field.
@@ -134,9 +169,26 @@ func (r *queryResolver) TenantRole(ctx context.Context, id string) (*db.BunTenan
 	return r.TenantService.GetRoleByID(ctx, id)
 }
 
+// TenantRoles is the resolver for the tenantRoles field.
+func (r *queryResolver) TenantRoles(ctx context.Context, branchID string) ([]*db.BunTenantRole, error) {
+	return r.TenantService.GetRolesByBranch(ctx, branchID)
+}
+
 // TenantPermission is the resolver for the tenantPermission field.
 func (r *queryResolver) TenantPermission(ctx context.Context, id string) (*db.BunTenantPermission, error) {
 	return r.TenantService.GetPermissionByID(ctx, id)
+}
+
+// TenantPermissions is the resolver for the tenantPermissions field.
+func (r *queryResolver) TenantPermissions(ctx context.Context, branchID *string) ([]*db.BunTenantPermission, error) {
+	bid := ""
+	if branchID != nil {
+		bid = *branchID
+	}
+	if bid == "" {
+		bid = sharedctx.FromContext(ctx).BranchID
+	}
+	return r.TenantService.ListPermissions(ctx, bid)
 }
 
 // MyAssignments is the resolver for the myAssignments field.
@@ -151,6 +203,16 @@ func (r *queryResolver) MyAssignments(ctx context.Context) ([]*model.TenantUserA
 // AssignmentsByUser is the resolver for the assignmentsByUser field.
 func (r *queryResolver) AssignmentsByUser(ctx context.Context, userID string) ([]*model.TenantUserAssignment, error) {
 	return r.TenantService.GetAssignmentsByUser(ctx, userID)
+}
+
+// InvitesByBranch is the resolver for the invitesByBranch field.
+func (r *queryResolver) InvitesByBranch(ctx context.Context, branchID string) ([]*model.TenantInvite, error) {
+	return r.TenantService.ListInvitesByBranch(ctx, branchID)
+}
+
+// AssignmentsByBranch is the resolver for the assignmentsByBranch field.
+func (r *queryResolver) AssignmentsByBranch(ctx context.Context, branchID string) ([]*model.TenantUserAssignment, error) {
+	return r.TenantService.ListAssignmentsByBranch(ctx, branchID)
 }
 
 // Permissions is the field resolver for TenantRole.permissions.

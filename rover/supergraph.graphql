@@ -223,6 +223,14 @@ input CancelAppointmentInput
   reason: String!
 }
 
+input CreateTenantRoleInput
+  @join__type(graph: TENANT)
+{
+  name: String!
+  branchId: ID!
+  description: String
+}
+
 input CreateUserInput
   @join__type(graph: USER)
 {
@@ -436,6 +444,13 @@ type Mutation
   createTenantAddress(input: AddressInput!): Address! @join__field(graph: TENANT)
   updateTenantAddress(id: ID!, input: AddressInput!): Address! @join__field(graph: TENANT)
   updateBranch(id: ID!, input: BranchInput!): Branch! @join__field(graph: TENANT)
+  createTenantRole(input: CreateTenantRoleInput!): TenantRole! @join__field(graph: TENANT)
+  setRoleActive(id: ID!, isActive: Boolean!): TenantRole! @join__field(graph: TENANT)
+  setRolePermissions(input: SetRolePermissionsInput!): TenantRole! @join__field(graph: TENANT)
+  inviteUser(email: String!, branchId: ID!, roleId: ID!): Boolean! @join__field(graph: TENANT)
+  updateAssignment(id: ID!, input: UpdateAssignmentInput!): TenantUserAssignment! @join__field(graph: TENANT)
+  setAssignmentActive(id: ID!, isActive: Boolean!): TenantUserAssignment! @join__field(graph: TENANT)
+  resendInvite(id: ID!): TenantInvite! @join__field(graph: TENANT)
   createUser(input: CreateUserInput!): User! @join__field(graph: USER)
   updateUser(id: ID!, input: UpdateUserInput!): User! @join__field(graph: USER)
   upsertProfile(input: UserProfileInput!): UserProfile! @join__field(graph: USER)
@@ -660,9 +675,13 @@ type Query
   branch(id: ID!): Branch @join__field(graph: TENANT)
   address(id: ID!): Address @join__field(graph: TENANT)
   tenantRole(id: ID!): TenantRole @join__field(graph: TENANT)
+  tenantRoles(branchId: ID!): [TenantRole!]! @join__field(graph: TENANT)
   tenantPermission(id: ID!): TenantPermission @join__field(graph: TENANT)
+  tenantPermissions(branchId: ID): [TenantPermission!]! @join__field(graph: TENANT)
   myAssignments: [TenantUserAssignment!]! @join__field(graph: TENANT)
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
+  invitesByBranch(branchId: ID!): [TenantInvite!]! @join__field(graph: TENANT)
+  assignmentsByBranch(branchId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
   meUser: User! @join__field(graph: USER)
   user(id: ID!): User @join__field(graph: USER)
   users(ids: [ID!]): [User!]! @join__field(graph: USER)
@@ -746,6 +765,13 @@ input ScheduleTemplateUpdateInput
   is_active: Boolean
 }
 
+input SetRolePermissionsInput
+  @join__type(graph: TENANT)
+{
+  roleId: ID!
+  permissionIds: [String!]!
+}
+
 type SoapNote
   @join__type(graph: BOOKING, key: "id")
 {
@@ -778,6 +804,19 @@ type Tenant
   status: String!
 }
 
+type TenantInvite
+  @join__type(graph: TENANT)
+{
+  id: ID!
+  email: String!
+  branch: Branch!
+  role: TenantRole!
+  status: String!
+  invitedAt: String!
+  acceptedAt: String
+  expiresAt: String!
+}
+
 type TenantPermission
   @join__type(graph: TENANT, key: "id")
 {
@@ -795,7 +834,9 @@ type TenantRole
   name: String!
   description: String
   isSystemRole: Boolean!
+  isActive: Boolean!
   tenantId: String
+  branchId: String
   permissions: [TenantPermission!]!
 }
 
@@ -836,6 +877,12 @@ input ThreadUpdateInput
 {
   type: String
   is_active: Boolean
+}
+
+input UpdateAssignmentInput
+  @join__type(graph: TENANT)
+{
+  roleId: ID!
 }
 
 input UpdateUserInput

@@ -22,10 +22,32 @@ type BranchInput struct {
 	IsActive bool    `json:"isActive"`
 }
 
+type CreateTenantRoleInput struct {
+	Name        string  `json:"name"`
+	BranchID    string  `json:"branchId"`
+	Description *string `json:"description,omitempty"`
+}
+
 type Mutation struct {
 }
 
 type Query struct {
+}
+
+type SetRolePermissionsInput struct {
+	RoleID        string   `json:"roleId"`
+	PermissionIds []string `json:"permissionIds"`
+}
+
+type TenantInvite struct {
+	ID         string            `json:"id"`
+	Email      string            `json:"email"`
+	Branch     *db.BunBranch     `json:"branch"`
+	Role       *db.BunTenantRole `json:"role"`
+	Status     string            `json:"status"`
+	InvitedAt  string            `json:"invitedAt"`
+	AcceptedAt *string           `json:"acceptedAt,omitempty"`
+	ExpiresAt  string            `json:"expiresAt"`
 }
 
 type TenantUserAssignment struct {
@@ -40,6 +62,10 @@ type TenantUserAssignment struct {
 	UpdatedBy     *string           `json:"updatedBy,omitempty"`
 	UpdatedAction *string           `json:"updatedAction,omitempty"`
 	IsActive      bool              `json:"isActive"`
+}
+
+type UpdateAssignmentInput struct {
+	RoleID string `json:"roleId"`
 }
 
 type User struct {

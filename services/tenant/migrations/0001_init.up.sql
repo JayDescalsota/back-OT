@@ -36,6 +36,7 @@ CREATE TABLE tenant_roles (
     tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     branch_id UUID REFERENCES tenant_branches(id) ON DELETE CASCADE,
     is_system_role BOOLEAN NOT NULL DEFAULT false,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_by UUID,
     created_action TEXT,
@@ -115,4 +116,25 @@ CREATE TABLE apps (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE tenant_invites (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email TEXT NOT NULL,
+    branch_id UUID NOT NULL REFERENCES tenant_branches(id) ON DELETE CASCADE,
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    role_id UUID NOT NULL REFERENCES tenant_roles(id) ON DELETE RESTRICT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    invited_by UUID,
+    accepted_at TIMESTAMPTZ,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- One pending invite per email per branch.
+CREATE UNIQUE INDEX idx_tenant_invites_pending_email_branch
+    ON tenant_invites (email, branch_id)
+    WHERE status = 'pending';
+
+CREATE INDEX idx_tenant_invites_branch ON tenant_invites (branch_id);
 

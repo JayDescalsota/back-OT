@@ -726,3 +726,21 @@ func TestBookingService_Integration_PractitionerAvailabilitiesQuery(t *testing.T
 	require.NoError(t, json.NewDecoder(resp.Body).Decode(&gqlResp))
 	assert.Empty(t, gqlResp.Errors)
 }
+
+func TestBookingService_Integration_GetAppointmentGoalByID(t *testing.T) {
+	ctx, svc := setupIntegrationTest(t)
+
+	// Verify querying nonexistent goal returns nil without error
+	goal, err := svc.GetAppointmentGoalByID(ctx, uuid.NewString())
+	require.NoError(t, err)
+	assert.Nil(t, goal)
+}
+
+func TestBookingService_Integration_GetSoapNoteByID(t *testing.T) {
+	ctx, svc := setupIntegrationTest(t)
+
+	// Verify querying nonexistent soap note returns nil without error
+	soap, err := svc.GetSoapNoteByID(ctx, uuid.NewString())
+	require.NoError(t, err)
+	assert.Nil(t, soap)
+}

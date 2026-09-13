@@ -81,6 +81,7 @@ type BunTenantRole struct {
 	TenantID     *string `bun:"tenant_id"                            json:"tenantId,omitempty"`
 	BranchID     *string `bun:"branch_id"                            json:"branchId,omitempty"`
 	IsSystemRole bool    `bun:"is_system_role,notnull,default:false" json:"isSystemRole"`
+	IsActive     bool    `bun:"is_active,notnull,default:true"       json:"isActive"`
 
 	CreatedAt     time.Time  `bun:"created_at" json:"-"`
 	CreatedBy     *string    `bun:"created_by" json:"-"`
@@ -113,3 +114,23 @@ type BunTenantPermission struct {
 }
 
 func (BunTenantPermission) IsEntity() {}
+
+// BunTenantInvite maps to the tenant_invites table.
+// Pending invites are emails without an account yet; once the user registers
+// (or if they already exist) InviteUser converts them into assignments.
+type BunTenantInvite struct {
+	bun.BaseModel `bun:"table:tenant_invites"`
+
+	ID         string     `bun:"id,pk"                    json:"id"`
+	Email      string     `bun:"email,notnull"            json:"email"`
+	BranchID   string     `bun:"branch_id,notnull"        json:"branchId"`
+	TenantID   string     `bun:"tenant_id,notnull"        json:"-"`
+	RoleID     string     `bun:"role_id,notnull"          json:"-"`
+	Status     string     `bun:"status,notnull,default:'pending'" json:"status"`
+	InvitedBy  *string    `bun:"invited_by"               json:"-"`
+	AcceptedAt *time.Time `bun:"accepted_at"              json:"-"`
+	ExpiresAt  time.Time  `bun:"expires_at,notnull"       json:"-"`
+
+	CreatedAt time.Time `bun:"created_at" json:"-"`
+	UpdatedAt time.Time `bun:"updated_at" json:"-"`
+}

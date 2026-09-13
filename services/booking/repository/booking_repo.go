@@ -581,6 +581,18 @@ func (r *BookingRepository) CreateSoapNote(ctx context.Context, m *db.BunSoapNot
 	return err
 }
 
+func (r *BookingRepository) FindSoapNoteByID(ctx context.Context, id string) (*db.BunSoapNote, error) {
+	var m db.BunSoapNote
+	err := r.db.NewSelect(ctx, &m).Where("id = ?", id).Scan(ctx)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &m, nil
+}
+
 func (r *BookingRepository) UpdateSoapNote(ctx context.Context, m *db.BunSoapNote) error {
 	_, err := r.db.NewUpdate(ctx, m).Where("id = ?", m.ID).Exec(ctx)
 	return err

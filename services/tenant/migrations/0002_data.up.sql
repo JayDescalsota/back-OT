@@ -15,12 +15,13 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- System roles (shared across all tenants and branches)
-INSERT INTO tenant_roles (tenant_id, branch_id, name, description, is_system_role)
+INSERT INTO tenant_roles (tenant_id, branch_id, name, description, is_system_role, is_active)
 SELECT 
     b.tenant_id, 
     b.id, 
     r.name, 
     r.description, 
+    true,
     true
 FROM tenant_branches b
 CROSS JOIN (
@@ -53,6 +54,7 @@ CROSS JOIN (
         ('appointment', 'read', 'own', 'View own appointments'),
         ('appointment', 'read', 'branch', 'View branch appointments'),
         ('appointment', 'write', 'branch', 'Create/edit appointments'),
+        ('appointment', 'delete', 'branch', 'Delete appointments'),
         ('soap_note', 'read', 'own', 'View own SOAP notes'),
         ('soap_note', 'read', 'branch', 'View branch SOAP notes'),
         ('soap_note', 'write', 'branch', 'Create/edit SOAP notes'),
@@ -75,6 +77,96 @@ CROSS JOIN (
         ('config', 'write', 'tenant', 'Manage tenant configuration')
 ) AS p(resource, action, scope, description)
 ON CONFLICT DO NOTHING;
+
+-- Seed tenant_permissions for admin access modules
+INSERT INTO tenant_permissions (tenant_id, branch_id, resource, action, scope, description)
+SELECT b.tenant_id, b.id, r.resource, 'access', 'branch', r.description
+FROM tenant_branches b
+CROSS JOIN (VALUES
+    ('dashboard','Open dashboard'),
+    ('patients','Open patient list'),
+    ('patient-detail','Open patient detail'),
+    ('schedule','Open schedule'),
+    ('messaging','Open messaging'),
+    ('billing','Open billing'),
+    ('referrals','Open referrals'),
+    ('staff','Open staff directory'),
+    ('admin','Open admin hub'),
+    ('admin.branch-profile','Manage branch profile'),
+    ('admin.branch-address','Manage branch address'),
+    ('admin.access-management','Manage access control'),
+    ('admin.user-management','Manage users'),
+    ('admin.appearance','Manage appearance'),
+    ('settings','Open settings')
+) AS r(resource, description)
+ON CONFLICT DO NOTHING;
+
+-- Seed tenant_role_permissions for system roles
+-- branch_admin gets all permissions in the branch
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'branch_admin'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- therapist permissions
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'therapist'
+  AND p.resource IN ('patient','appointment','soap_note','assessment','treatment_plan','goal')
+  AND p.action IN ('read','write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- guardian permissions
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'guardian'
+  AND p.resource = 'patient'
+  AND p.action = 'read'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- front_desk permissions
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'front_desk'
+  AND p.resource IN ('patient','appointment','billing')
+  AND p.action IN ('read','write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- assistant_ot permissions
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'assistant_ot'
+  AND p.resource IN ('patient','appointment')
+  AND p.action IN ('read','write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- hr_manager permissions
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'hr_manager'
+  AND p.resource IN ('billing','referral')
+  AND p.action IN ('read','write')
+ON CONFLICT (role_id, permission_id) DO NOTHING;
+
+-- executive permissions (all resources access + full)
+INSERT INTO tenant_role_permissions (role_id, permission_id)
+SELECT r.id, p.id
+FROM tenant_roles r
+JOIN tenant_permissions p ON p.branch_id = r.branch_id
+WHERE r.name = 'executive'
+ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- Assign admin@clinic.com as branch_admin in all branches
 INSERT INTO tenant_user_assignments (user_id, branch_id, tenant_id, role_id, assigned_by)

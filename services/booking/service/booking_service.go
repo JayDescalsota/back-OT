@@ -1012,6 +1012,14 @@ func (s *BookingService) UpsertSoapNote(ctx context.Context, appointmentID strin
 	return existing, nil
 }
 
+func (s *BookingService) GetAppointmentGoalByID(ctx context.Context, id string) (*db.BunAppointmentGoal, error) {
+	return s.BookingRepository.FindAppointmentGoalByID(ctx, id)
+}
+
+func (s *BookingService) GetSoapNoteByID(ctx context.Context, id string) (*db.BunSoapNote, error) {
+	return s.BookingRepository.FindSoapNoteByID(ctx, id)
+}
+
 // Helpers
 
 func parseTimeVal(s string) time.Time {

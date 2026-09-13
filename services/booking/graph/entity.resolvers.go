@@ -7,7 +7,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/clinicmanager/services/booking/db"
 	"github.com/clinicmanager/services/booking/graph/generated"
@@ -20,7 +19,7 @@ func (r *entityResolver) FindAppointmentByID(ctx context.Context, id string) (*d
 
 // FindAppointmentGoalByID is the resolver for the findAppointmentGoalByID field.
 func (r *entityResolver) FindAppointmentGoalByID(ctx context.Context, id string) (*db.BunAppointmentGoal, error) {
-	panic(fmt.Errorf("not implemented: FindAppointmentGoalByID - findAppointmentGoalByID"))
+	return r.BookingService.GetAppointmentGoalByID(ctx, id)
 }
 
 // FindAppointmentSlotByID is the resolver for the findAppointmentSlotByID field.
@@ -55,7 +54,7 @@ func (r *entityResolver) FindScheduleTemplateByID(ctx context.Context, id string
 
 // FindSoapNoteByID is the resolver for the findSoapNoteByID field.
 func (r *entityResolver) FindSoapNoteByID(ctx context.Context, id string) (*db.BunSoapNote, error) {
-	panic(fmt.Errorf("not implemented: FindSoapNoteByID - findSoapNoteByID"))
+	return r.BookingService.GetSoapNoteByID(ctx, id)
 }
 
 // Entity returns generated.EntityResolver implementation.

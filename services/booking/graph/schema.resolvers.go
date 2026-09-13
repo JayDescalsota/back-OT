@@ -40,7 +40,11 @@ func (r *appointmentResolver) SlotID(ctx context.Context, obj *db.BunAppointment
 
 // CancelledAt is the resolver for the cancelled_at field.
 func (r *appointmentResolver) CancelledAt(ctx context.Context, obj *db.BunAppointment) (*string, error) {
-	panic(fmt.Errorf("not implemented: CancelledAt - cancelled_at"))
+	if obj.CancelledAt == nil || obj.CancelledAt.IsZero() {
+		return nil, nil
+	}
+	s := obj.CancelledAt.Format(time.RFC3339)
+	return &s, nil
 }
 
 // CreatedAt is the resolver for the created_at field.

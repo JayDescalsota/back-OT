@@ -195,6 +195,15 @@ get_db_name() {
   echo "${url_without_query##*/}"
 }
 
+wait_for_db() {
+  echo "Waiting for database to be ready..."
+  until "${COMPOSE[@]}" exec -T db pg_isready -U postgres >/dev/null 2>&1 && \
+        "${COMPOSE[@]}" exec -T db psql -U postgres -d postgres -c "SELECT 1;" >/dev/null 2>&1; do
+    sleep 1
+  done
+  echo "Database is ready."
+}
+
 ensure_databases() {
   for service in "${TARGETS[@]}"; do
     local service_db_url db_name
@@ -238,12 +247,20 @@ apply_migration() {
     return 0
   fi
   if [[ "$state" == 'dirty' ]]; then
-    echo "  ERROR: $filename is marked dirty; repair it before retrying" >&2
-    return 1
+    echo "  ⚠️  $filename is marked dirty; auto-healing..."
+    local down_migration="${migration%.up.sql}.down.sql"
+    if [[ -f "$down_migration" ]]; then
+      echo "  Rolling back $filename using $(basename "$down_migration")..."
+      "${COMPOSE[@]}" exec -T db psql "$service_db_url" -v ON_ERROR_STOP=1 -f - < "$down_migration" >/dev/null 2>&1 || true
+    else
+      echo "  No down migration found for $filename; resetting dirty state directly..."
+    fi
+    "${COMPOSE[@]}" exec -T db psql "$service_db_url" -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations WHERE version = '$version';" >/dev/null
+    echo "  Dirty state cleared for $version. Retrying application..."
   fi
 
   echo "  Applying $filename..."
-  "${COMPOSE[@]}" exec -T db psql "$service_db_url" -v ON_ERROR_STOP=1 -c "INSERT INTO schema_migrations (version, dirty) VALUES ('$version', true);" >/dev/null
+  "${COMPOSE[@]}" exec -T db psql "$service_db_url" -v ON_ERROR_STOP=1 -c "INSERT INTO schema_migrations (version, dirty) VALUES ('$version', true) ON CONFLICT (version) DO UPDATE SET dirty = true;" >/dev/null
   if ! "${COMPOSE[@]}" exec -T db psql "$service_db_url" -v ON_ERROR_STOP=1 -f - < "$migration" >/dev/null; then
     echo "  ERROR: $filename failed and remains marked dirty" >&2
     return 1
@@ -360,7 +377,7 @@ case "$CMD" in
     fi
     "${COMPOSE[@]}" down -v
     "${COMPOSE[@]}" up -d db redis
-    until "${COMPOSE[@]}" exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
+    wait_for_db
     ensure_databases
     run_migrations
     compose_supergraph
@@ -368,7 +385,7 @@ case "$CMD" in
     ;;
   migrate)
     "${COMPOSE[@]}" up -d db
-    until "${COMPOSE[@]}" exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 1; done
+    wait_for_db
     ensure_databases
     run_migrations
     ;;

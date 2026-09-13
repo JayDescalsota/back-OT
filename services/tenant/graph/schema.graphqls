@@ -31,7 +31,9 @@ type TenantRole @key(fields: "id") {
   name: String!
   description: String
   isSystemRole: Boolean!
+  isActive: Boolean!
   tenantId: String
+  branchId: String
   permissions: [TenantPermission!]!
 }
 
@@ -68,15 +70,52 @@ type Query {
   branch(id: ID!): Branch
   address(id: ID!): Address
   tenantRole(id: ID!): TenantRole
+  tenantRoles(branchId: ID!): [TenantRole!]!
   tenantPermission(id: ID!): TenantPermission
+  tenantPermissions(branchId: ID): [TenantPermission!]!
   myAssignments: [TenantUserAssignment!]!
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]!
+  invitesByBranch(branchId: ID!): [TenantInvite!]!
+  assignmentsByBranch(branchId: ID!): [TenantUserAssignment!]!
 }
 
 type Mutation {
   createTenantAddress(input: AddressInput!): Address!
   updateTenantAddress(id: ID!, input: AddressInput!): Address!
   updateBranch(id: ID!, input: BranchInput!): Branch!
+  createTenantRole(input: CreateTenantRoleInput!): TenantRole!
+  setRoleActive(id: ID!, isActive: Boolean!): TenantRole!
+  setRolePermissions(input: SetRolePermissionsInput!): TenantRole!
+  inviteUser(email: String!, branchId: ID!, roleId: ID!): Boolean!
+  updateAssignment(id: ID!, input: UpdateAssignmentInput!): TenantUserAssignment!
+  setAssignmentActive(id: ID!, isActive: Boolean!): TenantUserAssignment!
+  resendInvite(id: ID!): TenantInvite!
+}
+
+type TenantInvite {
+  id: ID!
+  email: String!
+  branch: Branch!
+  role: TenantRole!
+  status: String!
+  invitedAt: String!
+  acceptedAt: String
+  expiresAt: String!
+}
+
+input UpdateAssignmentInput {
+  roleId: ID!
+}
+
+input CreateTenantRoleInput {
+  name: String!
+  branchId: ID!
+  description: String
+}
+
+input SetRolePermissionsInput {
+  roleId: ID!
+  permissionIds: [String!]!
 }
 
 input AddressInput {

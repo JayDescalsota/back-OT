@@ -72,21 +72,32 @@ type ComplexityRoot struct {
 
 	Mutation struct {
 		CreateTenantAddress func(childComplexity int, input model.AddressInput) int
+		CreateTenantRole    func(childComplexity int, input model.CreateTenantRoleInput) int
+		InviteUser          func(childComplexity int, email string, branchID string, roleID string) int
+		ResendInvite        func(childComplexity int, id string) int
+		SetAssignmentActive func(childComplexity int, id string, isActive bool) int
+		SetRoleActive       func(childComplexity int, id string, isActive bool) int
+		SetRolePermissions  func(childComplexity int, input model.SetRolePermissionsInput) int
+		UpdateAssignment    func(childComplexity int, id string, input model.UpdateAssignmentInput) int
 		UpdateBranch        func(childComplexity int, id string, input model.BranchInput) int
 		UpdateTenantAddress func(childComplexity int, id string, input model.AddressInput) int
 	}
 
 	Query struct {
-		Address            func(childComplexity int, id string) int
-		AssignmentsByUser  func(childComplexity int, userID string) int
-		Branch             func(childComplexity int, id string) int
-		MeTenant           func(childComplexity int) int
-		MyAssignments      func(childComplexity int) int
-		Tenant             func(childComplexity int, id string) int
-		TenantPermission   func(childComplexity int, id string) int
-		TenantRole         func(childComplexity int, id string) int
-		__resolve__service func(childComplexity int) int
-		__resolve_entities func(childComplexity int, representations []map[string]any) int
+		Address             func(childComplexity int, id string) int
+		AssignmentsByBranch func(childComplexity int, branchID string) int
+		AssignmentsByUser   func(childComplexity int, userID string) int
+		Branch              func(childComplexity int, id string) int
+		InvitesByBranch     func(childComplexity int, branchID string) int
+		MeTenant            func(childComplexity int) int
+		MyAssignments       func(childComplexity int) int
+		Tenant              func(childComplexity int, id string) int
+		TenantPermission    func(childComplexity int, id string) int
+		TenantPermissions   func(childComplexity int, branchID *string) int
+		TenantRole          func(childComplexity int, id string) int
+		TenantRoles         func(childComplexity int, branchID string) int
+		__resolve__service  func(childComplexity int) int
+		__resolve_entities  func(childComplexity int, representations []map[string]any) int
 	}
 
 	Tenant struct {
@@ -95,6 +106,17 @@ type ComplexityRoot struct {
 		Name   func(childComplexity int) int
 		Slug   func(childComplexity int) int
 		Status func(childComplexity int) int
+	}
+
+	TenantInvite struct {
+		AcceptedAt func(childComplexity int) int
+		Branch     func(childComplexity int) int
+		Email      func(childComplexity int) int
+		ExpiresAt  func(childComplexity int) int
+		ID         func(childComplexity int) int
+		InvitedAt  func(childComplexity int) int
+		Role       func(childComplexity int) int
+		Status     func(childComplexity int) int
 	}
 
 	TenantPermission struct {
@@ -106,8 +128,10 @@ type ComplexityRoot struct {
 	}
 
 	TenantRole struct {
+		BranchID     func(childComplexity int) int
 		Description  func(childComplexity int) int
 		ID           func(childComplexity int) int
+		IsActive     func(childComplexity int) int
 		IsSystemRole func(childComplexity int) int
 		Name         func(childComplexity int) int
 		Permissions  func(childComplexity int) int
@@ -157,6 +181,13 @@ type MutationResolver interface {
 	CreateTenantAddress(ctx context.Context, input model.AddressInput) (*db.BunAddress, error)
 	UpdateTenantAddress(ctx context.Context, id string, input model.AddressInput) (*db.BunAddress, error)
 	UpdateBranch(ctx context.Context, id string, input model.BranchInput) (*db.BunBranch, error)
+	CreateTenantRole(ctx context.Context, input model.CreateTenantRoleInput) (*db.BunTenantRole, error)
+	SetRoleActive(ctx context.Context, id string, isActive bool) (*db.BunTenantRole, error)
+	SetRolePermissions(ctx context.Context, input model.SetRolePermissionsInput) (*db.BunTenantRole, error)
+	InviteUser(ctx context.Context, email string, branchID string, roleID string) (bool, error)
+	UpdateAssignment(ctx context.Context, id string, input model.UpdateAssignmentInput) (*model.TenantUserAssignment, error)
+	SetAssignmentActive(ctx context.Context, id string, isActive bool) (*model.TenantUserAssignment, error)
+	ResendInvite(ctx context.Context, id string) (*model.TenantInvite, error)
 }
 type QueryResolver interface {
 	MeTenant(ctx context.Context) (*model.User, error)
@@ -164,9 +195,13 @@ type QueryResolver interface {
 	Branch(ctx context.Context, id string) (*db.BunBranch, error)
 	Address(ctx context.Context, id string) (*db.BunAddress, error)
 	TenantRole(ctx context.Context, id string) (*db.BunTenantRole, error)
+	TenantRoles(ctx context.Context, branchID string) ([]*db.BunTenantRole, error)
 	TenantPermission(ctx context.Context, id string) (*db.BunTenantPermission, error)
+	TenantPermissions(ctx context.Context, branchID *string) ([]*db.BunTenantPermission, error)
 	MyAssignments(ctx context.Context) ([]*model.TenantUserAssignment, error)
 	AssignmentsByUser(ctx context.Context, userID string) ([]*model.TenantUserAssignment, error)
+	InvitesByBranch(ctx context.Context, branchID string) ([]*model.TenantInvite, error)
+	AssignmentsByBranch(ctx context.Context, branchID string) ([]*model.TenantUserAssignment, error)
 }
 type TenantRoleResolver interface {
 	Permissions(ctx context.Context, obj *db.BunTenantRole) ([]*db.BunTenantPermission, error)
@@ -354,6 +389,83 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mutation.CreateTenantAddress(childComplexity, args["input"].(model.AddressInput)), true
+	case "Mutation.createTenantRole":
+		if e.ComplexityRoot.Mutation.CreateTenantRole == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_createTenantRole_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.CreateTenantRole(childComplexity, args["input"].(model.CreateTenantRoleInput)), true
+	case "Mutation.inviteUser":
+		if e.ComplexityRoot.Mutation.InviteUser == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_inviteUser_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.InviteUser(childComplexity, args["email"].(string), args["branchId"].(string), args["roleId"].(string)), true
+	case "Mutation.resendInvite":
+		if e.ComplexityRoot.Mutation.ResendInvite == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_resendInvite_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.ResendInvite(childComplexity, args["id"].(string)), true
+	case "Mutation.setAssignmentActive":
+		if e.ComplexityRoot.Mutation.SetAssignmentActive == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setAssignmentActive_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetAssignmentActive(childComplexity, args["id"].(string), args["isActive"].(bool)), true
+	case "Mutation.setRoleActive":
+		if e.ComplexityRoot.Mutation.SetRoleActive == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setRoleActive_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetRoleActive(childComplexity, args["id"].(string), args["isActive"].(bool)), true
+	case "Mutation.setRolePermissions":
+		if e.ComplexityRoot.Mutation.SetRolePermissions == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_setRolePermissions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.SetRolePermissions(childComplexity, args["input"].(model.SetRolePermissionsInput)), true
+	case "Mutation.updateAssignment":
+		if e.ComplexityRoot.Mutation.UpdateAssignment == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateAssignment_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.UpdateAssignment(childComplexity, args["id"].(string), args["input"].(model.UpdateAssignmentInput)), true
 	case "Mutation.updateBranch":
 		if e.ComplexityRoot.Mutation.UpdateBranch == nil {
 			break
@@ -388,6 +500,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Address(childComplexity, args["id"].(string)), true
+	case "Query.assignmentsByBranch":
+		if e.ComplexityRoot.Query.AssignmentsByBranch == nil {
+			break
+		}
+
+		args, err := ec.field_Query_assignmentsByBranch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.AssignmentsByBranch(childComplexity, args["branchId"].(string)), true
 	case "Query.assignmentsByUser":
 		if e.ComplexityRoot.Query.AssignmentsByUser == nil {
 			break
@@ -411,6 +534,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Branch(childComplexity, args["id"].(string)), true
 
+	case "Query.invitesByBranch":
+		if e.ComplexityRoot.Query.InvitesByBranch == nil {
+			break
+		}
+
+		args, err := ec.field_Query_invitesByBranch_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.InvitesByBranch(childComplexity, args["branchId"].(string)), true
 	case "Query.meTenant":
 		if e.ComplexityRoot.Query.MeTenant == nil {
 			break
@@ -445,6 +579,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.TenantPermission(childComplexity, args["id"].(string)), true
+	case "Query.tenantPermissions":
+		if e.ComplexityRoot.Query.TenantPermissions == nil {
+			break
+		}
+
+		args, err := ec.field_Query_tenantPermissions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.TenantPermissions(childComplexity, args["branchId"].(*string)), true
 	case "Query.tenantRole":
 		if e.ComplexityRoot.Query.TenantRole == nil {
 			break
@@ -456,6 +601,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.TenantRole(childComplexity, args["id"].(string)), true
+	case "Query.tenantRoles":
+		if e.ComplexityRoot.Query.TenantRoles == nil {
+			break
+		}
+
+		args, err := ec.field_Query_tenantRoles_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.TenantRoles(childComplexity, args["branchId"].(string)), true
 	case "Query._service":
 		if e.ComplexityRoot.Query.__resolve__service == nil {
 			break
@@ -505,6 +661,55 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Tenant.Status(childComplexity), true
 
+	case "TenantInvite.acceptedAt":
+		if e.ComplexityRoot.TenantInvite.AcceptedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.AcceptedAt(childComplexity), true
+	case "TenantInvite.branch":
+		if e.ComplexityRoot.TenantInvite.Branch == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.Branch(childComplexity), true
+	case "TenantInvite.email":
+		if e.ComplexityRoot.TenantInvite.Email == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.Email(childComplexity), true
+	case "TenantInvite.expiresAt":
+		if e.ComplexityRoot.TenantInvite.ExpiresAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.ExpiresAt(childComplexity), true
+	case "TenantInvite.id":
+		if e.ComplexityRoot.TenantInvite.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.ID(childComplexity), true
+	case "TenantInvite.invitedAt":
+		if e.ComplexityRoot.TenantInvite.InvitedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.InvitedAt(childComplexity), true
+	case "TenantInvite.role":
+		if e.ComplexityRoot.TenantInvite.Role == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.Role(childComplexity), true
+	case "TenantInvite.status":
+		if e.ComplexityRoot.TenantInvite.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantInvite.Status(childComplexity), true
+
 	case "TenantPermission.action":
 		if e.ComplexityRoot.TenantPermission.Action == nil {
 			break
@@ -536,6 +741,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.TenantPermission.Scope(childComplexity), true
 
+	case "TenantRole.branchId":
+		if e.ComplexityRoot.TenantRole.BranchID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantRole.BranchID(childComplexity), true
 	case "TenantRole.description":
 		if e.ComplexityRoot.TenantRole.Description == nil {
 			break
@@ -548,6 +759,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.TenantRole.ID(childComplexity), true
+	case "TenantRole.isActive":
+		if e.ComplexityRoot.TenantRole.IsActive == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TenantRole.IsActive(childComplexity), true
 	case "TenantRole.isSystemRole":
 		if e.ComplexityRoot.TenantRole.IsSystemRole == nil {
 			break
@@ -670,6 +887,9 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 	inputUnmarshalMap := graphql.BuildUnmarshalerMap(
 		ec.unmarshalInputAddressInput,
 		ec.unmarshalInputBranchInput,
+		ec.unmarshalInputCreateTenantRoleInput,
+		ec.unmarshalInputSetRolePermissionsInput,
+		ec.unmarshalInputUpdateAssignmentInput,
 	)
 	first := true
 
@@ -778,7 +998,9 @@ type TenantRole @key(fields: "id") {
   name: String!
   description: String
   isSystemRole: Boolean!
+  isActive: Boolean!
   tenantId: String
+  branchId: String
   permissions: [TenantPermission!]!
 }
 
@@ -815,15 +1037,52 @@ type Query {
   branch(id: ID!): Branch
   address(id: ID!): Address
   tenantRole(id: ID!): TenantRole
+  tenantRoles(branchId: ID!): [TenantRole!]!
   tenantPermission(id: ID!): TenantPermission
+  tenantPermissions(branchId: ID): [TenantPermission!]!
   myAssignments: [TenantUserAssignment!]!
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]!
+  invitesByBranch(branchId: ID!): [TenantInvite!]!
+  assignmentsByBranch(branchId: ID!): [TenantUserAssignment!]!
 }
 
 type Mutation {
   createTenantAddress(input: AddressInput!): Address!
   updateTenantAddress(id: ID!, input: AddressInput!): Address!
   updateBranch(id: ID!, input: BranchInput!): Branch!
+  createTenantRole(input: CreateTenantRoleInput!): TenantRole!
+  setRoleActive(id: ID!, isActive: Boolean!): TenantRole!
+  setRolePermissions(input: SetRolePermissionsInput!): TenantRole!
+  inviteUser(email: String!, branchId: ID!, roleId: ID!): Boolean!
+  updateAssignment(id: ID!, input: UpdateAssignmentInput!): TenantUserAssignment!
+  setAssignmentActive(id: ID!, isActive: Boolean!): TenantUserAssignment!
+  resendInvite(id: ID!): TenantInvite!
+}
+
+type TenantInvite {
+  id: ID!
+  email: String!
+  branch: Branch!
+  role: TenantRole!
+  status: String!
+  invitedAt: String!
+  acceptedAt: String
+  expiresAt: String!
+}
+
+input UpdateAssignmentInput {
+  roleId: ID!
+}
+
+input CreateTenantRoleInput {
+  name: String!
+  branchId: ID!
+  description: String
+}
+
+input SetRolePermissionsInput {
+  roleId: ID!
+  permissionIds: [String!]!
 }
 
 input AddressInput {
@@ -980,6 +1239,28 @@ func (ec *executionContext) childFields_Tenant(ctx context.Context, field graphq
 	return nil, fmt.Errorf("no field named %q was found under type Tenant", field.Name)
 }
 
+func (ec *executionContext) childFields_TenantInvite(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_TenantInvite_id(ctx, field)
+	case "email":
+		return ec.fieldContext_TenantInvite_email(ctx, field)
+	case "branch":
+		return ec.fieldContext_TenantInvite_branch(ctx, field)
+	case "role":
+		return ec.fieldContext_TenantInvite_role(ctx, field)
+	case "status":
+		return ec.fieldContext_TenantInvite_status(ctx, field)
+	case "invitedAt":
+		return ec.fieldContext_TenantInvite_invitedAt(ctx, field)
+	case "acceptedAt":
+		return ec.fieldContext_TenantInvite_acceptedAt(ctx, field)
+	case "expiresAt":
+		return ec.fieldContext_TenantInvite_expiresAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type TenantInvite", field.Name)
+}
+
 func (ec *executionContext) childFields_TenantPermission(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -1006,8 +1287,12 @@ func (ec *executionContext) childFields_TenantRole(ctx context.Context, field gr
 		return ec.fieldContext_TenantRole_description(ctx, field)
 	case "isSystemRole":
 		return ec.fieldContext_TenantRole_isSystemRole(ctx, field)
+	case "isActive":
+		return ec.fieldContext_TenantRole_isActive(ctx, field)
 	case "tenantId":
 		return ec.fieldContext_TenantRole_tenantId(ctx, field)
+	case "branchId":
+		return ec.fieldContext_TenantRole_branchId(ctx, field)
 	case "permissions":
 		return ec.fieldContext_TenantRole_permissions(ctx, field)
 	}
@@ -1274,6 +1559,144 @@ func (ec *executionContext) field_Mutation_createTenantAddress_args(ctx context.
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_createTenantRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.CreateTenantRoleInput, error) {
+			return ec.unmarshalNCreateTenantRoleInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐCreateTenantRoleInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_inviteUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "email",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["email"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "branchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["branchId"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "roleId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["roleId"] = arg2
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_resendInvite_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setAssignmentActive_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "isActive",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["isActive"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setRoleActive_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "isActive",
+		func(ctx context.Context, v any) (bool, error) {
+			return ec.unmarshalNBoolean2bool(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["isActive"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_setRolePermissions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.SetRolePermissionsInput, error) {
+			return ec.unmarshalNSetRolePermissionsInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐSetRolePermissionsInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateAssignment_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "id",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["id"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "input",
+		func(ctx context.Context, v any) (model.UpdateAssignmentInput, error) {
+			return ec.unmarshalNUpdateAssignmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐUpdateAssignmentInput(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["input"] = arg1
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_updateBranch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1360,6 +1783,20 @@ func (ec *executionContext) field_Query_address_args(ctx context.Context, rawArg
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_assignmentsByBranch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "branchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["branchId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_assignmentsByUser_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1388,6 +1825,20 @@ func (ec *executionContext) field_Query_branch_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_invitesByBranch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "branchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["branchId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_tenantPermission_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1402,6 +1853,20 @@ func (ec *executionContext) field_Query_tenantPermission_args(ctx context.Contex
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_tenantPermissions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "branchId",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOID2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["branchId"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_tenantRole_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1413,6 +1878,20 @@ func (ec *executionContext) field_Query_tenantRole_args(ctx context.Context, raw
 		return nil, err
 	}
 	args["id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_tenantRoles_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "branchId",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNID2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["branchId"] = arg0
 	return args, nil
 }
 
@@ -2217,6 +2696,314 @@ func (ec *executionContext) fieldContext_Mutation_updateBranch(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_createTenantRole(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_createTenantRole(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().CreateTenantRole(ctx, fc.Args["input"].(model.CreateTenantRoleInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunTenantRole) graphql.Marshaler {
+			return ec.marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRole(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_createTenantRole(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantRole(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_createTenantRole_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setRoleActive(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setRoleActive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetRoleActive(ctx, fc.Args["id"].(string), fc.Args["isActive"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunTenantRole) graphql.Marshaler {
+			return ec.marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRole(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setRoleActive(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantRole(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setRoleActive_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setRolePermissions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setRolePermissions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetRolePermissions(ctx, fc.Args["input"].(model.SetRolePermissionsInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunTenantRole) graphql.Marshaler {
+			return ec.marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRole(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setRolePermissions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantRole(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setRolePermissions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_inviteUser(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_inviteUser(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().InviteUser(ctx, fc.Args["email"].(string), fc.Args["branchId"].(string), fc.Args["roleId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_inviteUser(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type Boolean does not have child fields")
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_inviteUser_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_updateAssignment(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_updateAssignment(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().UpdateAssignment(ctx, fc.Args["id"].(string), fc.Args["input"].(model.UpdateAssignmentInput))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TenantUserAssignment) graphql.Marshaler {
+			return ec.marshalNTenantUserAssignment2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantUserAssignment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_updateAssignment(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantUserAssignment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_updateAssignment_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_setAssignmentActive(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_setAssignmentActive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().SetAssignmentActive(ctx, fc.Args["id"].(string), fc.Args["isActive"].(bool))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TenantUserAssignment) graphql.Marshaler {
+			return ec.marshalNTenantUserAssignment2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantUserAssignment(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_setAssignmentActive(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantUserAssignment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_setAssignmentActive_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Mutation_resendInvite(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_resendInvite(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().ResendInvite(ctx, fc.Args["id"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TenantInvite) graphql.Marshaler {
+			return ec.marshalNTenantInvite2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInvite(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_resendInvite(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantInvite(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_resendInvite_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_meTenant(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2425,6 +3212,50 @@ func (ec *executionContext) fieldContext_Query_tenantRole(ctx context.Context, f
 	return fc, nil
 }
 
+func (ec *executionContext) _Query_tenantRoles(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_tenantRoles(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().TenantRoles(ctx, fc.Args["branchId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunTenantRole) graphql.Marshaler {
+			return ec.marshalNTenantRole2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRoleᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_tenantRoles(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantRole(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_tenantRoles_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_tenantPermission(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2463,6 +3294,50 @@ func (ec *executionContext) fieldContext_Query_tenantPermission(ctx context.Cont
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_tenantPermission_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_tenantPermissions(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_tenantPermissions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().TenantPermissions(ctx, fc.Args["branchId"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*db.BunTenantPermission) graphql.Marshaler {
+			return ec.marshalNTenantPermission2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantPermissionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_tenantPermissions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantPermission(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_tenantPermissions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2539,6 +3414,94 @@ func (ec *executionContext) fieldContext_Query_assignmentsByUser(ctx context.Con
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_assignmentsByUser_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_invitesByBranch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_invitesByBranch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().InvitesByBranch(ctx, fc.Args["branchId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.TenantInvite) graphql.Marshaler {
+			return ec.marshalNTenantInvite2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInviteᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_invitesByBranch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantInvite(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_invitesByBranch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_assignmentsByBranch(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_assignmentsByBranch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().AssignmentsByBranch(ctx, fc.Args["branchId"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.TenantUserAssignment) graphql.Marshaler {
+			return ec.marshalNTenantUserAssignment2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantUserAssignmentᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Query_assignmentsByBranch(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantUserAssignment(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_assignmentsByBranch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -2812,6 +3775,208 @@ func (ec *executionContext) fieldContext_Tenant_status(_ context.Context, field 
 	return graphql.NewScalarFieldContext("Tenant", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _TenantInvite_id(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantInvite", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _TenantInvite_email(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_email(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Email, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_email(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantInvite", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TenantInvite_branch(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_branch(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Branch, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunBranch) graphql.Marshaler {
+			return ec.marshalNBranch2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunBranch(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_branch(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TenantInvite",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_Branch(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TenantInvite_role(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_role(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Role, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *db.BunTenantRole) graphql.Marshaler {
+			return ec.marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRole(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_role(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "TenantInvite",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantRole(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _TenantInvite_status(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantInvite", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TenantInvite_invitedAt(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_invitedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.InvitedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_invitedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantInvite", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TenantInvite_acceptedAt(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_acceptedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AcceptedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_acceptedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantInvite", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TenantInvite_expiresAt(ctx context.Context, field graphql.CollectedField, obj *model.TenantInvite) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantInvite_expiresAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ExpiresAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantInvite_expiresAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantInvite", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _TenantPermission_id(ctx context.Context, field graphql.CollectedField, obj *db.BunTenantPermission) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3019,6 +4184,29 @@ func (ec *executionContext) fieldContext_TenantRole_isSystemRole(_ context.Conte
 	return graphql.NewScalarFieldContext("TenantRole", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
+func (ec *executionContext) _TenantRole_isActive(ctx context.Context, field graphql.CollectedField, obj *db.BunTenantRole) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantRole_isActive(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsActive, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_TenantRole_isActive(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantRole", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
 func (ec *executionContext) _TenantRole_tenantId(ctx context.Context, field graphql.CollectedField, obj *db.BunTenantRole) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3039,6 +4227,29 @@ func (ec *executionContext) _TenantRole_tenantId(ctx context.Context, field grap
 	)
 }
 func (ec *executionContext) fieldContext_TenantRole_tenantId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TenantRole", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TenantRole_branchId(ctx context.Context, field graphql.CollectedField, obj *db.BunTenantRole) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TenantRole_branchId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BranchID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TenantRole_branchId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("TenantRole", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
@@ -4607,6 +5818,117 @@ func (ec *executionContext) unmarshalInputBranchInput(ctx context.Context, obj a
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputCreateTenantRoleInput(ctx context.Context, obj any) (model.CreateTenantRoleInput, error) {
+	var it model.CreateTenantRoleInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"name", "branchId", "description"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "name":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("name"))
+			data, err := ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Name = data
+		case "branchId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("branchId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.BranchID = data
+		case "description":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("description"))
+			data, err := ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.Description = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputSetRolePermissionsInput(ctx context.Context, obj any) (model.SetRolePermissionsInput, error) {
+	var it model.SetRolePermissionsInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"roleId", "permissionIds"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "roleId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roleId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RoleID = data
+		case "permissionIds":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("permissionIds"))
+			data, err := ec.unmarshalNString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.PermissionIds = data
+		}
+	}
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdateAssignmentInput(ctx context.Context, obj any) (model.UpdateAssignmentInput, error) {
+	var it model.UpdateAssignmentInput
+	if obj == nil {
+		return it, nil
+	}
+
+	asMap := map[string]any{}
+	for k, v := range obj.(map[string]any) {
+		asMap[k] = v
+	}
+
+	fieldsInOrder := [...]string{"roleId"}
+	for _, k := range fieldsInOrder {
+		v, ok := asMap[k]
+		if !ok {
+			continue
+		}
+		switch k {
+		case "roleId":
+			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("roleId"))
+			data, err := ec.unmarshalNID2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+			it.RoleID = data
+		}
+	}
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -5053,6 +6375,55 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createTenantRole":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_createTenantRole(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "setRoleActive":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setRoleActive(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "setRolePermissions":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setRolePermissions(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "inviteUser":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_inviteUser(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updateAssignment":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_updateAssignment(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "setAssignmentActive":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_setAssignmentActive(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "resendInvite":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_resendInvite(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -5204,6 +6575,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "tenantRoles":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_tenantRoles(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
 		case "tenantPermission":
 			field := field
 
@@ -5215,6 +6608,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}()
 				res = ec._Query_tenantPermission(ctx, field)
 				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "tenantPermissions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_tenantPermissions(ctx, field)
+				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -5258,6 +6673,50 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_assignmentsByUser(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "invitesByBranch":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_invitesByBranch(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "assignmentsByBranch":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_assignmentsByBranch(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
@@ -5407,6 +6866,79 @@ func (ec *executionContext) _Tenant(ctx context.Context, sel ast.SelectionSet, o
 	return out
 }
 
+var tenantInviteImplementors = []string{"TenantInvite"}
+
+func (ec *executionContext) _TenantInvite(ctx context.Context, sel ast.SelectionSet, obj *model.TenantInvite) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, tenantInviteImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("TenantInvite")
+		case "id":
+			out.Values[i] = ec._TenantInvite_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "email":
+			out.Values[i] = ec._TenantInvite_email(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "branch":
+			out.Values[i] = ec._TenantInvite_branch(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "role":
+			out.Values[i] = ec._TenantInvite_role(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._TenantInvite_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "invitedAt":
+			out.Values[i] = ec._TenantInvite_invitedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "acceptedAt":
+			out.Values[i] = ec._TenantInvite_acceptedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "expiresAt":
+			out.Values[i] = ec._TenantInvite_expiresAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var tenantPermissionImplementors = []string{"TenantPermission", "_Entity"}
 
 func (ec *executionContext) _TenantPermission(ctx context.Context, sel ast.SelectionSet, obj *db.BunTenantPermission) graphql.Marshaler {
@@ -5497,8 +7029,18 @@ func (ec *executionContext) _TenantRole(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "isActive":
+			out.Values[i] = ec._TenantRole_isActive(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "tenantId":
 			out.Values[i] = ec._TenantRole_tenantId(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "branchId":
+			out.Values[i] = ec._TenantRole_branchId(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -6176,6 +7718,11 @@ func (ec *executionContext) unmarshalNBranchInput2githubᚗcomᚋclinicmanager�
 	return res, graphql.ErrorOnPath(ctx, err)
 }
 
+func (ec *executionContext) unmarshalNCreateTenantRoleInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐCreateTenantRoleInput(ctx context.Context, v any) (model.CreateTenantRoleInput, error) {
+	res, err := ec.unmarshalInputCreateTenantRoleInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNFieldSet2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6208,6 +7755,11 @@ func (ec *executionContext) marshalNID2string(ctx context.Context, sel ast.Selec
 	return res
 }
 
+func (ec *executionContext) unmarshalNSetRolePermissionsInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐSetRolePermissionsInput(ctx context.Context, v any) (model.SetRolePermissionsInput, error) {
+	res, err := ec.unmarshalInputSetRolePermissionsInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
 	res, err := graphql.UnmarshalString(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -6224,6 +7776,35 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 	return res
 }
 
+func (ec *executionContext) unmarshalNString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalNString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNTenant2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenant(ctx context.Context, sel ast.SelectionSet, v db.BunTenant) graphql.Marshaler {
 	return ec._Tenant(ctx, sel, &v)
 }
@@ -6236,6 +7817,36 @@ func (ec *executionContext) marshalNTenant2ᚖgithubᚗcomᚋclinicmanagerᚋser
 		return graphql.Null
 	}
 	return ec._Tenant(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTenantInvite2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInvite(ctx context.Context, sel ast.SelectionSet, v model.TenantInvite) graphql.Marshaler {
+	return ec._TenantInvite(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNTenantInvite2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInviteᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TenantInvite) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTenantInvite2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInvite(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) marshalNTenantInvite2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInvite(ctx context.Context, sel ast.SelectionSet, v *model.TenantInvite) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._TenantInvite(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalNTenantPermission2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantPermission(ctx context.Context, sel ast.SelectionSet, v db.BunTenantPermission) graphql.Marshaler {
@@ -6272,6 +7883,22 @@ func (ec *executionContext) marshalNTenantRole2githubᚗcomᚋclinicmanagerᚋse
 	return ec._TenantRole(ctx, sel, &v)
 }
 
+func (ec *executionContext) marshalNTenantRole2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRoleᚄ(ctx context.Context, sel ast.SelectionSet, v []*db.BunTenantRole) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRole(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantRole(ctx context.Context, sel ast.SelectionSet, v *db.BunTenantRole) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -6280,6 +7907,10 @@ func (ec *executionContext) marshalNTenantRole2ᚖgithubᚗcomᚋclinicmanager�
 		return graphql.Null
 	}
 	return ec._TenantRole(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNTenantUserAssignment2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantUserAssignment(ctx context.Context, sel ast.SelectionSet, v model.TenantUserAssignment) graphql.Marshaler {
+	return ec._TenantUserAssignment(ctx, sel, &v)
 }
 
 func (ec *executionContext) marshalNTenantUserAssignment2ᚕᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantUserAssignmentᚄ(ctx context.Context, sel ast.SelectionSet, v []*model.TenantUserAssignment) graphql.Marshaler {
@@ -6306,6 +7937,11 @@ func (ec *executionContext) marshalNTenantUserAssignment2ᚖgithubᚗcomᚋclini
 		return graphql.Null
 	}
 	return ec._TenantUserAssignment(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNUpdateAssignmentInput2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐUpdateAssignmentInput(ctx context.Context, v any) (model.UpdateAssignmentInput, error) {
+	res, err := ec.unmarshalInputUpdateAssignmentInput(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
 }
 
 func (ec *executionContext) marshalNUser2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐUser(ctx context.Context, sel ast.SelectionSet, v model.User) graphql.Marshaler {
@@ -6717,6 +8353,24 @@ func (ec *executionContext) marshalOBranch2ᚖgithubᚗcomᚋclinicmanagerᚋser
 		return graphql.Null
 	}
 	return ec._Branch(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOID2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalID(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOID2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalID(*v)
+	return res
 }
 
 func (ec *executionContext) unmarshalOString2string(ctx context.Context, v any) (string, error) {

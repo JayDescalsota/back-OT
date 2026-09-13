@@ -23,4 +23,13 @@ else
     echo "  ⚠️ Go binary not found in PATH, skipping go vet."
 fi
 
+# 3. Run fast unit tests (no live DB required).
+#    Integration tests under */test/ self-skip without Postgres.
+if command -v go >/dev/null 2>&1; then
+    echo "  ↳ Running go test ./services/tenant/service/..."
+    go test ./services/tenant/service/...
+else
+    echo "  ⚠️ Go binary not found in PATH, skipping unit tests."
+fi
+
 echo "✅ [Pre-commit] All backend checks passed!"

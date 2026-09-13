@@ -34,14 +34,14 @@ func newUserRepo(t *testing.T) (*repository.UserRepo, sqlmock.Sqlmock) {
 
 func TestUserRepo_FindUserByID_Found(t *testing.T) {
 	repo, mock := newUserRepo(t)
-	id, email, name := uuid.New().String(), "alice@example.com", "Alice"
+	id, email := uuid.New().String(), "alice@example.com"
 	now := time.Now()
 
 	mock.ExpectQuery(`SELECT .+ FROM "users" .+ WHERE .+`).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "email", "name", "password_hash",
+			"id", "email", "password_hash",
 			"is_active", "last_login", "created_at", "updated_at",
-		}).AddRow(id, email, name, "hash", true, nil, now, now))
+		}).AddRow(id, email, "hash", true, nil, now, now))
 
 	user, err := repo.FindUserByID(context.Background(), id)
 	if err != nil {
