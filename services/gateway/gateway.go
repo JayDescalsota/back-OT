@@ -52,6 +52,7 @@ func main() {
 		{prefix: "/health", noAuth: true},
 		{prefix: "/login", proxy: proxyFor(env["USER_SVC_URL"]), noAuth: true},
 		{prefix: "/register", proxy: proxyFor(env["USER_SVC_URL"]), noAuth: true},
+		{prefix: "/invite-accept", proxy: proxyFor(env["USER_SVC_URL"]), noAuth: true},
 		{prefix: "/verify", proxy: proxyFor(env["USER_SVC_URL"]), noAuth: true},
 		{prefix: "/forgot-password", proxy: proxyFor(env["USER_SVC_URL"]), noAuth: true},
 		{prefix: "/reset-password", proxy: proxyFor(env["USER_SVC_URL"]), noAuth: true},

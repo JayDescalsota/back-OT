@@ -27,6 +27,30 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type AcceptInviteRequest struct {
+	Token    string `json:"token"`
+	Name     string `json:"name"`
+	Password string `json:"password"`
+}
+
+func acceptInviteHandler(svc *service.AuthService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		req, err := httpx.Decode[AcceptInviteRequest](r)
+		if err != nil {
+			httpx.Error(w, response.Validation("invalid request body"))
+			return
+		}
+
+		res, err := svc.AcceptInvite(r.Context(), req.Token, req.Name, req.Password)
+		if err != nil {
+			httpx.Error(w, err)
+			return
+		}
+
+		httpx.OK(w, res)
+	}
+}
+
 type ChangePasswordRequest struct {
 	Email       string `json:"email"`
 	OldPassword string `json:"oldPassword"`

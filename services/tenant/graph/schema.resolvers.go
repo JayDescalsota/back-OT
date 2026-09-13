@@ -135,6 +135,11 @@ func (r *mutationResolver) ResendInvite(ctx context.Context, id string) (*model.
 	return r.TenantService.ResendInvite(ctx, id)
 }
 
+// AcceptInvite is the resolver for the acceptInvite field.
+func (r *mutationResolver) AcceptInvite(ctx context.Context, token string, name string, password string) (*model.AcceptInvitePayload, error) {
+	return r.TenantService.AcceptInvite(ctx, token, name, password)
+}
+
 // MeTenant is the resolver for the meTenant field.
 func (r *queryResolver) MeTenant(ctx context.Context) (*model.User, error) {
 	userID := sharedctx.UserIDFromCtx(ctx)
@@ -213,6 +218,11 @@ func (r *queryResolver) InvitesByBranch(ctx context.Context, branchID string) ([
 // AssignmentsByBranch is the resolver for the assignmentsByBranch field.
 func (r *queryResolver) AssignmentsByBranch(ctx context.Context, branchID string) ([]*model.TenantUserAssignment, error) {
 	return r.TenantService.ListAssignmentsByBranch(ctx, branchID)
+}
+
+// InviteByToken is the resolver for the inviteByToken field.
+func (r *queryResolver) InviteByToken(ctx context.Context, token string) (*model.TenantInvite, error) {
+	return r.TenantService.InviteByToken(ctx, token)
 }
 
 // Permissions is the field resolver for TenantRole.permissions.

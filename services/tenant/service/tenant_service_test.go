@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -28,12 +29,14 @@ type fakeRepo struct {
 	replacedPerms []string
 	replacePerms  func(roleID string, permIDs []string) error
 
-	userIDByEmail map[string]string
+	upserted *upsertCall
+	accepts  [][2]string
+	pending  *model.TenantInvite
+	byToken  *model.TenantInvite
+	created  *db.BunTenantInvite
 
-	upserted  *upsertCall
-	accepts   [][2]string
-	pending   *model.TenantInvite
-	created   *db.BunTenantInvite
+	tokens    map[string]string
+	setTokens [][2]string
 	refreshed []string
 
 	assignment  *model.TenantUserAssignment
@@ -69,6 +72,46 @@ func testAssignment() *model.TenantUserAssignment {
 		Role:     &db.BunTenantRole{ID: "r1", Name: "therapist"},
 		IsActive: true,
 	}
+}
+
+func testInvite() *model.TenantInvite {
+	return &model.TenantInvite{
+		ID:        "inv1",
+		Email:     "new@clinic.com",
+		Branch:    &db.BunBranch{ID: "b1", Name: "Branch 1"},
+		Role:      &db.BunTenantRole{ID: "r1", Name: "therapist"},
+		Status:    "pending",
+		InvitedAt: "2026-01-01T00:00:00Z",
+		ExpiresAt: "2026-01-08T00:00:00Z",
+	}
+}
+
+type mailCall struct {
+	to, subject, body string
+}
+
+type fakeMailer struct {
+	sends []mailCall
+	err   error
+}
+
+func (m *fakeMailer) Send(to, subject, body string) error {
+	m.sends = append(m.sends, mailCall{to: to, subject: subject, body: body})
+	return m.err
+}
+
+type fakeAccounts struct {
+	creds *service.UserCredentials
+	err   error
+	calls [][3]string
+}
+
+func (f *fakeAccounts) AcceptInvite(ctx context.Context, token, name, password string) (*service.UserCredentials, error) {
+	f.calls = append(f.calls, [3]string{token, name, password})
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.creds, nil
 }
 
 func (f *fakeRepo) FindTenantByID(ctx context.Context, id string) (*db.BunTenant, error) {
@@ -150,9 +193,6 @@ func (f *fakeRepo) FindAssignmentsByUser(ctx context.Context, userID string) ([]
 func (f *fakeRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*model.TenantUserAssignment, error) {
 	return nil, nil
 }
-func (f *fakeRepo) FindUserIDByEmail(ctx context.Context, email string) (string, error) {
-	return f.userIDByEmail[strings.ToLower(email)], nil
-}
 func (f *fakeRepo) UpsertAssignment(ctx context.Context, userID, branchID, tenantID, roleID string, assignedBy *string) error {
 	f.upserted = &upsertCall{userID: userID, branchID: branchID, tenantID: tenantID, roleID: roleID, assignedBy: assignedBy}
 	return nil
@@ -181,6 +221,20 @@ func (f *fakeRepo) FindPendingInvite(ctx context.Context, email, branchID string
 func (f *fakeRepo) FindInviteByID(ctx context.Context, id string) (*model.TenantInvite, error) {
 	return f.pending, nil
 }
+func (f *fakeRepo) FindInviteByToken(ctx context.Context, token string) (*model.TenantInvite, error) {
+	return f.byToken, nil
+}
+func (f *fakeRepo) InviteToken(ctx context.Context, id string) (string, error) {
+	return f.tokens[id], nil
+}
+func (f *fakeRepo) SetInviteToken(ctx context.Context, id, token string) error {
+	f.setTokens = append(f.setTokens, [2]string{id, token})
+	if f.tokens == nil {
+		f.tokens = map[string]string{}
+	}
+	f.tokens[id] = token
+	return nil
+}
 func (f *fakeRepo) ListInvitesByBranch(ctx context.Context, branchID string) ([]*model.TenantInvite, error) {
 	return nil, nil
 }
@@ -202,13 +256,19 @@ func (f *fakeRepo) UpdateAddress(ctx context.Context, id string, addr *db.BunAdd
 	return nil
 }
 
-func newSvc(f *fakeRepo) *service.TenantService {
-	return service.NewTenantService(f, nil)
+func newSvc(f *fakeRepo) (*service.TenantService, *fakeMailer, *fakeAccounts) {
+	svc := service.NewTenantService(f, nil)
+	m := &fakeMailer{}
+	a := &fakeAccounts{creds: &service.UserCredentials{UserID: "u9", Token: "tok", RefreshToken: "rtok", Email: "new@clinic.com"}}
+	svc.Mailer = m
+	svc.UserAccounts = a
+	svc.FrontendURL = "http://front:4200"
+	return svc, m, a
 }
 
 func TestCreateTenantRole(t *testing.T) {
 	f := &fakeRepo{}
-	svc := newSvc(f)
+	svc, _, _ := newSvc(f)
 
 	role, err := svc.CreateTenantRole(context.Background(), "on-call", "b1", strptr("Night cover"))
 	if err != nil {
@@ -236,7 +296,8 @@ func TestCreateTenantRoleBranchNotFound(t *testing.T) {
 	f := &fakeRepo{findBranch: func(ctx context.Context, id string) (*db.BunBranch, error) {
 		return nil, nil
 	}}
-	if _, err := newSvc(f).CreateTenantRole(context.Background(), "x", "nope", nil); err == nil {
+	svc, _, _ := newSvc(f)
+	if _, err := svc.CreateTenantRole(context.Background(), "x", "nope", nil); err == nil {
 		t.Fatal("expected error for unknown branch")
 	}
 }
@@ -253,7 +314,7 @@ func TestSetRolePermissionsResolvesResourceActionRefs(t *testing.T) {
 			}, nil
 		},
 	}
-	svc := newSvc(f)
+	svc, _, _ := newSvc(f)
 
 	if _, err := svc.SetRolePermissions(context.Background(), "r1", []string{"patient:read", "patient:write"}); err != nil {
 		t.Fatalf("SetRolePermissions: %v", err)
@@ -269,7 +330,8 @@ func TestSetRolePermissionsUnknownRef(t *testing.T) {
 			return []*db.BunTenantPermission{{ID: "p1", Resource: "patient", Action: "read"}}, nil
 		},
 	}
-	if _, err := newSvc(f).SetRolePermissions(context.Background(), "r1", []string{"billing:write"}); err == nil {
+	svc, _, _ := newSvc(f)
+	if _, err := svc.SetRolePermissions(context.Background(), "r1", []string{"billing:write"}); err == nil {
 		t.Fatal("expected error for unknown permission ref")
 	}
 	if f.replacedPerms != nil {
@@ -284,7 +346,8 @@ func TestSetRolePermissionsAcceptsUUIDs(t *testing.T) {
 		}
 		return &db.BunTenantPermission{ID: id}, nil
 	}}
-	if _, err := newSvc(f).SetRolePermissions(context.Background(), "r1", []string{"p-uuid-1"}); err != nil {
+	svc, _, _ := newSvc(f)
+	if _, err := svc.SetRolePermissions(context.Background(), "r1", []string{"p-uuid-1"}); err != nil {
 		t.Fatalf("SetRolePermissions: %v", err)
 	}
 	if len(f.replacedPerms) != 1 || f.replacedPerms[0] != "p-uuid-1" {
@@ -296,31 +359,17 @@ func TestSetRolePermissionsRoleNotFound(t *testing.T) {
 	f := &fakeRepo{findRole: func(ctx context.Context, id string) (*db.BunTenantRole, error) {
 		return nil, nil
 	}}
-	if _, err := newSvc(f).SetRolePermissions(context.Background(), "nope", []string{"patient:read"}); err == nil {
+	svc, _, _ := newSvc(f)
+	if _, err := svc.SetRolePermissions(context.Background(), "nope", []string{"patient:read"}); err == nil {
 		t.Fatal("expected error for unknown role")
 	}
 }
 
-func TestInviteExistingUserAssignsImmediately(t *testing.T) {
-	f := &fakeRepo{userIDByEmail: map[string]string{"doc@clinic.com": "u9"}}
-	ok, err := newSvc(f).InviteUser(context.Background(), "  DOC@clinic.com ", "b1", "r1")
-	if err != nil || !ok {
-		t.Fatalf("InviteUser: ok=%v err=%v", ok, err)
-	}
-	if f.upserted == nil || f.upserted.userID != "u9" || f.upserted.branchID != "b1" || f.upserted.tenantID != "t1" || f.upserted.roleID != "r1" {
-		t.Fatalf("assignment not upserted correctly: %+v", f.upserted)
-	}
-	if len(f.accepts) != 1 || f.accepts[0] != [2]string{"doc@clinic.com", "b1"} {
-		t.Fatalf("pending invite not accepted: %v", f.accepts)
-	}
-	if f.created != nil {
-		t.Fatal("no invite row should be created for existing users")
-	}
-}
+func TestInviteCreatesPendingInviteAndSendsLink(t *testing.T) {
+	f := &fakeRepo{}
+	svc, m, _ := newSvc(f)
 
-func TestInviteNewEmailCreatesPendingInvite(t *testing.T) {
-	f := &fakeRepo{userIDByEmail: map[string]string{}}
-	ok, err := newSvc(f).InviteUser(context.Background(), "New@clinic.com", "b1", "r1")
+	ok, err := svc.InviteUser(context.Background(), "  New@clinic.com ", "b1", "r1")
 	if err != nil || !ok {
 		t.Fatalf("InviteUser: ok=%v err=%v", ok, err)
 	}
@@ -333,20 +382,34 @@ func TestInviteNewEmailCreatesPendingInvite(t *testing.T) {
 	if f.created.Status != "pending" || f.created.BranchID != "b1" || f.created.TenantID != "t1" || f.created.RoleID != "r1" {
 		t.Fatalf("invite fields wrong: %+v", f.created)
 	}
+	if f.created.Token == nil || len(*f.created.Token) < 32 {
+		t.Fatal("invite must carry a secure token for the email link")
+	}
 	if _, err := uuid.Parse(f.created.ID); err != nil {
 		t.Fatalf("invite ID is not a UUID: %q", f.created.ID)
 	}
 	if f.upserted != nil {
-		t.Fatal("no assignment should exist for unknown users")
+		t.Fatal("no assignment should exist before acceptance")
+	}
+	if len(m.sends) != 1 {
+		t.Fatalf("expected one invite email, got %d", len(m.sends))
+	}
+	if m.sends[0].to != "new@clinic.com" {
+		t.Fatalf("email to wrong address: %q", m.sends[0].to)
+	}
+	if !strings.Contains(m.sends[0].body, *f.created.Token) || !strings.Contains(m.sends[0].body, "/auth/accept-invite?token=") {
+		t.Fatalf("email body missing invite link: %q", m.sends[0].body)
 	}
 }
 
-func TestInviteNewEmailRefreshesExistingPending(t *testing.T) {
+func TestInviteRefreshesExistingPending(t *testing.T) {
 	f := &fakeRepo{
-		userIDByEmail: map[string]string{},
-		pending:       &model.TenantInvite{ID: "inv1", Status: "pending"},
+		pending: testInvite(),
+		tokens:  map[string]string{"inv1": "tok-abc"},
 	}
-	if _, err := newSvc(f).InviteUser(context.Background(), "new@clinic.com", "b1", "r1"); err != nil {
+	svc, m, _ := newSvc(f)
+
+	if _, err := svc.InviteUser(context.Background(), "new@clinic.com", "b1", "r1"); err != nil {
 		t.Fatalf("InviteUser: %v", err)
 	}
 	if len(f.refreshed) != 1 || f.refreshed[0] != "inv1" {
@@ -355,10 +418,28 @@ func TestInviteNewEmailRefreshesExistingPending(t *testing.T) {
 	if f.created != nil {
 		t.Fatal("must not duplicate pending invites")
 	}
+	if len(m.sends) != 1 || !strings.Contains(m.sends[0].body, "tok-abc") {
+		t.Fatal("resent email must reuse the existing link token")
+	}
+}
+
+func TestInviteBackfillsMissingToken(t *testing.T) {
+	f := &fakeRepo{pending: testInvite()} // tokens map empty: legacy row
+	svc, m, _ := newSvc(f)
+
+	if _, err := svc.InviteUser(context.Background(), "new@clinic.com", "b1", "r1"); err != nil {
+		t.Fatalf("InviteUser: %v", err)
+	}
+	if len(f.setTokens) != 1 || f.setTokens[0][0] != "inv1" || f.setTokens[0][1] == "" {
+		t.Fatalf("expected token backfill: %v", f.setTokens)
+	}
+	if len(m.sends) != 1 || !strings.Contains(m.sends[0].body, f.setTokens[0][1]) {
+		t.Fatal("email must carry the backfilled token")
+	}
 }
 
 func TestInviteValidation(t *testing.T) {
-	svc := newSvc(&fakeRepo{})
+	svc, _, _ := newSvc(&fakeRepo{})
 	if _, err := svc.InviteUser(context.Background(), "   ", "b1", "r1"); err == nil {
 		t.Fatal("expected error for blank email")
 	}
@@ -370,32 +451,101 @@ func TestInviteRejectsForeignRole(t *testing.T) {
 	f := &fakeRepo{findRole: func(ctx context.Context, id string) (*db.BunTenantRole, error) {
 		return other, nil
 	}}
-	if _, err := newSvc(f).InviteUser(context.Background(), "a@b.com", "b1", "r1"); err == nil {
+	svc, _, _ := newSvc(f)
+	if _, err := svc.InviteUser(context.Background(), "a@b.com", "b1", "r1"); err == nil {
 		t.Fatal("expected error for role from another branch")
 	}
 }
 
+func TestInviteEmailFailureDoesNotFailInvite(t *testing.T) {
+	f := &fakeRepo{}
+	svc, m, _ := newSvc(f)
+	m.err = fmt.Errorf("smtp down")
+	if _, err := svc.InviteUser(context.Background(), "a@b.com", "b1", "r1"); err != nil {
+		t.Fatalf("mail failure must not fail the invite: %v", err)
+	}
+	if f.created == nil {
+		t.Fatal("invite must persist even when email fails")
+	}
+}
+
+func TestAcceptInvite(t *testing.T) {
+	f := &fakeRepo{byToken: testInvite()}
+	svc, _, a := newSvc(f)
+
+	out, err := svc.AcceptInvite(context.Background(), "tok-abc", "New Doc", "secret123")
+	if err != nil {
+		t.Fatalf("AcceptInvite: %v", err)
+	}
+	if len(a.calls) != 1 || a.calls[0] != [3]string{"tok-abc", "New Doc", "secret123"} {
+		t.Fatalf("expected single user-service accept call: %v", a.calls)
+	}
+	if f.upserted == nil || f.upserted.userID != "u9" || f.upserted.branchID != "b1" || f.upserted.tenantID != "t1" || f.upserted.roleID != "r1" {
+		t.Fatalf("assignment not created: %+v", f.upserted)
+	}
+	if len(f.accepts) != 1 || f.accepts[0] != [2]string{"new@clinic.com", "b1"} {
+		t.Fatalf("invite not accepted: %v", f.accepts)
+	}
+	if out.Token != "tok" || out.RefreshToken != "rtok" || out.UserID != "u9" || out.Email != "new@clinic.com" {
+		t.Fatalf("payload wrong: %+v", out)
+	}
+}
+
+func TestAcceptInviteValidation(t *testing.T) {
+	f := &fakeRepo{byToken: testInvite()}
+	svc, _, _ := newSvc(f)
+
+	if _, err := svc.AcceptInvite(context.Background(), "tok", "  ", "secret123"); err == nil {
+		t.Fatal("expected error for blank name")
+	}
+	if _, err := svc.AcceptInvite(context.Background(), "tok", "Doc", "123"); err == nil {
+		t.Fatal("expected error for short password")
+	}
+	f.byToken = nil
+	if _, err := svc.AcceptInvite(context.Background(), "bad", "Doc", "secret123"); err == nil {
+		t.Fatal("expected error for unknown token")
+	}
+}
+
+func TestAcceptInviteAccountError(t *testing.T) {
+	f := &fakeRepo{byToken: testInvite()}
+	svc, _, a := newSvc(f)
+	a.err = fmt.Errorf("email already registered with a different password")
+	if _, err := svc.AcceptInvite(context.Background(), "tok", "Doc", "secret123"); err == nil {
+		t.Fatal("expected account error to propagate")
+	}
+	if f.upserted != nil {
+		t.Fatal("must not assign without an account")
+	}
+}
+
 func TestResendInvite(t *testing.T) {
-	f := &fakeRepo{pending: &model.TenantInvite{ID: "inv1", Status: "pending"}}
-	inv, err := newSvc(f).ResendInvite(context.Background(), "inv1")
+	f := &fakeRepo{pending: testInvite(), tokens: map[string]string{"inv1": "tok-abc"}}
+	svc, m, _ := newSvc(f)
+
+	inv, err := svc.ResendInvite(context.Background(), "inv1")
 	if err != nil || inv.ID != "inv1" {
 		t.Fatalf("ResendInvite: %+v %v", inv, err)
 	}
+	if len(m.sends) != 1 || !strings.Contains(m.sends[0].body, "tok-abc") {
+		t.Fatal("resend must re-email the invite link")
+	}
 
 	f.pending = &model.TenantInvite{ID: "inv1", Status: "accepted"}
-	if _, err := newSvc(f).ResendInvite(context.Background(), "inv1"); err == nil {
+	if _, err := svc.ResendInvite(context.Background(), "inv1"); err == nil {
 		t.Fatal("expected error resending accepted invite")
 	}
 
 	f.pending = nil
-	if _, err := newSvc(f).ResendInvite(context.Background(), "missing"); err == nil {
+	if _, err := svc.ResendInvite(context.Background(), "missing"); err == nil {
 		t.Fatal("expected error for unknown invite")
 	}
 }
 
 func TestUpdateAssignment(t *testing.T) {
 	f := &fakeRepo{assignment: testAssignment()}
-	updated, err := newSvc(f).UpdateAssignment(context.Background(), "a1", "r1")
+	svc, _, _ := newSvc(f)
+	updated, err := svc.UpdateAssignment(context.Background(), "a1", "r1")
 	if err != nil || updated == nil {
 		t.Fatalf("UpdateAssignment: %+v %v", updated, err)
 	}
@@ -406,7 +556,8 @@ func TestUpdateAssignment(t *testing.T) {
 
 func TestUpdateAssignmentGuards(t *testing.T) {
 	f := &fakeRepo{assignment: nil}
-	if _, err := newSvc(f).UpdateAssignment(context.Background(), "missing", "r1"); err == nil {
+	svc, _, _ := newSvc(f)
+	if _, err := svc.UpdateAssignment(context.Background(), "missing", "r1"); err == nil {
 		t.Fatal("expected error for unknown assignment")
 	}
 
@@ -418,14 +569,16 @@ func TestUpdateAssignmentGuards(t *testing.T) {
 			return other, nil
 		},
 	}
-	if _, err := newSvc(f).UpdateAssignment(context.Background(), "a1", "r1"); err == nil {
+	svc, _, _ = newSvc(f)
+	if _, err := svc.UpdateAssignment(context.Background(), "a1", "r1"); err == nil {
 		t.Fatal("expected error for foreign-branch role")
 	}
 }
 
 func TestSetAssignmentActive(t *testing.T) {
 	f := &fakeRepo{assignment: testAssignment()}
-	updated, err := newSvc(f).SetAssignmentActive(context.Background(), "a1", false)
+	svc, _, _ := newSvc(f)
+	updated, err := svc.SetAssignmentActive(context.Background(), "a1", false)
 	if err != nil || updated == nil {
 		t.Fatalf("SetAssignmentActive: %+v %v", updated, err)
 	}
@@ -435,7 +588,7 @@ func TestSetAssignmentActive(t *testing.T) {
 }
 
 func TestListPassthroughs(t *testing.T) {
-	svc := newSvc(&fakeRepo{assignment: testAssignment()})
+	svc, _, _ := newSvc(&fakeRepo{assignment: testAssignment()})
 	if _, err := svc.GetRolesByBranch(context.Background(), "b1"); err != nil {
 		t.Fatalf("GetRolesByBranch: %v", err)
 	}
@@ -447,5 +600,8 @@ func TestListPassthroughs(t *testing.T) {
 	}
 	if _, err := svc.ListAssignmentsByBranch(context.Background(), "b1"); err != nil {
 		t.Fatalf("ListAssignmentsByBranch: %v", err)
+	}
+	if _, err := svc.InviteByToken(context.Background(), "tok"); err != nil {
+		t.Fatalf("InviteByToken: %v", err)
 	}
 }

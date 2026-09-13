@@ -23,11 +23,10 @@ else
     echo "  ⚠️ Go binary not found in PATH, skipping go vet."
 fi
 
-# 3. Run fast unit tests (no live DB required).
-#    Integration tests under */test/ self-skip without Postgres.
+# 3. Run fast service unit tests
 if command -v go >/dev/null 2>&1; then
-    echo "  ↳ Running go test ./services/tenant/service/..."
-    go test ./services/tenant/service/...
+    echo "  ↳ Running go test ./services/..."
+    go test ./services/...
 else
     echo "  ⚠️ Go binary not found in PATH, skipping unit tests."
 fi

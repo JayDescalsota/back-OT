@@ -32,7 +32,6 @@ type TenantRepository interface {
 	ReplaceRolePermissions(ctx context.Context, roleID string, permissionIDs []string) error
 	FindAssignmentsByUser(ctx context.Context, userID string) ([]*model.TenantUserAssignment, error)
 	FindAssignmentsByUserAndTenant(ctx context.Context, userID, tenantID string) ([]*model.TenantUserAssignment, error)
-	FindUserIDByEmail(ctx context.Context, email string) (string, error)
 	UpsertAssignment(ctx context.Context, userID, branchID, tenantID, roleID string, assignedBy *string) error
 	FindAssignmentByID(ctx context.Context, id string) (*model.TenantUserAssignment, error)
 	FindAssignmentsByBranch(ctx context.Context, branchID string) ([]*model.TenantUserAssignment, error)
@@ -41,6 +40,9 @@ type TenantRepository interface {
 	CreateInvite(ctx context.Context, inv *db.BunTenantInvite) error
 	FindPendingInvite(ctx context.Context, email, branchID string) (*model.TenantInvite, error)
 	FindInviteByID(ctx context.Context, id string) (*model.TenantInvite, error)
+	FindInviteByToken(ctx context.Context, token string) (*model.TenantInvite, error)
+	InviteToken(ctx context.Context, id string) (string, error)
+	SetInviteToken(ctx context.Context, id, token string) error
 	ListInvitesByBranch(ctx context.Context, branchID string) ([]*model.TenantInvite, error)
 	AcceptInvite(ctx context.Context, email, branchID string) error
 	RefreshInvite(ctx context.Context, id string) (*model.TenantInvite, error)
@@ -329,26 +331,6 @@ func (r *TenantRepo) FindAssignmentsByUserAndTenant(ctx context.Context, userID,
 	return result, nil
 }
 
-// userRef is a minimal read-only view of the users table (owned by the user
-// service; same shared Postgres). Used only to resolve invite emails to IDs.
-type userRef struct {
-	bun.BaseModel `bun:"table:users"`
-	ID            string `bun:"id,pk"`
-	Email         string `bun:"email"`
-}
-
-func (r *TenantRepo) FindUserIDByEmail(ctx context.Context, email string) (string, error) {
-	u := new(userRef)
-	err := r.alldb.NewSelect(ctx, u).Where("lower(email) = lower(?)", email).Scan(ctx)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		}
-		return "", err
-	}
-	return u.ID, nil
-}
-
 // assignmentInsert maps the tenant_user_assignments table for writes.
 type assignmentInsert struct {
 	bun.BaseModel `bun:"table:tenant_user_assignments"`
@@ -505,6 +487,39 @@ func (r *TenantRepo) FindPendingInvite(ctx context.Context, email, branchID stri
 
 func (r *TenantRepo) FindInviteByID(ctx context.Context, id string) (*model.TenantInvite, error) {
 	return r.scanInvite(ctx, "ti.id = ?", id)
+}
+
+// FindInviteByToken resolves a public invite link. Only live (pending,
+// unexpired) invites resolve — anything else behaves as "not found" so link
+// validity is never leaked.
+func (r *TenantRepo) FindInviteByToken(ctx context.Context, token string) (*model.TenantInvite, error) {
+	if token == "" {
+		return nil, nil
+	}
+	return r.scanInvite(ctx, "ti.token = ? AND ti.status = 'pending' AND ti.expires_at > NOW()", token)
+}
+
+func (r *TenantRepo) InviteToken(ctx context.Context, id string) (string, error) {
+	inv := new(db.BunTenantInvite)
+	if err := r.alldb.NewSelect(ctx, inv).Column("token").Where("id = ?", id).Scan(ctx); err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", err
+	}
+	if inv.Token == nil {
+		return "", nil
+	}
+	return *inv.Token, nil
+}
+
+func (r *TenantRepo) SetInviteToken(ctx context.Context, id, token string) error {
+	_, err := r.raw.NewUpdate().Table("tenant_invites").
+		Set("token = ?", token).
+		Set("updated_at = NOW()").
+		Where("id = ?", id).
+		Exec(ctx)
+	return err
 }
 
 func (r *TenantRepo) ListInvitesByBranch(ctx context.Context, branchID string) ([]*model.TenantInvite, error) {

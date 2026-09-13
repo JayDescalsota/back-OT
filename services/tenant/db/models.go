@@ -127,6 +127,7 @@ type BunTenantInvite struct {
 	TenantID   string     `bun:"tenant_id,notnull"        json:"-"`
 	RoleID     string     `bun:"role_id,notnull"          json:"-"`
 	Status     string     `bun:"status,notnull,default:'pending'" json:"status"`
+	Token      *string    `bun:"token,unique"             json:"-"`
 	InvitedBy  *string    `bun:"invited_by"               json:"-"`
 	AcceptedAt *time.Time `bun:"accepted_at"              json:"-"`
 	ExpiresAt  time.Time  `bun:"expires_at,notnull"       json:"-"`

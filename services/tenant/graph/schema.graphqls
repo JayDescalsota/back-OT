@@ -77,6 +77,7 @@ type Query {
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]!
   invitesByBranch(branchId: ID!): [TenantInvite!]!
   assignmentsByBranch(branchId: ID!): [TenantUserAssignment!]!
+  inviteByToken(token: String!): TenantInvite
 }
 
 type Mutation {
@@ -90,6 +91,14 @@ type Mutation {
   updateAssignment(id: ID!, input: UpdateAssignmentInput!): TenantUserAssignment!
   setAssignmentActive(id: ID!, isActive: Boolean!): TenantUserAssignment!
   resendInvite(id: ID!): TenantInvite!
+  acceptInvite(token: String!, name: String!, password: String!): AcceptInvitePayload!
+}
+
+type AcceptInvitePayload {
+  token: String!
+  refreshToken: String!
+  userId: ID!
+  email: String!
 }
 
 type TenantInvite {

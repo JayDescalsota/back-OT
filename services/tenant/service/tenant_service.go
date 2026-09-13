@@ -1,9 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -16,13 +22,149 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+// Mailer sends transactional email. Failures are logged, never fatal.
+type Mailer interface {
+	Send(to, subject, body string) error
+}
+
+// UserCredentials is the authenticated account backing an invite acceptance.
+type UserCredentials struct {
+	UserID       string
+	Token        string
+	RefreshToken string
+	Email        string
+}
+
+// UserAccountClient provisions/authenticates accounts in the user service.
+// Tenant owns invites but must never touch the users table (separate database);
+// all account operations go through this client (HTTP in prod, fake in tests).
+// The invite token is verified inside the user service against the tenant,
+// so inbox control is proven before the account is marked validated.
+type UserAccountClient interface {
+	AcceptInvite(ctx context.Context, token, name, password string) (*UserCredentials, error)
+}
+
 type TenantService struct {
 	tenantRepo repository.TenantRepository
 	Cache      *redis.Client
+
+	// Optional integrations, wired in main.go. Nil-safe: invite flows degrade
+	// to log-only email when Mailer is nil.
+	Mailer       Mailer
+	UserAccounts UserAccountClient
+	FrontendURL  string
+	UserSvcURL   string
 }
 
 func NewTenantService(tenantRepo repository.TenantRepository, cacheClient *redis.Client) *TenantService {
 	return &TenantService{tenantRepo: tenantRepo, Cache: cacheClient}
+}
+
+func newInviteToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+func (s *TenantService) inviteLink(token string) string {
+	base := strings.TrimRight(s.FrontendURL, "/")
+	if base == "" {
+		return ""
+	}
+	return base + "/auth/accept-invite?token=" + token
+}
+
+// sendInviteEmail delivers the invite link. A nil Mailer or send failure only
+// logs — the invite itself is already persisted and resendable from the UI.
+func (s *TenantService) sendInviteEmail(ctx context.Context, email, branchName, roleName, token string) {
+	if s.Mailer == nil {
+		log.Printf("invite email skipped (no mailer): to=%s branch=%s", email, branchName)
+		return
+	}
+	link := s.inviteLink(token)
+	if link == "" {
+		log.Printf("invite email skipped (no frontend URL): to=%s", email)
+		return
+	}
+	subject := fmt.Sprintf("You're invited to join %s", branchName)
+	body := fmt.Sprintf("You've been invited to join %s as %s.\n\nCreate your account here:\n%s\n\nThis link expires in 7 days.", branchName, roleName, link)
+	if err := s.Mailer.Send(email, subject, body); err != nil {
+		log.Printf("failed to send invite email: to=%s err=%v", email, err)
+	} else {
+		log.Printf("invite email sent: to=%s branch=%s", email, branchName)
+	}
+}
+
+// userAccounts returns the configured client or a default HTTP client.
+func (s *TenantService) userAccounts() UserAccountClient {
+	if s.UserAccounts != nil {
+		return s.UserAccounts
+	}
+	// Proxy: nil — service-to-service calls must stay on the docker network.
+	// (The runtime injects HTTP(S)_PROXY without clinic hosts in NO_PROXY,
+	// which otherwise routes internal calls to an external proxy → 502.)
+	transport := &http.Transport{Proxy: nil}
+	return &httpUserClient{baseURL: strings.TrimRight(s.UserSvcURL, "/"), http: &http.Client{Timeout: 10 * time.Second, Transport: transport}}
+}
+
+// httpUserClient talks to the user service's public REST + GraphQL endpoints.
+type httpUserClient struct {
+	baseURL string
+	http    *http.Client
+}
+
+type authPayload struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refreshToken"`
+	User         struct {
+		ID    string `json:"id"`
+		Email string `json:"email"`
+	} `json:"user"`
+}
+
+func (c *httpUserClient) postJSON(ctx context.Context, path string, reqBody interface{}) (int, []byte, error) {
+	data, err := json.Marshal(reqBody)
+	if err != nil {
+		return 0, nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(data))
+	if err != nil {
+		return 0, nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return 0, nil, err
+	}
+	return resp.StatusCode, body, nil
+}
+
+// AcceptInvite provisions (or authenticates) the account behind an invite link
+// and returns session credentials. Inbox control is proven by the token,
+// which the user service re-verifies against the tenant before proceeding.
+func (c *httpUserClient) AcceptInvite(ctx context.Context, token, name, password string) (*UserCredentials, error) {
+	status, body, err := c.postJSON(ctx, "/invite-accept", map[string]string{"token": token, "name": name, "password": password})
+	if err != nil {
+		return nil, err
+	}
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("account setup failed (HTTP %d): %s", status, strings.TrimSpace(string(body)))
+	}
+	var p authPayload
+	if err := json.Unmarshal(body, &p); err != nil {
+		return nil, err
+	}
+	if p.User.ID == "" || p.Token == "" {
+		return nil, fmt.Errorf("account setup returned an incomplete session")
+	}
+	return &UserCredentials{UserID: p.User.ID, Token: p.Token, RefreshToken: p.RefreshToken, Email: p.User.Email}, nil
 }
 
 func (s *TenantService) cacheGet(ctx context.Context, key string, dest interface{}) (bool, error) {
@@ -279,42 +421,53 @@ func (s *TenantService) InviteUser(ctx context.Context, email, branchID, roleID 
 	if ct := sharedctx.FromContext(ctx); ct.UserID != "" {
 		assignedBy = &ct.UserID
 	}
-	userID, err := s.tenantRepo.FindUserIDByEmail(ctx, email)
+	// The tenant database cannot resolve emails to user IDs (users live in the
+	// user service's database), so every invite becomes a pending invite with
+	// an emailed link — including for addresses that already have accounts.
+	// Idempotent per email+branch.
+	pending, err := s.tenantRepo.FindPendingInvite(ctx, email, branchID)
 	if err != nil {
 		return false, err
 	}
-	if userID != "" {
-		// Existing account: assign immediately and close any pending invite.
-		if err := s.tenantRepo.UpsertAssignment(ctx, userID, branchID, branch.TenantID, roleID, assignedBy); err != nil {
+	var token string
+	if pending != nil {
+		token, err = s.tenantRepo.InviteToken(ctx, pending.ID)
+		if err != nil {
 			return false, err
 		}
-		if err := s.tenantRepo.AcceptInvite(ctx, email, branchID); err != nil {
-			return false, err
+		if token == "" {
+			token, err = newInviteToken()
+			if err != nil {
+				return false, err
+			}
+			if err := s.tenantRepo.SetInviteToken(ctx, pending.ID, token); err != nil {
+				return false, err
+			}
 		}
-		return true, nil
-	}
-	// No account yet: keep a pending invite (idempotent per email+branch).
-	if pending, err := s.tenantRepo.FindPendingInvite(ctx, email, branchID); err != nil {
-		return false, err
-	} else if pending != nil {
 		if _, err := s.tenantRepo.RefreshInvite(ctx, pending.ID); err != nil {
 			return false, err
 		}
-		return true, nil
+	} else {
+		token, err = newInviteToken()
+		if err != nil {
+			return false, err
+		}
+		inv := &db.BunTenantInvite{
+			ID:        uuid.NewString(),
+			Email:     email,
+			BranchID:  branchID,
+			TenantID:  branch.TenantID,
+			RoleID:    roleID,
+			Status:    "pending",
+			Token:     &token,
+			InvitedBy: assignedBy,
+			ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+		}
+		if err := s.tenantRepo.CreateInvite(ctx, inv); err != nil {
+			return false, err
+		}
 	}
-	inv := &db.BunTenantInvite{
-		ID:        uuid.NewString(),
-		Email:     email,
-		BranchID:  branchID,
-		TenantID:  branch.TenantID,
-		RoleID:    roleID,
-		Status:    "pending",
-		InvitedBy: assignedBy,
-		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
-	}
-	if err := s.tenantRepo.CreateInvite(ctx, inv); err != nil {
-		return false, err
-	}
+	s.sendInviteEmail(ctx, email, branch.Name, role.Name, token)
 	return true, nil
 }
 
@@ -329,7 +482,76 @@ func (s *TenantService) ResendInvite(ctx context.Context, id string) (*model.Ten
 	if inv.Status == "accepted" {
 		return nil, fmt.Errorf("invite already accepted")
 	}
-	return s.tenantRepo.RefreshInvite(ctx, id)
+	refreshed, err := s.tenantRepo.RefreshInvite(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	token, err := s.tenantRepo.InviteToken(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if token == "" {
+		token, err = newInviteToken()
+		if err != nil {
+			return nil, err
+		}
+		if err := s.tenantRepo.SetInviteToken(ctx, id, token); err != nil {
+			return nil, err
+		}
+	}
+	s.sendInviteEmail(ctx, inv.Email, inv.Branch.Name, inv.Role.Name, token)
+	return refreshed, nil
+}
+
+func (s *TenantService) InviteByToken(ctx context.Context, token string) (*model.TenantInvite, error) {
+	return s.tenantRepo.FindInviteByToken(ctx, token)
+}
+
+// AcceptInvite converts a pending invite link into an account + assignment.
+// The email is fixed from the invite (never client-supplied). Account
+// provisioning goes through the user service; the assignment is written here.
+func (s *TenantService) AcceptInvite(ctx context.Context, token, name, password string) (*model.AcceptInvitePayload, error) {
+	inv, err := s.tenantRepo.FindInviteByToken(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if inv == nil {
+		return nil, fmt.Errorf("invalid or expired invite link")
+	}
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+	if len(password) < 8 {
+		return nil, fmt.Errorf("password must be at least 8 characters")
+	}
+	creds, err := s.userAccounts().AcceptInvite(ctx, token, name, password)
+	if err != nil {
+		return nil, err
+	}
+	var assignedBy *string
+	if ct := sharedctx.FromContext(ctx); ct.UserID != "" {
+		assignedBy = &ct.UserID
+	}
+	branch, err := s.tenantRepo.FindBranchByID(ctx, inv.Branch.ID)
+	if err != nil {
+		return nil, err
+	}
+	if branch == nil {
+		return nil, fmt.Errorf("branch not found")
+	}
+	if err := s.tenantRepo.UpsertAssignment(ctx, creds.UserID, branch.ID, branch.TenantID, inv.Role.ID, assignedBy); err != nil {
+		return nil, err
+	}
+	if err := s.tenantRepo.AcceptInvite(ctx, inv.Email, branch.ID); err != nil {
+		return nil, err
+	}
+	return &model.AcceptInvitePayload{
+		Token:        creds.Token,
+		RefreshToken: creds.RefreshToken,
+		UserID:       creds.UserID,
+		Email:        inv.Email,
+	}, nil
 }
 
 func (s *TenantService) UpdateAssignment(ctx context.Context, id, roleID string) (*model.TenantUserAssignment, error) {

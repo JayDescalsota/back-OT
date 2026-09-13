@@ -16,6 +16,11 @@ type mockRepo struct {
 	findByIDFn       func(ctx context.Context, id string) (*models.User, error)
 	findUserAppRoles func(ctx context.Context, userID string) ([]*models.AppRole, error)
 	hasAppRoleFn     func(ctx context.Context, userID, roleName string) (bool, error)
+
+	findByEmailFn   func(ctx context.Context, email string) (*models.User, error)
+	registerFn      func(ctx context.Context, email, password, validationToken string) (*models.User, error)
+	validatedIDs    []string
+	upsertedProfile *models.UserProfile
 }
 
 func (m *mockRepo) FindUserByID(ctx context.Context, id string) (*models.User, error) {
@@ -25,9 +30,15 @@ func (m *mockRepo) FindUsersByIDs(ctx context.Context, ids []string) ([]*models.
 	return nil, nil
 }
 func (m *mockRepo) FindUserByEmail(ctx context.Context, email string) (*models.User, error) {
+	if m.findByEmailFn != nil {
+		return m.findByEmailFn(ctx, email)
+	}
 	return nil, nil
 }
 func (m *mockRepo) Register(ctx context.Context, email, password, validationToken string) (*models.User, error) {
+	if m.registerFn != nil {
+		return m.registerFn(ctx, email, password, validationToken)
+	}
 	return nil, nil
 }
 func (m *mockRepo) UpdateLastLogin(ctx context.Context, userID string) error {
@@ -37,6 +48,7 @@ func (m *mockRepo) FindUserByValidationToken(ctx context.Context, token string) 
 	return nil, nil
 }
 func (m *mockRepo) MarkUserAsValidated(ctx context.Context, userID string) error {
+	m.validatedIDs = append(m.validatedIDs, userID)
 	return nil
 }
 func (m *mockRepo) UpdatePassword(ctx context.Context, userID, newPassword string) error {
@@ -106,6 +118,7 @@ func (m *mockRepo) FindProfileByUserID(ctx context.Context, userID string) (*mod
 	return nil, nil
 }
 func (m *mockRepo) UpsertProfile(ctx context.Context, profile *models.UserProfile) error {
+	m.upsertedProfile = profile
 	return nil
 }
 func (m *mockRepo) FindPractitionerProfileByUserID(ctx context.Context, userID string) (*models.PractitionerProfile, error) {

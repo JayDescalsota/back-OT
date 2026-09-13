@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"log"
+	"fmt"
 	"strconv"
 
 	"gopkg.in/gomail.v2"
@@ -18,8 +18,8 @@ func SendEmail(to, subject, body string) error {
 		"SMTP_PORT",
 	})
 
-	if errorEnv != nil {
-		log.Fatal("failed to load mail env settings: ", errorEnv)
+	if len(errorEnv) > 0 {
+		return fmt.Errorf("failed to load mail env settings, missing keys: %v", errorEnv)
 	}
 
 	from := env["SMTP_FROM"]
@@ -28,7 +28,7 @@ func SendEmail(to, subject, body string) error {
 	portStr := env["SMTP_PORT"]
 	port, err := strconv.Atoi(portStr)
 	if err != nil {
-		log.Fatal("failed to convert port to int: ", err)
+		return fmt.Errorf("failed to convert port to int: %w", err)
 	}
 
 	m := gomail.NewMessage()

@@ -20,6 +20,15 @@ directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on
 
 directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
 
+type AcceptInvitePayload
+  @join__type(graph: TENANT)
+{
+  token: String!
+  refreshToken: String!
+  userId: ID!
+  email: String!
+}
+
 type Address
   @join__type(graph: PATIENT, key: "id")
   @join__type(graph: TENANT, key: "id")
@@ -451,6 +460,7 @@ type Mutation
   updateAssignment(id: ID!, input: UpdateAssignmentInput!): TenantUserAssignment! @join__field(graph: TENANT)
   setAssignmentActive(id: ID!, isActive: Boolean!): TenantUserAssignment! @join__field(graph: TENANT)
   resendInvite(id: ID!): TenantInvite! @join__field(graph: TENANT)
+  acceptInvite(token: String!, name: String!, password: String!): AcceptInvitePayload! @join__field(graph: TENANT)
   createUser(input: CreateUserInput!): User! @join__field(graph: USER)
   updateUser(id: ID!, input: UpdateUserInput!): User! @join__field(graph: USER)
   upsertProfile(input: UserProfileInput!): UserProfile! @join__field(graph: USER)
@@ -682,6 +692,7 @@ type Query
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
   invitesByBranch(branchId: ID!): [TenantInvite!]! @join__field(graph: TENANT)
   assignmentsByBranch(branchId: ID!): [TenantUserAssignment!]! @join__field(graph: TENANT)
+  inviteByToken(token: String!): TenantInvite @join__field(graph: TENANT)
   meUser: User! @join__field(graph: USER)
   user(id: ID!): User @join__field(graph: USER)
   users(ids: [ID!]): [User!]! @join__field(graph: USER)

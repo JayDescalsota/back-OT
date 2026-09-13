@@ -6,6 +6,13 @@ import (
 	"github.com/clinicmanager/services/tenant/db"
 )
 
+type AcceptInvitePayload struct {
+	Token        string `json:"token"`
+	RefreshToken string `json:"refreshToken"`
+	UserID       string `json:"userId"`
+	Email        string `json:"email"`
+}
+
 type AddressInput struct {
 	Address   string  `json:"address"`
 	Baranggay *string `json:"baranggay,omitempty"`

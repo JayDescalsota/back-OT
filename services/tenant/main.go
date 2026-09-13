@@ -20,13 +20,22 @@ import (
 	"github.com/clinicmanager/shared/logger"
 	"github.com/clinicmanager/shared/middleware"
 	"github.com/clinicmanager/shared/setting"
+	sharedTools "github.com/clinicmanager/shared/tools"
 )
+
+// SMTPMailer delivers mail via the configured SMTP relay.
+type SMTPMailer struct{}
+
+func (m SMTPMailer) Send(to, subject, body string) error {
+	return sharedTools.SendEmail(to, subject, body)
+}
 
 func main() {
 	env, err := setting.LoadAndValidateEnv([]string{
 		"TENANT_PORT",
 		"TENANTDB_URL",
 		"REDIS_ADDR",
+		"USER_SVC_URL",
 	})
 	if err != nil {
 		logger.Error(context.Background(), "failed to load tenant service settings", "missing", err)
@@ -53,6 +62,13 @@ func main() {
 	defer redisClient.Close()
 
 	tenantService := service.NewTenantService(tenantRepo, redisClient)
+	tenantService.Mailer = SMTPMailer{}
+	tenantService.UserSvcURL = env["USER_SVC_URL"]
+	if frontendURL := os.Getenv("FRONTEND_URL"); frontendURL != "" {
+		tenantService.FrontendURL = frontendURL
+	} else {
+		tenantService.FrontendURL = "http://localhost:4200"
+	}
 
 	// 1. Initialize the GraphQL Server
 	// We create a resolver with our service dependencies, wrap it in gqlgen's schema,

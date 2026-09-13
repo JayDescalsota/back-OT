@@ -70,6 +70,7 @@ func main() {
 		superAdminRefreshTTL = 24 * time.Hour
 	)
 	authService := service.NewAuthService(userRepo, jwtSecret, SMTPMailer{}, baseURL, accessTokenTTL, refreshTokenTTL)
+	authService.TenantSvcURL = os.Getenv("TENANT_SVC_URL")
 
 	userService := service.NewUserService(userRepo, sharedCtx.UserIDFromCtx, redisClient)
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{
@@ -86,6 +87,7 @@ func main() {
 
 	mux.Handle("POST /register", sharedCtx.Tenant(registerHandler(authService)))
 	mux.Handle("POST /login", sharedCtx.Tenant(loginHandler(authService)))
+	mux.Handle("POST /invite-accept", sharedCtx.Tenant(acceptInviteHandler(authService)))
 	mux.Handle("GET /verify", sharedCtx.Tenant(verifyHandler(authService)))
 	mux.Handle("POST /change-password", sharedCtx.Tenant(changePasswordHandler(authService)))
 	mux.Handle("POST /logout", sharedCtx.Tenant(logoutHandler(authService)))

@@ -1,9 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -44,6 +48,154 @@ type AuthService struct {
 	baseURL         string
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
+
+	// TenantSvcURL points at the tenant subgraph (server-to-server). Used to
+	// verify invite tokens, which only the tenant service can resolve.
+	// Proxy: nil HTTP is used so calls stay on the container network.
+	TenantSvcURL string
+	TenantHTTP   *http.Client
+}
+
+type tenantInvite struct {
+	Email string `json:"email"`
+}
+
+// fetchInvite resolves an invite link token via the tenant service. A nil
+// result means invalid, expired, or already-accepted — never distinguished.
+func (s *AuthService) fetchInvite(ctx context.Context, token string) (*tenantInvite, error) {
+	if token == "" || s.TenantSvcURL == "" {
+		return nil, nil
+	}
+	client := s.TenantHTTP
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{Proxy: nil}}
+	}
+	const query = `query InviteByToken($token: String!) { inviteByToken(token: $token) { email } }`
+	data, err := json.Marshal(map[string]interface{}{
+		"query":         query,
+		"variables":     map[string]interface{}{"token": token},
+		"operationName": "InviteByToken",
+	})
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(s.TenantSvcURL, "/")+"/graphql", bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, response.Internal("Invite lookup failed", resp.Status)
+	}
+	var gql struct {
+		Data struct {
+			Invite *tenantInvite `json:"inviteByToken"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &gql); err != nil {
+		return nil, err
+	}
+	return gql.Data.Invite, nil
+}
+
+// issueTokens creates a session + JWT pair for an already-persisted user.
+func (s *AuthService) issueTokens(ctx context.Context, user *models.User) (*AuthPayload, error) {
+	appRoleNames, err := s.getAppRoleNames(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	role := s.resolveJwtRole(appRoleNames)
+	accessTTL, refreshTTL := s.resolveTokenTTLs(role)
+
+	refreshTokenBytes := make([]byte, 32)
+	if _, err := rand.Read(refreshTokenBytes); err != nil {
+		return nil, err
+	}
+	refreshToken := hex.EncodeToString(refreshTokenBytes)
+
+	session := &models.Session{
+		UserID:       user.ID,
+		RefreshToken: refreshToken,
+		UserAgent:    "",
+		IPAddress:    "",
+		ExpiresAt:    time.Now().Add(refreshTTL),
+	}
+	if err := s.userRepo.CreateSession(ctx, session); err != nil {
+		return nil, err
+	}
+	accessToken, err := repository.GenerateToken(user.ID, strconv.FormatInt(session.ID, 10), role, s.jwtSecret, accessTTL)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.userRepo.UpdateSessionAccessToken(ctx, session.ID, accessToken); err != nil {
+		return nil, err
+	}
+	return &AuthPayload{Token: accessToken, RefreshToken: refreshToken, User: toAuthUserModel(user, appRoleNames)}, nil
+}
+
+// AcceptInvite converts an invite link into an active account. The invite
+// token (proof of inbox control) is verified against the tenant service, so
+// the account is marked validated immediately — no separate verify step.
+// Existing accounts must present the correct password to claim the invite.
+func (s *AuthService) AcceptInvite(ctx context.Context, token, name, password string) (*AuthPayload, error) {
+	inv, err := s.fetchInvite(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if inv == nil || inv.Email == "" {
+		return nil, response.Validation("Invalid or expired invite link")
+	}
+	email := strings.TrimSpace(strings.ToLower(inv.Email))
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, response.Validation("Name is required")
+	}
+	if len(password) < 8 {
+		return nil, response.Validation("Password must be at least 8 characters")
+	}
+
+	existing, err := s.userRepo.FindUserByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	var user *models.User
+	if existing != nil {
+		if !repository.VerifyPassword(password, existing.PasswordHash) {
+			return nil, response.Unauthorized("Invalid email or password")
+		}
+		user = existing
+	} else {
+		user, err = s.userRepo.Register(ctx, email, password, "")
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Token possession proves inbox control — no verify-email round trip.
+	if !user.IsValidated {
+		if err := s.userRepo.MarkUserAsValidated(ctx, user.ID); err != nil {
+			return nil, err
+		}
+		user.IsValidated = true
+	}
+	now := time.Now().UTC()
+	if err := s.userRepo.UpsertProfile(ctx, &models.UserProfile{
+		UserID:    user.ID,
+		FirstName: name,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		logger.Warn(ctx, "accept invite: profile update failed", "error", err, "userID", user.ID)
+	}
+	return s.issueTokens(ctx, user)
 }
 
 func NewAuthService(userRepo repository.UserRepository, jwtSecret string, mailer Mailer, baseURL string, accessTokenTTL, refreshTokenTTL time.Duration) *AuthService {

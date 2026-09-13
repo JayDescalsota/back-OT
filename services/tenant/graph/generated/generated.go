@@ -41,6 +41,13 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	AcceptInvitePayload struct {
+		Email        func(childComplexity int) int
+		RefreshToken func(childComplexity int) int
+		Token        func(childComplexity int) int
+		UserID       func(childComplexity int) int
+	}
+
 	Address struct {
 		Address   func(childComplexity int) int
 		Baranggay func(childComplexity int) int
@@ -71,6 +78,7 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
+		AcceptInvite        func(childComplexity int, token string, name string, password string) int
 		CreateTenantAddress func(childComplexity int, input model.AddressInput) int
 		CreateTenantRole    func(childComplexity int, input model.CreateTenantRoleInput) int
 		InviteUser          func(childComplexity int, email string, branchID string, roleID string) int
@@ -88,6 +96,7 @@ type ComplexityRoot struct {
 		AssignmentsByBranch func(childComplexity int, branchID string) int
 		AssignmentsByUser   func(childComplexity int, userID string) int
 		Branch              func(childComplexity int, id string) int
+		InviteByToken       func(childComplexity int, token string) int
 		InvitesByBranch     func(childComplexity int, branchID string) int
 		MeTenant            func(childComplexity int) int
 		MyAssignments       func(childComplexity int) int
@@ -188,6 +197,7 @@ type MutationResolver interface {
 	UpdateAssignment(ctx context.Context, id string, input model.UpdateAssignmentInput) (*model.TenantUserAssignment, error)
 	SetAssignmentActive(ctx context.Context, id string, isActive bool) (*model.TenantUserAssignment, error)
 	ResendInvite(ctx context.Context, id string) (*model.TenantInvite, error)
+	AcceptInvite(ctx context.Context, token string, name string, password string) (*model.AcceptInvitePayload, error)
 }
 type QueryResolver interface {
 	MeTenant(ctx context.Context) (*model.User, error)
@@ -202,6 +212,7 @@ type QueryResolver interface {
 	AssignmentsByUser(ctx context.Context, userID string) ([]*model.TenantUserAssignment, error)
 	InvitesByBranch(ctx context.Context, branchID string) ([]*model.TenantInvite, error)
 	AssignmentsByBranch(ctx context.Context, branchID string) ([]*model.TenantUserAssignment, error)
+	InviteByToken(ctx context.Context, token string) (*model.TenantInvite, error)
 }
 type TenantRoleResolver interface {
 	Permissions(ctx context.Context, obj *db.BunTenantRole) ([]*db.BunTenantPermission, error)
@@ -224,6 +235,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	ec := newExecutionContext(nil, e, nil)
 	_ = ec
 	switch typeName + "." + field {
+
+	case "AcceptInvitePayload.email":
+		if e.ComplexityRoot.AcceptInvitePayload.Email == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AcceptInvitePayload.Email(childComplexity), true
+	case "AcceptInvitePayload.refreshToken":
+		if e.ComplexityRoot.AcceptInvitePayload.RefreshToken == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AcceptInvitePayload.RefreshToken(childComplexity), true
+	case "AcceptInvitePayload.token":
+		if e.ComplexityRoot.AcceptInvitePayload.Token == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AcceptInvitePayload.Token(childComplexity), true
+	case "AcceptInvitePayload.userId":
+		if e.ComplexityRoot.AcceptInvitePayload.UserID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AcceptInvitePayload.UserID(childComplexity), true
 
 	case "Address.address":
 		if e.ComplexityRoot.Address.Address == nil {
@@ -378,6 +414,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Entity.FindUserByID(childComplexity, args["id"].(string)), true
 
+	case "Mutation.acceptInvite":
+		if e.ComplexityRoot.Mutation.AcceptInvite == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_acceptInvite_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Mutation.AcceptInvite(childComplexity, args["token"].(string), args["name"].(string), args["password"].(string)), true
 	case "Mutation.createTenantAddress":
 		if e.ComplexityRoot.Mutation.CreateTenantAddress == nil {
 			break
@@ -534,6 +581,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Query.Branch(childComplexity, args["id"].(string)), true
 
+	case "Query.inviteByToken":
+		if e.ComplexityRoot.Query.InviteByToken == nil {
+			break
+		}
+
+		args, err := ec.field_Query_inviteByToken_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Query.InviteByToken(childComplexity, args["token"].(string)), true
 	case "Query.invitesByBranch":
 		if e.ComplexityRoot.Query.InvitesByBranch == nil {
 			break
@@ -1044,6 +1102,7 @@ type Query {
   assignmentsByUser(userId: ID!): [TenantUserAssignment!]!
   invitesByBranch(branchId: ID!): [TenantInvite!]!
   assignmentsByBranch(branchId: ID!): [TenantUserAssignment!]!
+  inviteByToken(token: String!): TenantInvite
 }
 
 type Mutation {
@@ -1057,6 +1116,14 @@ type Mutation {
   updateAssignment(id: ID!, input: UpdateAssignmentInput!): TenantUserAssignment!
   setAssignmentActive(id: ID!, isActive: Boolean!): TenantUserAssignment!
   resendInvite(id: ID!): TenantInvite!
+  acceptInvite(token: String!, name: String!, password: String!): AcceptInvitePayload!
+}
+
+type AcceptInvitePayload {
+  token: String!
+  refreshToken: String!
+  userId: ID!
+  email: String!
 }
 
 type TenantInvite {
@@ -1182,6 +1249,20 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // childFields_* functions provide shared child field context lookups.
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
+
+func (ec *executionContext) childFields_AcceptInvitePayload(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "token":
+		return ec.fieldContext_AcceptInvitePayload_token(ctx, field)
+	case "refreshToken":
+		return ec.fieldContext_AcceptInvitePayload_refreshToken(ctx, field)
+	case "userId":
+		return ec.fieldContext_AcceptInvitePayload_userId(ctx, field)
+	case "email":
+		return ec.fieldContext_AcceptInvitePayload_email(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AcceptInvitePayload", field.Name)
+}
 
 func (ec *executionContext) childFields_Address(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
@@ -1545,6 +1626,36 @@ func (ec *executionContext) field_Entity_findUserByID_args(ctx context.Context, 
 	return args, nil
 }
 
+func (ec *executionContext) field_Mutation_acceptInvite_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "token",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["token"] = arg0
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "name",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["name"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "password",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["password"] = arg2
+	return args, nil
+}
+
 func (ec *executionContext) field_Mutation_createTenantAddress_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1825,6 +1936,20 @@ func (ec *executionContext) field_Query_branch_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
+func (ec *executionContext) field_Query_inviteByToken_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "token",
+		func(ctx context.Context, v any) (string, error) {
+			return ec.unmarshalNString2string(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["token"] = arg0
+	return args, nil
+}
+
 func (ec *executionContext) field_Query_invitesByBranch_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
 	var err error
 	args := map[string]any{}
@@ -1968,6 +2093,98 @@ func (ec *executionContext) field___Type_fields_args(ctx context.Context, rawArg
 // endregion ***************************** args.gotpl *****************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _AcceptInvitePayload_token(ctx context.Context, field graphql.CollectedField, obj *model.AcceptInvitePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AcceptInvitePayload_token(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Token, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AcceptInvitePayload_token(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AcceptInvitePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AcceptInvitePayload_refreshToken(ctx context.Context, field graphql.CollectedField, obj *model.AcceptInvitePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AcceptInvitePayload_refreshToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RefreshToken, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AcceptInvitePayload_refreshToken(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AcceptInvitePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AcceptInvitePayload_userId(ctx context.Context, field graphql.CollectedField, obj *model.AcceptInvitePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AcceptInvitePayload_userId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UserID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNID2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AcceptInvitePayload_userId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AcceptInvitePayload", field, false, false, errors.New("field of type ID does not have child fields"))
+}
+
+func (ec *executionContext) _AcceptInvitePayload_email(ctx context.Context, field graphql.CollectedField, obj *model.AcceptInvitePayload) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AcceptInvitePayload_email(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Email, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AcceptInvitePayload_email(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AcceptInvitePayload", field, false, false, errors.New("field of type String does not have child fields"))
+}
 
 func (ec *executionContext) _Address_id(ctx context.Context, field graphql.CollectedField, obj *db.BunAddress) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -3004,6 +3221,50 @@ func (ec *executionContext) fieldContext_Mutation_resendInvite(ctx context.Conte
 	return fc, nil
 }
 
+func (ec *executionContext) _Mutation_acceptInvite(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mutation_acceptInvite(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Mutation().AcceptInvite(ctx, fc.Args["token"].(string), fc.Args["name"].(string), fc.Args["password"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.AcceptInvitePayload) graphql.Marshaler {
+			return ec.marshalNAcceptInvitePayload2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐAcceptInvitePayload(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Mutation_acceptInvite(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Mutation",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AcceptInvitePayload(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Mutation_acceptInvite_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Query_meTenant(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3502,6 +3763,50 @@ func (ec *executionContext) fieldContext_Query_assignmentsByBranch(ctx context.C
 	}()
 	ctx = graphql.WithFieldContext(ctx, fc)
 	if fc.Args, err = ec.field_Query_assignmentsByBranch_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Query_inviteByToken(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Query_inviteByToken(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Query().InviteByToken(ctx, fc.Args["token"].(string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.TenantInvite) graphql.Marshaler {
+			return ec.marshalOTenantInvite2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInvite(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Query_inviteByToken(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Query",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_TenantInvite(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Query_inviteByToken_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
 		ec.Error(ctx, err)
 		return fc, err
 	}
@@ -5992,6 +6297,59 @@ func (ec *executionContext) __Entity(ctx context.Context, sel ast.SelectionSet, 
 
 // region    **************************** object.gotpl ****************************
 
+var acceptInvitePayloadImplementors = []string{"AcceptInvitePayload"}
+
+func (ec *executionContext) _AcceptInvitePayload(ctx context.Context, sel ast.SelectionSet, obj *model.AcceptInvitePayload) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, acceptInvitePayloadImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AcceptInvitePayload")
+		case "token":
+			out.Values[i] = ec._AcceptInvitePayload_token(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "refreshToken":
+			out.Values[i] = ec._AcceptInvitePayload_refreshToken(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "userId":
+			out.Values[i] = ec._AcceptInvitePayload_userId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "email":
+			out.Values[i] = ec._AcceptInvitePayload_email(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var addressImplementors = []string{"Address", "_Entity"}
 
 func (ec *executionContext) _Address(ctx context.Context, sel ast.SelectionSet, obj *db.BunAddress) graphql.Marshaler {
@@ -6424,6 +6782,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "acceptInvite":
+			out.Values[i] = ec.OperationContext.RootResolverMiddleware(innerCtx, func(ctx context.Context) (res graphql.Marshaler) {
+				return ec._Mutation_acceptInvite(ctx, field)
+			})
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -6718,6 +7083,28 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}()
 				res = ec._Query_assignmentsByBranch(ctx, field)
 				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			rrm := func(ctx context.Context) graphql.Marshaler {
+				return ec.OperationContext.RootResolverMiddleware(ctx,
+					func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return rrm(innerCtx) })
+		case "inviteByToken":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_inviteByToken(ctx, field)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -7664,6 +8051,20 @@ func (ec *executionContext) ___Type(ctx context.Context, sel ast.SelectionSet, o
 
 // region    ***************************** type.gotpl *****************************
 
+func (ec *executionContext) marshalNAcceptInvitePayload2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐAcceptInvitePayload(ctx context.Context, sel ast.SelectionSet, v model.AcceptInvitePayload) graphql.Marshaler {
+	return ec._AcceptInvitePayload(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNAcceptInvitePayload2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐAcceptInvitePayload(ctx context.Context, sel ast.SelectionSet, v *model.AcceptInvitePayload) graphql.Marshaler {
+	if v == nil {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+		return graphql.Null
+	}
+	return ec._AcceptInvitePayload(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalNAddress2githubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunAddress(ctx context.Context, sel ast.SelectionSet, v db.BunAddress) graphql.Marshaler {
 	return ec._Address(ctx, sel, &v)
 }
@@ -8443,6 +8844,13 @@ func (ec *executionContext) marshalOTenant2ᚖgithubᚗcomᚋclinicmanagerᚋser
 		return graphql.Null
 	}
 	return ec._Tenant(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOTenantInvite2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋgraphᚋmodelᚐTenantInvite(ctx context.Context, sel ast.SelectionSet, v *model.TenantInvite) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._TenantInvite(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOTenantPermission2ᚖgithubᚗcomᚋclinicmanagerᚋservicesᚋtenantᚋdbᚐBunTenantPermission(ctx context.Context, sel ast.SelectionSet, v *db.BunTenantPermission) graphql.Marshaler {
